@@ -1,0 +1,128 @@
+// frappe.web_form is employee_timelog.js
+
+
+frappe.init_client_script = () => {
+	try {
+
+		var firstOpen = true;
+		var time;
+
+		const manual_override_time = new tempusDominus.TempusDominus(document.querySelector("[data-fieldname='manual_override_time']"), {
+			display: {
+				viewMode: 'clock',
+				theme: 'light',
+				icons: {
+					type: 'icons',
+					up: 'octicon octicon-chevron-up',
+					down: 'octicon octicon-chevron-down'
+				},
+				components: {
+					decades: false,
+					year: false,
+					month: false,
+					date: false,
+					hours: true,
+					minutes: true,
+					seconds: false
+				}
+			}
+		});
+
+		// focus on the employee field on page load
+		frappe.web_form.after_load = () => {
+			jQuery("input[data-fieldname='employee']").focus();
+		}
+
+		// create "clock in" and "clock out" buttons from the "log_type" select/dropdown
+		jQuery("select[data-fieldname='log_type'] option").each(function (i, e) {
+			select_option = jQuery(this).val();
+			(jQuery("<input type='radio' name='r' style='display:none;' />")
+				.attr("value", select_option)
+				.attr("id", select_option)
+				.attr("checked", i == 0)
+				.click(function () {
+					jQuery("select[data-fieldname='log_type']").val(select_option);
+				}).add($("<label class='btn btn-light btn-lg mr-4' for='" + select_option + "'>Clock " + this.textContent.toLowerCase() + "</label>")))
+				.appendTo("#r");
+		});
+
+		// calculate and set form values, save the form after employee selection
+		frappe.web_form.on('employee', (field, value) => {
+			let form_entry = frappe.web_form.get_values();
+			employee = form_entry.employee;
+			// set the time first
+			if (form_entry.manual_override) {
+				form_entry.manual_override_time = manual_override_time.viewDate.format({ hour12: false, hour: '2-digit', minute: 'numeric', second: 'numeric' });
+				frappe.web_form.set_value('manual_override_time', form_entry.manual_override_time);
+				time = form_entry.manual_override_date + ' ' + form_entry.manual_override_time;
+			} else {
+				time = frappe.datetime.now_datetime();
+			}
+			frappe.web_form.set_value('time', time);
+			form_entry.time = time;
+			// get the next log time from the API
+			frappe.call({
+				method: "timeclock.timeclock.api.determine_next_log_type",
+				args: {
+					"employee": employee
+				},
+				callback: function (response) {
+					log_type = response.message;
+					if (!form_entry.manual_override) {
+						frappe.web_form.set_value('log_type', log_type);
+						form_entry.log_type = log_type;
+					}
+					// save the form
+					Object.assign(frappe.web_form.doc, form_entry);
+					frappe.web_form.doc.doctype = frappe.web_form.doc_type;
+					frappe.web_form.doc.web_form_name = frappe.web_form.name;
+
+					// Save
+					window.saving = true;
+					frappe.form_dirty = false;
+					frappe.call({
+						type: "POST",
+						method: "timeclock.timeclock.api.accept",
+						args: {
+							web_form: frappe.web_form.name,
+							data: frappe.web_form.doc
+						},
+						callback: function (response) {
+							document.cookie = "last_employee=" + employee;
+							window.location.href = '/employee-timeclock?new=1';
+						}
+					});
+				}
+			});
+		});
+
+		// print the last employees weekly hours on next page load
+		last_employee = document.cookie.match('(^|;)\\s*last_employee\\s*=\\s*([^;]+)')?.pop() || '';
+		// get the weekly hours from the API and print a message
+		if (last_employee) {
+			frappe.call({
+				method: "timeclock.timeclock.api.get_weekly_hours",
+				args: {
+					"employee": last_employee
+				},
+				callback: function (response) {
+					if (response.message.length) {
+						employee_name = response.message[0];
+						weekly_hours = response.message[1];
+						// load a message confirming the save, telling them how many hours they have logged
+/* 						frappe.msgprint({
+							title: __(''),
+							indicator: 'green',
+							message: __(employee_name + ', you have logged ' + weekly_hours + ' hours this week.')
+						}); */
+						$('body').append('<div class="modal"><div class="modal-content">' + employee_name + ', you have logged ' + weekly_hours + ' hours this week.</div></div>');
+					}
+				}
+			});
+		}
+
+	} catch (e) {
+		console.error('Error in web form client script');
+		console.error(e);
+	}
+}

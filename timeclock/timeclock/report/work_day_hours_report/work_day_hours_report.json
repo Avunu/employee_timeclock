@@ -1,0 +1,59 @@
+{
+ "add_total_row": 0,
+ "columns": [
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Date",
+   "width": 0
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Employee",
+   "options": "Employee",
+   "width": 0
+  },
+  {
+   "fieldname": "total_work_hour",
+   "fieldtype": "Data",
+   "label": "Work Hours",
+   "width": 0
+  },
+  {
+   "fieldname": "missed_punch",
+   "fieldtype": "Check",
+   "label": "Missed Punch",
+   "width": 0
+  }
+ ],
+ "creation": "2022-08-22 14:55:39.312533",
+ "disable_prepared_report": 0,
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [],
+ "idx": 0,
+ "is_standard": "Yes",
+ "modified": "2022-08-29 12:04:00.072594",
+ "modified_by": "Administrator",
+ "module": "Timeclock",
+ "name": "Work Day Hours Report",
+ "owner": "Administrator",
+ "prepared_report": 0,
+ "query": "SELECT\r\n    z.`date`,\r\n    z.`employee_name`,\r\n    SEC_TO_TIME(SUM(z.`seconds`)) as `total_work_hour`,\r\n    CASE\r\n        WHEN MIN(z.`seconds`) <= 0 THEN 1\r\n        ELSE 0\r\n    END as `missed_punch`\r\nFROM\r\n    (\r\n        SELECT\r\n            tmp.`ymd` as `date`,\r\n            tmp.`employee_name`,\r\n            MAX(tmp.`punch_unix`) - MIN(tmp.`punch_unix`) as `seconds`\r\n        FROM\r\n            (\r\n                SELECT\r\n                    pd.`employee_name`,\r\n                    DATE_FORMAT(pd.`time`, '%%Y-%%m-%%d') as `ymd`,\r\n                    CEILING(\r\n                        ROW_NUMBER() OVER (\r\n                            PARTITION BY pd.`employee_name`,\r\n                            DATE_FORMAT(pd.`time`, '%%Y-%%m-%%d')\r\n                            ORDER BY\r\n                                pd.`time`\r\n                        ) / 2\r\n                    ) as `seq`,\r\n                    pd.`docstatus`,\r\n                    UNIX_TIMESTAMP(pd.`time`) as `punch_unix`\r\n                FROM\r\n                    `tabEmployee Checkin` pd\r\n                WHERE\r\n                    pd.`docstatus` = 0\r\n            ) tmp\r\n        GROUP BY\r\n            tmp.`ymd`,\r\n            tmp.`employee_name`,\r\n            tmp.`seq`\r\n    ) z\r\nGROUP BY\r\n    z.`date`,\r\n    z.`employee_name`\r\nORDER BY\r\n    z.`date`,\r\n    z.`employee_name`",
+ "ref_doctype": "Employee Checkin",
+ "report_name": "Work Day Hours Report",
+ "report_type": "Query Report",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "HR Manager"
+  },
+  {
+   "role": "HR User"
+  }
+ ]
+}

@@ -1,0 +1,8 @@
+.btn:not(label), .navbar, .page-breadcrumbs, div[data-fieldname='log_type'] {
+    display: none;
+}
+
+input[type="radio"]:checked+label {
+    background-color: var(--blue);
+    color: white;
+}
