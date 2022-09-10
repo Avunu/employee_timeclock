@@ -191,10 +191,9 @@ def accept(web_form, data):
     return doc
 
 
-def convert_checkin_to_workday(doc, method):
+def convert_checkin_to_workday(doc, method=None):
     # get the employee, date, and time from from Employee Checkin doc
     employee = doc.employee
-    log_type = doc.log_type
     # convert the time to a datetime object
     checkin_dt = datetime.datetime.strptime(str(doc.time), '%Y-%m-%d %H:%M:%S')
     # get the date from time
@@ -202,57 +201,51 @@ def convert_checkin_to_workday(doc, method):
     time = checkin_dt.time()
 
     # check to see if an existing workday exists for the employee and date
-    workday = frappe.db.get_all('Workday',
-                                filters={
-                                    'employee': employee,
-                                    'date': date
-                                }
-                                )
+    existing_workday = frappe.db.get_all('Workday',
+                                         filters={
+                                             'employee': employee,
+                                             'date': date
+                                         }
+                                         )
 
     # if the workday exists, update it
-    if workday:
+    if existing_workday:
         # get the workday name, load it as a object
-        workday_name = workday[0]["name"]
+        workday_name = existing_workday[0]["name"]
         workday = frappe.get_doc("Workday", workday_name)
-
-        # get all checkins and checkouts for the employee and date
-        checkins = frappe.db.get_all('Employee Checkin',
-                                     filters={
-                                         'employee': employee,
-                                         'time': ['between', [date, date + datetime.timedelta(days=1)]]
-                                     },
-                                     fields=['time', 'log_type'],
-                                     order_by='time'
-                                     )
-
-        # assign the checkins and checkouts to the correct in and out fields
-        workday.in1 = checkins[0]["time"]
-        workday.out1 = checkins[1]["time"]
-        workday.in2 = checkins[2]["time"]
-        workday.out2 = checkins[3]["time"]
-        workday.in3 = checkins[4]["time"]
-        workday.out3 = checkins[5]["time"]
-        workday.in4 = checkins[6]["time"]
-        workday.out4 = checkins[7]["time"]
-        workday.in5 = checkins[8]["time"]
-        workday.out5 = checkins[9]["time"]
-        workday.in6 = checkins[10]["time"]
-        workday.out6 = checkins[11]["time"]
-
-        workday.save()
 
     # if the workday does not exist, create it
     else:
         # create a new workday
-        new_workday = frappe.new_doc('Workday')
+        workday = frappe.new_doc('Workday')
 
-        # set the employee and date
-        new_workday.employee = employee
-        new_workday.date = date
-        if log_type == "IN":
-            new_workday.in1 = time
-        else:
-            new_workday.out1 = time
+    # get all checkins for the employee and date
+    check_ins = frappe.db.get_all('Employee Checkin',
+                                  filters={
+                                      'employee': employee,
+                                      'time': ['between', [date, date + datetime.timedelta(days=1)]],
+                                      'log_type': 'IN'
+                                  },
+                                  fields=['time'],
+                                  order_by='time'
+                                  )
 
-        # insert the new workday
-        new_workday.save()
+    # get all checkins for the employee and date
+    check_outs = frappe.db.get_all('Employee Checkin',
+                                   filters={
+                                       'employee': employee,
+                                       'time': ['between', [date, date + datetime.timedelta(days=1)]],
+                                       'log_type': 'OUT'
+                                   },
+                                   fields=['time'],
+                                   order_by='time'
+                                   )
+
+    # assign the checkins and checkouts to the correct in and out fields
+    for i in range(len(check_ins)):
+        workday.set(f"check_in_{i+1}", check_ins[i]["time"].time())
+    for i in range(len(check_outs)):
+        workday.set(f"check_out_{i+1}", check_outs[i]["time"].time())
+
+    workday.save()
+    frappe.db.commit()
