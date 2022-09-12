@@ -17,9 +17,6 @@ web_include_css = ["/assets/css/tempus-dominus.min.css",
                    "/assets/frappe/css/octicons/octicons.css"]
 
 doc_events = {
-    """     "Employee Checkin": {
-        "on_change": "timeclock.timeclock.api.assign_checkin_to_workday",
-    }, """
     "Workday": {
         "on_update": "timeclock.timeclock.api.workday_update_total_hours",
     }

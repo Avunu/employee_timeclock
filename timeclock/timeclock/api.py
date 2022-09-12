@@ -253,12 +253,14 @@ def assign_checkin_to_workday(doc, method=None):
 
     # assign the checkins and checkouts to the correct in and out fields (AM/PM format)
     for i in range(len(check_ins)):
-        workday.set(f"check_in_{i+1}", check_ins[i]["time"].strftime('%I:%M %p'))
+        workday.set(f"check_in_{i+1}", check_ins[i]["time"].strftime('%-I:%M %p'))
     for i in range(len(check_outs)):
-        workday.set(f"check_out_{i+1}", check_outs[i]["time"].strftime('%I:%M %p'))
+        workday.set(f"check_out_{i+1}", check_outs[i]["time"].strftime('%-I:%M %p'))
 
+    # save the workday
     workday.save()
-    frappe.db.commit()
+
+    return
 
 def workday_update_total_hours(doc, method=None):
     # calculate the total hours worked
@@ -267,13 +269,16 @@ def workday_update_total_hours(doc, method=None):
         check_in = doc.get(f"check_in_{i}")
         check_out = doc.get(f"check_out_{i}")
         if check_in and check_out:
+            if check_in == '00:00' or check_out == '00:00': break
+            if check_in == None or check_out == None: break
             # convert check_in and check_out to datetime.timedelta objects
-            check_in = datetime.datetime.strptime(str(check_in), '%I:%M %p')
-            check_out = datetime.datetime.strptime(str(check_out), '%I:%M %p')
-            total_hours += (check_out - check_in).total_seconds() / 3600
+            check_in_dt = datetime.datetime.strptime(str(check_in), '%I:%M %p')
+            check_out_dt = datetime.datetime.strptime(str(check_out), '%I:%M %p')
+            total_hours += (check_out_dt - check_in_dt).total_seconds() / 3600
 
     # set the total hours worked
     doc.total_hours = total_hours
 
     doc.save()
-    frappe.db.commit()
+
+    return
