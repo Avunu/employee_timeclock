@@ -16,8 +16,22 @@ webform_include_js = {
 web_include_css = ["/assets/css/tempus-dominus.min.css",
                    "/assets/frappe/css/octicons/octicons.css"]
 
-"""doc_events = {
-    "Employee Checkin": {
-        "on_change": "timeclock.timeclock.api.convert_checkin_to_workday",
+doc_events = {
+    """     "Employee Checkin": {
+        "on_change": "timeclock.timeclock.api.assign_checkin_to_workday",
+    }, """
+    "Workday": {
+        "on_update": "timeclock.timeclock.api.workday_update_total_hours",
     }
-}"""
+}
+
+# include tempus-dominus.min.js on the workday doctype
+doctype_js = {
+    "Workday": ["public/node_modules/@popperjs/core/dist/umd/popper-lite.min.js",
+                "public/node_modules/@eonasdan/tempus-dominus/dist/js/tempus-dominus.min.js",
+                "public/node_modules/@eonasdan/tempus-dominus/dist/plugins/customDateFormat.js"]
+}
+
+doctype_css = {
+    "Workday": "/assets/css/tempus-dominus.min.css"
+}

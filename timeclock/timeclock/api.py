@@ -188,10 +188,12 @@ def accept(web_form, data):
 
     frappe.flags.web_form_doc = doc
 
+    assign_checkin_to_workday(doc, None)
+
     return doc
 
 
-def convert_checkin_to_workday(doc, method=None):
+def assign_checkin_to_workday(doc, method=None):
     # get the employee, date, and time from from Employee Checkin doc
     employee = doc.employee
     # convert the time to a datetime object
@@ -218,34 +220,60 @@ def convert_checkin_to_workday(doc, method=None):
     else:
         # create a new workday
         workday = frappe.new_doc('Workday')
+        workday.employee = employee
+        workday.date = date
+        workday.day_of_week = checkin_dt.strftime("%A")
 
     # get all checkins for the employee and date
     check_ins = frappe.db.get_all('Employee Checkin',
                                   filters={
                                       'employee': employee,
-                                      'time': ['between', [date, date + datetime.timedelta(days=1)]],
+                                      'time': ['between', [date, date]],
                                       'log_type': 'IN'
                                   },
                                   fields=['time'],
-                                  order_by='time'
+                                  order_by='time asc'
                                   )
 
     # get all checkins for the employee and date
     check_outs = frappe.db.get_all('Employee Checkin',
                                    filters={
                                        'employee': employee,
-                                       'time': ['between', [date, date + datetime.timedelta(days=1)]],
+                                       'time': ['between', [date, date]],
                                        'log_type': 'OUT'
                                    },
                                    fields=['time'],
-                                   order_by='time'
+                                   order_by='time asc'
                                    )
 
-    # assign the checkins and checkouts to the correct in and out fields
+    # # zero out the check_in_{1-6} and check_out_{1-6} fields first
+    # for i in range(1, 7):
+    #     workday.set('check_in_' + str(i), '00:00')
+    #     workday.set('check_out_' + str(i), '00:00')
+
+    # assign the checkins and checkouts to the correct in and out fields (AM/PM format)
     for i in range(len(check_ins)):
-        workday.set(f"check_in_{i+1}", check_ins[i]["time"].time())
+        workday.set(f"check_in_{i+1}", check_ins[i]["time"].strftime('%I:%M %p'))
     for i in range(len(check_outs)):
-        workday.set(f"check_out_{i+1}", check_outs[i]["time"].time())
+        workday.set(f"check_out_{i+1}", check_outs[i]["time"].strftime('%I:%M %p'))
 
     workday.save()
+    frappe.db.commit()
+
+def workday_update_total_hours(doc, method=None):
+    # calculate the total hours worked
+    total_hours = 0
+    for i in range(1, 7):
+        check_in = doc.get(f"check_in_{i}")
+        check_out = doc.get(f"check_out_{i}")
+        if check_in and check_out:
+            # convert check_in and check_out to datetime.timedelta objects
+            check_in = datetime.datetime.strptime(str(check_in), '%I:%M %p')
+            check_out = datetime.datetime.strptime(str(check_out), '%I:%M %p')
+            total_hours += (check_out - check_in).total_seconds() / 3600
+
+    # set the total hours worked
+    doc.total_hours = total_hours
+
+    doc.save()
     frappe.db.commit()

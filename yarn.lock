@@ -3,11 +3,11 @@
 
 
 "@eonasdan/tempus-dominus@^6.0.0-beta9":
-  version "6.0.0-beta9"
-  resolved "https://registry.yarnpkg.com/@eonasdan/tempus-dominus/-/tempus-dominus-6.0.0-beta9.tgz#02f0b520ec298649241e2343c7b9a45726e019da"
-  integrity sha512-MOS0KGGcQf5s46ftAo2knHPsU6iQpQpo2KJ52g/4tMhhI7XXizAzOda5LYzCnUkhfkCeF3q7fus3UXAAnHWOKA==
+  version "6.0.1"
+  resolved "https://registry.yarnpkg.com/@eonasdan/tempus-dominus/-/tempus-dominus-6.0.1.tgz#3f97990cb1c6b2e3319b071e46ab0de5e4627488"
+  integrity sha512-iQnYvf84LN3Q1hLbKS5JDhSzql/SIMTMPiUJa3su59dhJruaa5ekpILs/iUOJJjU9Zucv5jCiikHkhw9THHpGA==
 
 "@popperjs/core@^2.11.5":
-  version "2.11.5"
-  resolved "https://registry.yarnpkg.com/@popperjs/core/-/core-2.11.5.tgz#db5a11bf66bdab39569719555b0f76e138d7bd64"
-  integrity sha512-9X2obfABZuDVLCgPK9aX0a/x4jaOEweTTWE2+9sr0Qqqevj2Uv5XorvusThmc9XGYpS9yI+fhh8RTafBtGposw==
+  version "2.11.6"
+  resolved "https://registry.yarnpkg.com/@popperjs/core/-/core-2.11.6.tgz#cee20bd55e68a1720bdab363ecf0c821ded4cd45"
+  integrity sha512-50/17A98tWUfQ176raKiOGXuYpLyyVMkxxG6oylzL3BPOlA6ADGdK7EYunSa4I064xerltq9TGXs8HmOk5E+vw==
