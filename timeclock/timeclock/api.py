@@ -75,29 +75,26 @@ def get_weekly_hours(employee):
 @frappe.whitelist(allow_guest=True)
 def determine_next_log_type(employee, data):
     data = frappe._dict(json.loads(data))
-    # Get the checkins and checkouts of the employee
+
+    # Get the checkins and checkouts of the employee for the current day
     response = frappe.db.get_all('Employee Checkin',
                                  filters={
-                                     'employee': employee
+                                    'employee': employee,
+                                    'time': ['>', frappe.utils.today()]
                                  },
+                                 order_by='time asc',
                                  fields=['time', 'log_type'],
                                  )
 
-    # Make the dictionary a list of times sorted from earliest to latest
-    sorted_response = sorted([i["time"] for i in response])
-
-    # Set next log type to in
-    next_log_type = "IN"
-
-    # Go through the Checkins and Checkouts
-    for i in response:
-        # If the time part of the response equals the last time of the sorted list (also the latest)
-        if i["time"] == sorted_response[-1]:
-            # Change the next log type to out if the last was in, or leave the next log type as in
-            if i["log_type"] == "IN":
-                next_log_type = "OUT"
-            # Break once the last checkin/out was found
-            break
+    # if response is empty then the employee has not checked in yet
+    if response == []:
+        next_log_type = "IN"
+    else:
+        # if the last log type is in then the next log type is out
+        if response[-1]['log_type'] == "IN":
+            next_log_type = "OUT"
+        else:
+            next_log_type = "IN"
 
     # Return "IN" or "OUT" based on last checkin or out
     return next_log_type
@@ -192,7 +189,7 @@ def accept(web_form, data):
 
     return doc
 
-
+@frappe.whitelist(allow_guest=True)
 def assign_checkin_to_workday(doc, method=None):
     # get the employee, date, and time from from Employee Checkin doc
     employee = doc.employee
@@ -246,39 +243,60 @@ def assign_checkin_to_workday(doc, method=None):
                                    order_by='time asc'
                                    )
 
-    # # zero out the check_in_{1-6} and check_out_{1-6} fields first
-    # for i in range(1, 7):
-    #     workday.set('check_in_' + str(i), '00:00')
-    #     workday.set('check_out_' + str(i), '00:00')
-
     # assign the checkins and checkouts to the correct in and out fields (AM/PM format)
     for i in range(len(check_ins)):
         workday.set(f"check_in_{i+1}", check_ins[i]["time"].strftime('%-I:%M %p'))
     for i in range(len(check_outs)):
         workday.set(f"check_out_{i+1}", check_outs[i]["time"].strftime('%-I:%M %p'))
 
-    # save the workday
-    workday.save()
+    # calculate the total hours worked
+    workday_update_total_hours(workday)
+
+    # save the workday, without triggering hooks
+    workday.save(ignore_permissions=True)
+    frappe.db.commit()
 
     return
 
 def workday_update_total_hours(doc, method=None):
+
+    # set invalid values for the time fields
+    invalid_values = ['00:00', 'undefined', None]
     # calculate the total hours worked
     total_hours = 0
     for i in range(1, 7):
         check_in = doc.get(f"check_in_{i}")
         check_out = doc.get(f"check_out_{i}")
         if check_in and check_out:
-            if check_in == '00:00' or check_out == '00:00': break
-            if check_in == None or check_out == None: break
+            if check_in in invalid_values or check_out in invalid_values: break
             # convert check_in and check_out to datetime.timedelta objects
             check_in_dt = datetime.datetime.strptime(str(check_in), '%I:%M %p')
             check_out_dt = datetime.datetime.strptime(str(check_out), '%I:%M %p')
             total_hours += (check_out_dt - check_in_dt).total_seconds() / 3600
 
+    # if the total hours is negative, swap the checkins and checkouts
+    if total_hours < 0:
+        for i in range(1, 7):
+            check_in = doc.get(f"check_in_{i}")
+            check_out = doc.get(f"check_out_{i}")
+            if check_in and check_out:
+                if check_in in invalid_values or check_out in invalid_values: break
+                doc.set(f"check_in_{i}", check_out)
+                doc.set(f"check_out_{i}", check_in)
+
+        # recalculate the total hours
+        total_hours = 0
+        for i in range(1, 7):
+            check_in = doc.get(f"check_in_{i}")
+            check_out = doc.get(f"check_out_{i}")
+            if check_in and check_out:
+                if check_in in invalid_values or check_out in invalid_values: break
+                # convert check_in and check_out to datetime.timedelta objects
+                check_in_dt = datetime.datetime.strptime(str(check_in), '%I:%M %p')
+                check_out_dt = datetime.datetime.strptime(str(check_out), '%I:%M %p')
+                total_hours += (check_out_dt - check_in_dt).total_seconds() / 3600
+
     # set the total hours worked
     doc.total_hours = total_hours
 
-    doc.save()
-
-    return
+    return doc

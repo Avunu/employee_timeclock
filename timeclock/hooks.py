@@ -18,7 +18,7 @@ web_include_css = ["/assets/css/tempus-dominus.min.css",
 
 doc_events = {
     "Workday": {
-        "on_update": "timeclock.timeclock.api.workday_update_total_hours",
+        "before_save": "timeclock.timeclock.api.workday_update_total_hours",
     }
 }
 
