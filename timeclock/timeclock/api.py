@@ -187,7 +187,7 @@ def accept(web_form, data):
 
     assign_checkin_to_workday(doc, None)
 
-    return doc
+    return
 
 @frappe.whitelist(allow_guest=True)
 def assign_checkin_to_workday(doc, method=None):
