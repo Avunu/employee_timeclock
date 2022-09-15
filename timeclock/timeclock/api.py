@@ -192,6 +192,9 @@ def accept(web_form, data):
 
 @frappe.whitelist(allow_guest=True)
 def update_workday_from_checkin(doc, method=None):
+    # if the checkin was created by a workday then exit
+    if doc.workday_override or doc.device_id == "Workday Management":
+        return
     # get the employee, date, and time from from Employee Checkin doc
     employee = doc.employee
     # convert the time to a datetime object
@@ -264,16 +267,17 @@ def workday_update_total_hours(doc, method=None):
     invalid_values = ['00:00', 'undefined', None]
     # calculate the total hours worked
     total_hours = 0
-    for i in range(1, 7):
+    for i in range(1, 13):
         check_in = doc.get(f"check_in_{i}")
         check_out = doc.get(f"check_out_{i}")
+        # clear invalid values
+        if check_in in invalid_values or check_out in invalid_values:
+            if check_in in invalid_values:
+                doc.set(f"check_in_{i}", None)
+            if check_out in invalid_values:
+                doc.set(f"check_out_{i}", None)
+            break
         if check_in and check_out:
-            if check_in in invalid_values or check_out in invalid_values:
-                if check_in in invalid_values:
-                    doc.set(f"check_in_{i}", None)
-                if check_out in invalid_values:
-                    doc.set(f"check_out_{i}", None)
-                break
             # convert check_in and check_out to datetime.timedelta objects
             check_in_dt = datetime.datetime.strptime(str(check_in), '%I:%M %p')
             check_out_dt = datetime.datetime.strptime(
@@ -282,7 +286,7 @@ def workday_update_total_hours(doc, method=None):
 
     # if the total hours is negative, swap the checkins and checkouts
     if total_hours < 0:
-        for i in range(1, 7):
+        for i in range(1, 13):
             check_in = doc.get(f"check_in_{i}")
             check_out = doc.get(f"check_out_{i}")
             if check_in and check_out:
@@ -293,7 +297,7 @@ def workday_update_total_hours(doc, method=None):
 
         # recalculate the total hours
         total_hours = 0
-        for i in range(1, 7):
+        for i in range(1, 13):
             check_in = doc.get(f"check_in_{i}")
             check_out = doc.get(f"check_out_{i}")
             if check_in and check_out:
@@ -342,7 +346,7 @@ def update_checkins_from_workday(workday, method=None):
                                 )
 
     # cycle through the checkins and checkouts, updating the Employee Checkin docs
-    for i in range(1, 7):
+    for i in range(1, 13):
         check_in = workday.get(f"check_in_{i}")
         check_out = workday.get(f"check_out_{i}")
         if check_in and check_out:
@@ -393,18 +397,16 @@ def update_checkins_from_workday(workday, method=None):
                 checkout.device_id = 'Workday Management'
                 checkout.save(ignore_permissions=True)
                 frappe.db.commit()
-    return
-"""         else:
+        else:
             # if the checkin or checkout is blank, delete the checkin and checkout
-            if len(check_ins) > i-1:
+            if len(check_ins) > i-1 and check_in == None:
                 checkin = frappe.get_doc(
                     "Employee Checkin", check_ins[i-1]["name"])
-                checkin.delete(ignore_permissions=True)
+                checkin.delete()
                 frappe.db.commit()
-            if len(check_outs) > i-1:
+            if len(check_outs) > i-1 and check_out == None:
                 checkout = frappe.get_doc(
                     "Employee Checkin", check_outs[i-1]["name"])
-                checkout.delete(ignore_permissions=True)
+                checkout.delete()
                 frappe.db.commit()
-
-    return """
+    return
