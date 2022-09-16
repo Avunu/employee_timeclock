@@ -9,7 +9,7 @@
  "filters": [],
  "idx": 0,
  "is_standard": "Yes",
- "json": "{\"filters\":[[\"Workday\",\"date\",\">=\",\"2022-08-28\",false],[\"Workday\",\"date\",\"<=\",\"2022-09-10\",false]],\"fields\":[[\"name\",\"Workday\"],[\"employee_name\",\"Workday\"],[\"date\",\"Workday\"],[\"day_of_week\",\"Workday\"],[\"check_in_1\",\"Workday\"],[\"check_out_1\",\"Workday\"],[\"check_in_2\",\"Workday\"],[\"check_out_2\",\"Workday\"],[\"check_in_3\",\"Workday\"],[\"check_out_3\",\"Workday\"],[\"check_in_4\",\"Workday\"],[\"check_out_4\",\"Workday\"],[\"check_in_5\",\"Workday\"],[\"check_out_5\",\"Workday\"],[\"check_in_6\",\"Workday\"],[\"check_out_6\",\"Workday\"],[\"total_hours\",\"Workday\"]],\"order_by\":\"`tabWorkday`.`date` desc\",\"add_totals_row\":0,\"page_length\":500,\"column_widths\":{\"name\":30,\"employee_name\":160,\"date\":100,\"day_of_week\":98,\"check_in_1\":89,\"check_out_1\":86,\"check_in_2\":78,\"check_out_2\":85,\"check_in_3\":85,\"check_out_3\":85,\"check_in_4\":83,\"check_out_4\":85,\"check_in_5\":81,\"check_out_5\":81,\"check_in_6\":81,\"check_out_6\":77,\"total_hours\":102},\"group_by\":null}",
+ "json": "{\n \"filters\": [\n [\n \"Workday\",\n \"date\",\n \">=\",\n \"2022-08-28\",\n false\n ],\n [\n \"Workday\",\n \"date\",\n \"<=\",\n \"2022-09-10\",\n false\n ]\n ],\n \"fields\": [\n [\n \"name\",\n \"Workday\"\n ],\n [\n \"employee_name\",\n \"Workday\"\n ],\n [\n \"date\",\n \"Workday\"\n ],\n [\n \"day_of_week\",\n \"Workday\"\n ],\n [\n \"total_hours\",\n \"Workday\"\n ],\n [\n \"check_in_1\",\n \"Workday\"\n ],\n [\n \"check_out_1\",\n \"Workday\"\n ],\n [\n \"check_in_2\",\n \"Workday\"\n ],\n [\n \"check_out_2\",\n \"Workday\"\n ],\n [\n \"check_in_3\",\n \"Workday\"\n ],\n [\n \"check_out_3\",\n \"Workday\"\n ],\n [\n \"check_in_4\",\n \"Workday\"\n ],\n [\n \"check_out_4\",\n \"Workday\"\n ],\n [\n \"check_in_5\",\n \"Workday\"\n ],\n [\n \"check_out_5\",\n \"Workday\"\n ],\n [\n \"check_in_6\",\n \"Workday\"\n ],\n [\n \"check_out_6\",\n \"Workday\"\n ],\n [\n \"check_in_7\",\n \"Workday\"\n ],\n [\n \"check_out_7\",\n \"Workday\"\n ],\n [\n \"check_in_8\",\n \"Workday\"\n ],\n [\n \"check_out_8\",\n \"Workday\"\n ],\n [\n \"check_in_9\",\n \"Workday\"\n ],\n [\n \"check_out_9\",\n \"Workday\"\n ],\n [\n \"check_in_10\",\n \"Workday\"\n ],\n [\n \"check_out_10\",\n \"Workday\"\n ],\n [\n \"check_in_11\",\n \"Workday\"\n ],\n [\n \"check_out_11\",\n \"Workday\"\n ],\n [\n \"check_in_12\",\n \"Workday\"\n ],\n [\n \"check_out_12\",\n \"Workday\"\n ]\n ],\n \"order_by\": \"`tabWorkday`.`date` desc\",\n \"add_totals_row\": 0,\n \"page_length\": 500,\n \"column_widths\": {\n \"name\": 0,\n \"employee_name\": 160,\n \"date\": 90,\n \"day_of_week\": 100,\n \"total_hours\": 85,\n \"check_in_1\": 85,\n \"check_out_1\": 85,\n \"check_in_2\": 85,\n \"check_out_2\": 85,\n \"check_in_3\": 85,\n \"check_out_3\": 85,\n \"check_in_4\": 85,\n \"check_out_4\": 85,\n \"check_in_5\": 85,\n \"check_out_5\": 85,\n \"check_in_6\": 85,\n \"check_out_6\": 85,\n \"check_in_7\": 85,\n \"check_out_7\": 85,\n \"check_in_8\": 85,\n \"check_out_8\": 85,\n \"check_in_9\": 85,\n \"check_out_9\": 85,\n \"check_in_10\": 85,\n \"check_out_10\": 85,\n \"check_in_11\": 85,\n \"check_out_11\": 85,\n \"check_in_12\": 85,\n \"check_out_12\": 85\n },\n \"group_by\": null\n}",
  "modified": "2022-09-12 05:59:24.147964",
  "modified_by": "Administrator",
  "module": "Timeclock",
@@ -20,8 +20,8 @@
  "report_name": "Workday Management",
  "report_type": "Report Builder",
  "roles": [
-  {
-   "role": "System Manager"
-  }
+ {
+ "role": "System Manager"
+ }
  ]
 }
