@@ -402,11 +402,11 @@ def update_checkins_from_workday(workday, method=None):
             if len(check_ins) > i-1 and check_in == None:
                 checkin = frappe.get_doc(
                     "Employee Checkin", check_ins[i-1]["name"])
-                checkin.delete()
+                checkin.delete(ignore_permissions=True)
                 frappe.db.commit()
             if len(check_outs) > i-1 and check_out == None:
                 checkout = frappe.get_doc(
                     "Employee Checkin", check_outs[i-1]["name"])
-                checkout.delete()
+                checkout.delete(ignore_permissions=True)
                 frappe.db.commit()
     return

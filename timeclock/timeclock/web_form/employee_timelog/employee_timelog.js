@@ -29,11 +29,11 @@ function save_form(form_entry) {
 		alert_message = "next_alert=<h3>You can't log time in the future!</h3>";
 		frappe.show_alert({
 			message: __(alert_message),
-			indicator: 'red'
+			indicator: 'yellow'
 		}, 5);
 		reset_form(form_entry);
 		return;
-	} 
+	}
 	// tests passed, save the form
 	else {
 		window.saving = true;
@@ -58,9 +58,15 @@ function save_form(form_entry) {
 						employee_name = response.message[0];
 						weekly_hours = response.message[1];
 						alert_message = '<h3>Clocked ' + log_type.toLowerCase() + '!</h3><large>' + employee_name + ', you have logged ' + weekly_hours + ' hours this week.</large>';
+						// set the alert color based on the log type
+						if (log_type == 'IN') {
+							alert_color = 'green';
+						} else {
+							alert_color = 'red';
+						}
 						frappe.show_alert({
 							message: __(alert_message),
-							indicator: 'green'
+							indicator: alert_color
 						}, 7);
 					},
 					error: (r) => {
@@ -118,9 +124,9 @@ frappe.init_client_script = () => {
 				.appendTo("#r");
 		});
 
-		jQuery("#reset").click(function() {
+		jQuery("#reset").click(function () {
 			window.location.href = '/employee-timeclock?new=1';
-		  });
+		});
 
 		// calculate and set form values, save the form after employee selection
 		frappe.web_form.on('employee', (field, value) => {
@@ -143,8 +149,8 @@ frappe.init_client_script = () => {
 				frappe.call({
 					method: "timeclock.timeclock.api.manual_override",
 					args: {
-						"employee": employee, 
-						"data": form_entry, 
+						"employee": employee,
+						"data": form_entry,
 						"logType": form_entry.log_type
 					},
 					callback: function (response) {
@@ -157,7 +163,7 @@ frappe.init_client_script = () => {
 				frappe.call({
 					method: "timeclock.timeclock.api.determine_next_log_type",
 					args: {
-						"employee": employee, 
+						"employee": employee,
 						"data": form_entry
 					},
 					callback: function (response) {
@@ -174,3 +180,10 @@ frappe.init_client_script = () => {
 		console.error(e);
 	}
 }
+
+// reload the form on the hour
+setInterval(function () {
+	window.location.href = '/employee-timeclock?new=1';
+}
+	, 3600000);
+
