@@ -40,7 +40,7 @@ function save_form(form_entry) {
 		frappe.form_dirty = false;
 		frappe.call({
 			type: "POST",
-			method: "timeclock.timeclock.api.accept",
+			method: "timeclock.timeclock.api.submit_checkin",
 			args: {
 				web_form: frappe.web_form.name,
 				data: frappe.web_form.doc
@@ -146,17 +146,6 @@ frappe.init_client_script = () => {
 			update_form_value(form_entry, 'time', time);
 
 			if (form_entry.manual_override) {
-				frappe.call({
-					method: "timeclock.timeclock.api.manual_override",
-					args: {
-						"employee": employee,
-						"data": form_entry,
-						"logType": form_entry.log_type
-					},
-					callback: function (response) {
-						console.log(response.message);
-					}
-				})
 				save_form(form_entry);
 			} else {
 				// get the next log time from the API

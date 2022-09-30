@@ -7,61 +7,85 @@
  "engine": "InnoDB",
  "field_order": [
   "employee",
-  "column_break_1",
+  "column_break_empl",
   "employee_name",
-  "section_break_1",
+  "section_break_date",
   "date",
-  "column_break_2",
+  "column_break_date",
   "day_of_week",
-  "section_break_2",
+  "section_break_1",
   "check_in_1",
-  "column_break_3",
+  "check_in_1_dt",
+  "column_break_1",
   "check_out_1",
-  "section_break_3",
+  "check_out_1_dt",
+  "section_break_2",
   "check_in_2",
-  "column_break_4",
+  "check_in_2_dt",
+  "column_break_2",
   "check_out_2",
-  "section_break_4",
+  "check_out_2_dt",
+  "section_break_3",
   "check_in_3",
-  "column_break_5",
+  "check_in_3_dt",
+  "column_break_3",
   "check_out_3",
-  "section_break_5",
+  "check_out_3_dt",
+  "section_break_4",
   "check_in_4",
-  "column_break_6",
+  "check_in_4_dt",
+  "column_break_4",
   "check_out_4",
-  "section_break_6",
+  "check_out_4_dt",
+  "section_break_5",
   "check_in_5",
-  "column_break_7",
+  "check_in_5_dt",
+  "column_break_5",
   "check_out_5",
-  "section_break_7",
+  "check_out_5_dt",
+  "section_break_6",
   "check_in_6",
-  "column_break_8",
+  "check_in_6_dt",
+  "column_break_6",
   "check_out_6",
-  "section_break_8",
+  "check_out_6_dt",
+  "section_break_7",
   "check_in_7",
-  "column_break_9",
+  "check_in_7_dt",
+  "column_break_7",
   "check_out_7",
-  "section_break_9",
+  "check_out_7_dt",
+  "section_break_8",
   "check_in_8",
-  "column_break_10",
+  "check_in_8_dt",
+  "column_break_8",
   "check_out_8",
-  "section_break_10",
+  "check_out_8_dt",
+  "section_break_9",
   "check_in_9",
-  "column_break_11",
+  "check_in_9_dt",
+  "column_break_9",
   "check_out_9",
-  "section_break_11",
+  "check_out_9_dt",
+  "section_break_10",
   "check_in_10",
-  "column_break_12",
+  "check_in_10_dt",
+  "column_break_10",
   "check_out_10",
-  "section_break_12",
+  "check_out_10_dt",
+  "section_break_11",
   "check_in_11",
-  "column_break_13",
+  "check_in_11_dt",
+  "column_break_11",
   "check_out_11",
-  "section_break_13",
+  "check_out_11_dt",
+  "section_break_12",
   "check_in_12",
-  "column_break_14",
+  "check_in_12_dt",
+  "column_break_12",
   "check_out_12",
-  "section_break_14",
+  "check_out_12_dt",
+  "section_break_total",
   "total_hours"
  ],
  "fields": [
@@ -235,7 +259,8 @@
   },
   {
    "fieldname": "section_break_1",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "First Punch"
   },
   {
    "fieldname": "column_break_2",
@@ -244,7 +269,7 @@
   {
    "fieldname": "section_break_2",
    "fieldtype": "Section Break",
-   "label": "First Punch"
+   "label": "Second Punch"
   },
   {
    "fieldname": "column_break_3",
@@ -253,7 +278,7 @@
   {
    "fieldname": "section_break_3",
    "fieldtype": "Section Break",
-   "label": "Second Punch"
+   "label": "Third Punch"
   },
   {
    "fieldname": "column_break_4",
@@ -262,7 +287,7 @@
   {
    "fieldname": "section_break_4",
    "fieldtype": "Section Break",
-   "label": "Third Punch"
+   "label": "Fourth Punch"
   },
   {
    "fieldname": "column_break_5",
@@ -271,7 +296,7 @@
   {
    "fieldname": "section_break_5",
    "fieldtype": "Section Break",
-   "label": "Fourth Punch"
+   "label": "Fifth Punch"
   },
   {
    "fieldname": "column_break_6",
@@ -280,7 +305,7 @@
   {
    "fieldname": "section_break_6",
    "fieldtype": "Section Break",
-   "label": "Fifth Punch"
+   "label": "Sixth Punch"
   },
   {
    "fieldname": "column_break_7",
@@ -289,7 +314,7 @@
   {
    "fieldname": "section_break_7",
    "fieldtype": "Section Break",
-   "label": "Sixth Punch"
+   "label": "Seventh Punch"
   },
   {
    "fieldname": "column_break_8",
@@ -298,7 +323,7 @@
   {
    "fieldname": "section_break_8",
    "fieldtype": "Section Break",
-   "label": "Seventh Punch"
+   "label": "Eighth Punch"
   },
   {
    "fieldname": "column_break_9",
@@ -307,7 +332,7 @@
   {
    "fieldname": "section_break_9",
    "fieldtype": "Section Break",
-   "label": "Eighth Punch"
+   "label": "Ninth Punch"
   },
   {
    "fieldname": "column_break_10",
@@ -316,7 +341,7 @@
   {
    "fieldname": "section_break_10",
    "fieldtype": "Section Break",
-   "label": "Ninth Punch"
+   "label": "Tenth Punch"
   },
   {
    "fieldname": "column_break_11",
@@ -325,7 +350,7 @@
   {
    "fieldname": "section_break_11",
    "fieldtype": "Section Break",
-   "label": "Tenth Punch"
+   "label": "Eleventh Punch"
   },
   {
    "fieldname": "column_break_12",
@@ -334,29 +359,148 @@
   {
    "fieldname": "section_break_12",
    "fieldtype": "Section Break",
-   "label": "Eleventh Punch"
-  },
-  {
-   "fieldname": "column_break_13",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "section_break_13",
-   "fieldtype": "Section Break",
    "label": "Twelfth Punch"
   },
   {
-   "fieldname": "column_break_14",
+   "fieldname": "column_break_empl",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "section_break_14",
+   "fieldname": "section_break_date",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_date",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "check_in_1_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_out_1_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_in_2_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_out_2_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_in_3_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_out_3_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_in_4_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_out_4_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_in_5_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_out_5_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_in_6_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_out_6_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_in_7_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_out_7_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_in_8_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_out_8_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_in_9_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_out_9_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_in_10_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_out_10_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_in_11_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_out_11_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_in_12_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "check_out_12_dt",
+   "fieldtype": "Datetime",
+   "hidden": 1
+  },
+  {
+   "fieldname": "section_break_total",
    "fieldtype": "Section Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2022-09-16 11:08:40.588100",
+ "modified": "2022-09-29 13:53:58.870380",
  "modified_by": "Administrator",
  "module": "Timeclock",
  "name": "Workday",
