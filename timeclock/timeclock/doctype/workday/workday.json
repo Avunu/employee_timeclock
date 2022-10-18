@@ -13,6 +13,8 @@
   "date",
   "column_break_date",
   "day_of_week",
+  "column_break_day",
+  "total_hours",
   "section_break_1",
   "check_in_1",
   "check_in_1_dt",
@@ -85,8 +87,7 @@
   "column_break_12",
   "check_out_12",
   "check_out_12_dt",
-  "section_break_total",
-  "total_hours"
+  "last_modified"
  ],
  "fields": [
   {
@@ -494,13 +495,20 @@
    "hidden": 1
   },
   {
-   "fieldname": "section_break_total",
-   "fieldtype": "Section Break"
+   "fieldname": "column_break_day",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Now",
+   "fieldname": "last_modified",
+   "fieldtype": "Datetime",
+   "hidden": 1,
+   "label": "last_modified"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2022-09-29 13:53:58.870380",
+ "modified": "2022-10-06 15:58:56.507303",
  "modified_by": "Administrator",
  "module": "Timeclock",
  "name": "Workday",

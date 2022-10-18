@@ -22,7 +22,8 @@ doc_events = {
         "on_update": "timeclock.timeclock.api.update_checkins_from_workday"
     },
     "Employee Checkin": {
-        "on_update": "timeclock.timeclock.api.update_workday_from_checkin"
+        "on_update": "timeclock.timeclock.api.update_workday_from_checkin",
+        "on_trash": "timeclock.timeclock.api.clear_workday_punch_on_checkin_trash"
     }
 }
 
