@@ -50,5 +50,9 @@ frappe.ui.form.on('Workday', {
 		}
 
 	},
+	date: function (frm) {
+		// set the day of the week based on the date
+		frm.set_value('day_of_week', moment(frm.doc.date).format('dddd'));
+	},
 
 });

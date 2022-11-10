@@ -70,20 +70,29 @@ def submit_checkin(web_form, data):
     checkin_exists = []
     # check to see if it's a manual override
     if data.manual_override:
-        # grab the log type of the latest checkin, sorted by time
-        latest_checkin_name, latest_checkin_log_type = frappe.get_value('Employee Checkin', {
-            'employee': data.employee,
-            'time': ['>=', frappe.utils.get_first_day_of_week(frappe.utils.today())]
-        }, ['name', 'log_type'], order_by='time desc')
+        # see if the employee already cheched in for the day
+        checkin_exists_this_week = frappe.get_all('Employee Checkin',
+                                        filters={
+                                            'employee': data.employee,
+                                            'time': ['>=', frappe.utils.get_first_day_of_week(frappe.utils.today())]
+                                        },
+                                        order_by='time asc'
+                                        )
+        if checkin_exists_this_week:
+            # grab the log type of the latest checkin, sorted by time
+            latest_checkin_name, latest_checkin_log_type = frappe.get_value('Employee Checkin', {
+                'employee': data.employee,
+                'time': ['>=', frappe.utils.get_first_day_of_week(frappe.utils.today())]
+            }, ['name', 'log_type'], order_by='time desc')
 
-        # if the latest checkin is the same as the current checkin, then break
-        if latest_checkin_name != data.name and latest_checkin_log_type == data.log_type:
-            # if it is then set the log type to the opposite of the current checkin
-            latest_checkin = frappe.get_doc(
-                'Employee Checkin', latest_checkin_name)
-            latest_checkin.log_type = 'OUT' if data.log_type == 'IN' else 'IN'
-            latest_checkin.save(ignore_permissions=True, ignore_version=True)
-            frappe.db.commit()
+            # if the latest checkin is the same as the current checkin log type, then swap it
+            if latest_checkin_name != data.name and latest_checkin_log_type == data.log_type:
+                # if it is then set the log type to the opposite of the current checkin
+                latest_checkin = frappe.get_doc(
+                    'Employee Checkin', latest_checkin_name)
+                latest_checkin.log_type = 'OUT' if data.log_type == 'IN' else 'IN'
+                latest_checkin.save(ignore_permissions=True, ignore_version=True)
+                frappe.db.commit()
     else:
         # make sure that checkin doesn't exist with the same time
         checkin_exists = frappe.get_all('Employee Checkin',
@@ -272,9 +281,37 @@ def workday_update_total_hours(workday, commit=False):
     workday.last_modified = frappe.utils.now()
     # set invalid values for the time fields
     invalid_values = ['', '00:00', 'undefined', None]
+    # get a collection of check_ins and check_outs
+    check_range = range(1, 13)
+    check_ins = [workday.get('check_in_' + str(i)) for i in check_range]
+    check_outs = [workday.get('check_out_' + str(i)) for i in check_range]
+    # remove invalid values from the check_ins and check_outs and convert to datetime objects
+    check_ins = [x for x in check_ins if x not in invalid_values]
+    check_outs = [x for x in check_outs if x not in invalid_values]
+    # if there are an equal number of check_ins and check_outs, reset the form fields based on sorted check_ins and check_outs
+    if len(check_ins) == len(check_outs):
+        # combine the check_ins and check_outs into a single list
+        check_times = []
+        for i in range(len(check_ins)):
+            check_times.append(datetime.datetime.strptime(check_ins[i], '%I:%M %p'))
+            check_times.append(datetime.datetime.strptime(check_outs[i], '%I:%M %p'))
+        # sort the check_times
+        check_times.sort()
+        # set the form fields based on the check_times
+        for i in range(len(check_times)):
+            if i % 2 == 0:
+                workday.set('check_in_' + str(int(i/2)+1), check_times[i].strftime('%-I:%M %p'))
+                workday.set('check_in_' + str(int(i/2)+1) + '_dt', check_times[i])
+            else:
+                workday.set('check_out_' + str(int(i/2)+1), check_times[i].strftime('%-I:%M %p'))
+                workday.set('check_out_' + str(int(i/2)+1) + '_dt', check_times[i])
+        # clear any remaining check_ins and check_outs
+        for i in range(len(check_ins), 12):
+            workday.set('check_in_' + str(i+1), None)
+            workday.set('check_out_' + str(i+1), None)
     # calculate the total hours worked
     total_hours = 0
-    for i in range(1, 13):
+    for i in check_range:
         check_in = workday.get(f'check_in_{i}')
         check_out = workday.get(f'check_out_{i}')
         # clear invalid values
@@ -317,9 +354,9 @@ def workday_update_total_hours(workday, commit=False):
         workday.db_update()
         frappe.db.commit()
 
-    # log an error to make sure the workday is being updated
-    frappe.log_error(f'Workday {workday.name} updated with {total_hours} hours',
-                     'Workday Update')
+    # # log an error to make sure the workday is being updated
+    # frappe.log_error(f'Workday {workday.name} updated with {total_hours} hours',
+    #                  'Workday Update')
 
     return workday
 
