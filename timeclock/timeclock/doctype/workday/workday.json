@@ -525,7 +525,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2022-11-10 16:07:23.574706",
+ "modified": "2022-11-14 08:46:44.684117",
  "modified_by": "Administrator",
  "module": "Timeclock",
  "name": "Workday",
@@ -556,7 +556,6 @@
    "write": 1
   }
  ],
- "quick_entry": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
  "track_changes": 1

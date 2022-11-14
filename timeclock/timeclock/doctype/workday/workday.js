@@ -42,7 +42,7 @@ frappe.ui.form.on('Workday', {
 		// load the tempusDominus customDateFormat plugin
 		tempusDominus.extend(window.tempusDominus.plugins.customDateFormat);
 		// load a timepicker for all the time fields from check_in_1 to check_out_6
-		for (var i = 1; i <= 6; i++) {
+		for (var i = 1; i <= 12; i++) {
 			var field = frm.fields_dict['check_in_' + i].input;
 			load_tempus_dominus(field);
 			var field = frm.fields_dict['check_out_' + i].input;
