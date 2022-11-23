@@ -289,26 +289,47 @@ def workday_update_total_hours(workday, commit=False):
     check_ins = [x for x in check_ins if x not in invalid_values]
     check_outs = [x for x in check_outs if x not in invalid_values]
     # if there are an equal number of check_ins and check_outs, reset the form fields based on sorted check_ins and check_outs
-    if len(check_ins) == len(check_outs):
-        # combine the check_ins and check_outs into a single list
-        check_times = []
-        for i in range(len(check_ins)):
-            check_times.append(datetime.datetime.strptime(check_ins[i], '%I:%M %p'))
-            check_times.append(datetime.datetime.strptime(check_outs[i], '%I:%M %p'))
-        # sort the check_times
-        check_times.sort()
-        # set the form fields based on the check_times
-        for i in range(len(check_times)):
-            if i % 2 == 0:
-                workday.set('check_in_' + str(int(i/2)+1), check_times[i].strftime('%-I:%M %p'))
-                workday.set('check_in_' + str(int(i/2)+1) + '_dt', check_times[i])
-            else:
-                workday.set('check_out_' + str(int(i/2)+1), check_times[i].strftime('%-I:%M %p'))
-                workday.set('check_out_' + str(int(i/2)+1) + '_dt', check_times[i])
-        # clear any remaining check_ins and check_outs
-        for i in range(len(check_ins), 12):
-            workday.set('check_in_' + str(i+1), None)
-            workday.set('check_out_' + str(i+1), None)
+    # combine the check_ins and check_outs into a single list (even if there are more check_ins than check_outs)
+    check_times = []
+    for i in range(len(check_ins)):
+        check_times.append(datetime.datetime.strptime(check_ins[i], '%I:%M %p'))
+    for i in range(len(check_outs)):
+        check_times.append(datetime.datetime.strptime(check_outs[i], '%I:%M %p'))
+    # sort the check_times
+    check_times.sort()
+    # set the form fields based on the check_times
+    for i in range(len(check_times)):
+        if i % 2 == 0:
+            workday.set('check_in_' + str(int(i/2)+1), check_times[i].strftime('%-I:%M %p'))
+            workday.set('check_in_' + str(int(i/2)+1) + '_dt', check_times[i])
+        else:
+            workday.set('check_out_' + str(int(i/2)+1), check_times[i].strftime('%-I:%M %p'))
+            workday.set('check_out_' + str(int(i/2)+1) + '_dt', check_times[i])
+    # clear any remaining check_ins and check_outs
+    for i in range(len(check_ins), 12):
+        workday.set('check_in_' + str(i+1), None)
+        workday.set('check_out_' + str(i+1), None)
+    # if len(check_ins) == len(check_outs):
+    # # combine the check_ins and check_outs into a single list
+    #     check_times = []
+    #     for i in range(len(check_ins)):
+    #         check_times.append(datetime.datetime.strptime(check_ins[i], '%I:%M %p'))
+    #         check_times.append(datetime.datetime.strptime(check_outs[i], '%I:%M %p'))
+    #     # sort the check_times
+    #     check_times.sort()
+    #     # set the form fields based on the check_times
+    #     for i in range(len(check_times)):
+    #         if i % 2 == 0:
+    #             workday.set('check_in_' + str(int(i/2)+1), check_times[i].strftime('%-I:%M %p'))
+    #             workday.set('check_in_' + str(int(i/2)+1) + '_dt', check_times[i])
+    #         else:
+    #             workday.set('check_out_' + str(int(i/2)+1), check_times[i].strftime('%-I:%M %p'))
+    #             workday.set('check_out_' + str(int(i/2)+1) + '_dt', check_times[i])
+    #     # clear any remaining check_ins and check_outs
+    #     for i in range(len(check_ins), 12):
+    #         workday.set('check_in_' + str(i+1), None)
+    #         workday.set('check_out_' + str(i+1), None)
+
     # calculate the total hours worked
     total_hours = 0
     for i in check_range:
