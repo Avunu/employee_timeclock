@@ -26,10 +26,11 @@ function save_form(form_entry) {
 	}
 	// make sure time isn't in the future
 	else if (Date.parse(form_entry.time) > Date.parse(frappe.datetime.now_datetime())) {
-		alert_message = "next_alert=<h3>You can't log time in the future!</h3>";
+		time_travel_gif = 'https://media4.giphy.com/media/3ov9jU4ycPvfrPTsly/giphy.gif';
+		alert_message = '<b>Time Traveler!</b><br>It looks like you are trying to clock in the future. Please check your time and try again.<br><img src="' + time_travel_gif + '" style="width: 100%; max-width: 10rem; margin-top: 1rem;">';
 		frappe.show_alert({
 			message: __(alert_message),
-			indicator: 'yellow'
+			indicator: 'orange'
 		}, 5);
 		reset_form(form_entry);
 		return;
@@ -47,7 +48,7 @@ function save_form(form_entry) {
 			},
 			callback: function (response) {
 				employee = form_entry.employee;
-				log_type = form_entry.log_type;
+				log_type = response.message;
 				reset_form(form_entry);
 				frappe.call({
 					method: "timeclock.timeclock.api.get_weekly_hours",
