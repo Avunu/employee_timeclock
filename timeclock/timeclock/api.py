@@ -293,8 +293,14 @@ def workday_update_total_hours(workday, commit=False):
     # frappe.msgprint(f'check_outs: {type(check_outs)}')
     # frappe.msgprint(f'date: {type(date)}')
     for i in range(len(check_ins)):
+        # if the check_in starts with '0:' then replace it with '12:'
+        if check_ins[i].startswith('0:'):
+            check_ins[i] = '12:' + check_ins[i][2:]
         check_times.append(datetime.datetime.strptime(str(date) + ' ' + str(check_ins[i]), '%Y-%m-%d %I:%M %p'))
     for i in range(len(check_outs)):
+        # if the check_out starts with '0:' then replace it with '12:'
+        if check_outs[i].startswith('0:'):
+            check_outs[i] = '12:' + check_outs[i][2:]
         check_times.append(datetime.datetime.strptime(str(date) + ' ' + str(check_outs[i]), '%Y-%m-%d %I:%M %p'))
     
     workday = build_workday(check_times, workday)
