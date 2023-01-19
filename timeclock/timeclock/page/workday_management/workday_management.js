@@ -73,8 +73,8 @@ frappe.views.ReportView = class ReportView extends frappe.views.ReportView {
 		let today = frappe.datetime.get_today();
 		let month_start = frappe.datetime.month_start(frappe.datetime.get_today());
 		let week_start = frappe.datetime.week_start(frappe.datetime.get_today());
-		let last_monday = frappe.datetime.add_days(frappe.datetime.get_today(), -frappe.datetime.get_day_diff(frappe.datetime.get_today(), 'Monday'));
-		let last_friday = frappe.datetime.add_days(frappe.datetime.get_today(), -frappe.datetime.get_day_diff(frappe.datetime.get_today(), 'Friday'));
+		let last_sunday = frappe.datetime.add_days(frappe.datetime.week_start(), -7);
+		let last_saturday = frappe.datetime.add_days(frappe.datetime.week_start(), -1);
 		let this_week_button = $(`<button class="btn btn-secondary btn-xs" style="margin: auto 5px; height: fit-content;">This Week</button>`);
 		let last_week_button = $(`<button class="btn btn-secondary btn-xs" style="margin: auto 5px; height: fit-content;">Last Week</button>`);
 		let this_month_button = $(`<button class="btn btn-secondary btn-xs" style="margin: auto 5px; height: fit-content;">This Month</button>`);
@@ -90,8 +90,8 @@ frappe.views.ReportView = class ReportView extends frappe.views.ReportView {
 		});
 		last_week_button.on('click', () => {
 			let filters = [
-				['Workday', 'date', '>=', last_monday],
-				['Workday', 'date', '<=', last_friday],
+				['Workday', 'date', '>=', last_sunday],
+				['Workday', 'date', '<=', last_saturday],
 			]
 			this.filters = filters;
 			this.filter_area.clear();
