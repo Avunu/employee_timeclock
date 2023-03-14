@@ -1,7 +1,7 @@
 // create a custom sort selector for the Workday Management Report
 frappe.ui.SortSelector = class SortSelector extends frappe.ui.SortSelector {
 	get_sql_string () {
-		return '`tabWorkday`.`employee_name` asc, `tabWorkday`.`date` desc';
+		return '`tabWorkday`.`employee_name` asc, `tabWorkday`.`date` asc';
 	}
 }
 

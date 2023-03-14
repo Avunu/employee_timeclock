@@ -18,12 +18,12 @@
  "docstatus": 0,
  "doctype": "Web Form",
  "idx": 0,
- "introduction_text": "<div class=\"ql-editor read-mode\"><p><strong>Please scan your ID badge to fill out the employee ID.</strong></p></div>",
+ "introduction_text": "<div class=\"ql-editor read-mode\" style=\"position: relative\"><p>Please scan your ID badge to fill out the employee ID.</p><div style=\"position: absolute; top: 0; right: 0\"><h2 id=\"clock\"></h2><h3 id=\"date\"></h3></div></div>",
  "is_multi_step_form": 0,
  "is_standard": 1,
  "login_required": 0,
  "max_attachment_size": 0,
- "modified": "2022-08-23 13:56:18.121962",
+ "modified": "2023-03-13 21:34:30.226327",
  "modified_by": "Administrator",
  "module": "Timeclock",
  "name": "employee-timelog",
@@ -40,6 +40,17 @@
  "success_url": "",
  "title": "Employee Clock-in/out",
  "web_form_fields": [
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldtype": "HTML",
+   "hidden": 0,
+   "max_length": 0,
+   "max_value": 0,
+   "options": "<h2 id=\"clock\"></h2>\n<h3 id=\"date\"></h3>",
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
+  },
   {
    "allow_read_on_all_link_options": 0,
    "fieldname": "manual_override",
