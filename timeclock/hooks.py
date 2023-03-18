@@ -13,8 +13,16 @@ webform_include_js = {
         "public/node_modules/@eonasdan/tempus-dominus/dist/js/tempus-dominus.min.js"
     ]
 }
-web_include_css = ["/assets/css/tempus-dominus.min.css",
-                   "/assets/frappe/css/octicons/octicons.css"]
+
+webform_include_css = {
+    "Employee Checkin": [
+        "timeclock/public/node_modules/@eonasdan/tempus-dominus/dist/css/tempus-dominus.min.css"
+    ]
+}
+
+web_include_css = [
+    "octicons.css"
+]
 
 doc_events = {
     "Workday": {
@@ -41,9 +49,9 @@ doctype_list_js = {
 }
 
 doctype_css = {
-    "Workday": "/assets/css/tempus-dominus.min.css"
+    "Workday": "/assets/timeclock/node_modules/@eonasdan/tempus-dominus/dist/css/tempus-dominus.min.css"
 }
 
 doctype_list_css = {
-    "Workday": "/assets/css/tempus-dominus.min.css"
+    "Workday": "/assets/timeclock/node_modules/@eonasdan/tempus-dominus/dist/css/tempus-dominus.min.css"
 }
