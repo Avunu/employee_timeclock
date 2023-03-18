@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "sources": ["../../../../../../../../../tmp/tmp-4371-bjoL9Dtg9aMw/timeclock/timeclock/public/style.bundle.css"],
+  "sources": ["../../../../../../../../../tmp/tmp-3805-Ms274jpwjRvt/timeclock/timeclock/public/style.bundle.css"],
   "sourcesContent": [".btn:not(label), .navbar, .page-breadcrumbs, div[data-fieldname=log_type] {\n  display: none;\n}\n\ninput[type=radio]:checked + label {\n  background-color: var(--blue);\n  color: white;\n}"],
   "mappings": "AAAA,uEACE,aAGF,gCACE,6BACA",
   "names": []
