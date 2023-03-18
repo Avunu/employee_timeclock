@@ -21,7 +21,8 @@ webform_include_css = {
 }
 
 web_include_css = [
-    "octicons.css"
+    "/assets/timeclock/node_modules/@eonasdan/tempus-dominus/dist/css/tempus-dominus.min.css",
+    "/assets/frappe/css/octicons/octicons.css"
 ]
 
 doc_events = {
