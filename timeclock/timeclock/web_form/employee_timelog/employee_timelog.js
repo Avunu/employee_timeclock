@@ -177,15 +177,15 @@ setInterval(function () {
 }
 	, 3600000);
 
-// run the digital clock
-function updateClock() {
-	const now = new Date();
-	const hours = now.getHours() % 12 || 12;
-	const minutes = now.getMinutes().toString().padStart(2, '0');
-	const amPm = now.getHours() < 12 ? 'AM' : 'PM';
-	const timeString = `${hours}:${minutes} ${amPm}`;
-	const dateString = now.toDateString();
-	document.getElementById('clock').textContent = timeString;
-	document.getElementById('date').textContent = dateString;
-  }
-setInterval(updateClock, 1000);
+// // run the digital clock
+// function updateClock() {
+// 	const now = new Date();
+// 	const hours = now.getHours() % 12 || 12;
+// 	const minutes = now.getMinutes().toString().padStart(2, '0');
+// 	const amPm = now.getHours() < 12 ? 'AM' : 'PM';
+// 	const timeString = `${hours}:${minutes} ${amPm}`;
+// 	const dateString = now.toDateString();
+// 	document.getElementById('clock').textContent = timeString;
+// 	document.getElementById('date').textContent = dateString;
+//   }
+// setInterval(updateClock, 1000);
