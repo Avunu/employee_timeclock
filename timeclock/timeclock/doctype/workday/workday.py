@@ -23,7 +23,8 @@ def bulk_add_punches(date, employees, punches):
 	for employee in employees:
 		# remove any leading spaces from employee name
 		employee = employee.lstrip()
-		frappe.emit_js("console.log('Adding punches for employee: " + employee + "')")
+		# frappe.emit_js(f{"console.log('Adding punches for employee: {employee}')"})
+		# publish_realtime("eval_js", "console.log('Adding punches for employee: " + employee "');", user=session.user)
 		employee_id = frappe.db.get_value("Employee", {"employee_name": employee})
 		# # create checkins directly
 		# for i in range(len(punches)):

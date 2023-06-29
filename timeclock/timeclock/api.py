@@ -164,7 +164,7 @@ def update_workday_from_checkin(checkin, method=None):
         workday.date = checkin_time.date()
         workday.day_of_week = calendar.day_name[checkin_time.weekday()]
         workday.last_modified = frappe.utils.now()
-        workday.db_insert()
+        workday.db_insert(ignore_if_duplicate=True)
 
     # debug
     # frappe.msgprint('checkin_time: '+str(checkin_time))
@@ -269,13 +269,19 @@ def clear_workday_punch_on_checkin_trash(checkin, method=None):
         # reload the workday from the database
         workday.reload()
         # recalculate the total hours
-        workday_update_total_hours(workday, commit=True)
+        workday = workday_update_total_hours(workday)
+        # commit the changes
+        frappe.db.set_value('Workday', workday.name,
+                            'total_hours', workday.total_hours)
+        # commit the changes
+        workday.db_update()
+        frappe.db.commit()
 
     return
 
 
 @frappe.whitelist(allow_guest=True)
-def workday_update_total_hours(workday, commit=False):
+def workday_update_total_hours(workday, method=None):
     workday.last_modified = frappe.utils.now()
     date = workday.date
     if isinstance(date, datetime.datetime):
@@ -304,15 +310,6 @@ def workday_update_total_hours(workday, commit=False):
         check_times.append(datetime.datetime.strptime(str(date) + ' ' + str(check_outs[i]), '%Y-%m-%d %I:%M %p'))
     
     workday = build_workday(check_times, workday)
-
-    # commit the changes
-    if commit:
-        # commit the changes
-        frappe.db.set_value('Workday', workday.name,
-                            'total_hours', workday.total_hours)
-        # commit the changes
-        workday.db_update()
-        frappe.db.commit()
 
     return workday
 
@@ -361,7 +358,7 @@ def update_checkins_from_workday(workday, method=None):
                     checkin.device_id = 'Workday Management'
                     checkin.workday = workday.name
                     checkin.workday_modified = frappe.utils.now()
-                    checkin.db_insert()
+                    checkin.db_insert(ignore_if_duplicate=True)
             else:
                 # if the check in time is blank delete the corresponding check in
                 if len(existing_checkins) >= i and check_in_out_time == None:

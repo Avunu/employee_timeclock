@@ -37,22 +37,22 @@ doc_events = {
 }
 
 # include tempus-dominus.min.js on the workday doctype
-doctype_js = {
-    "Workday": ["public/node_modules/@popperjs/core/dist/umd/popper-lite.min.js",
-                "public/node_modules/@eonasdan/tempus-dominus/dist/js/tempus-dominus.min.js",
-                "public/node_modules/@eonasdan/tempus-dominus/dist/plugins/customDateFormat.js"]
-}
+# doctype_js = {
+#     "Workday": ["public/node_modules/@popperjs/core/dist/umd/popper-lite.min.js",
+#                 "public/node_modules/@eonasdan/tempus-dominus/dist/js/tempus-dominus.min.js",
+#                 "public/node_modules/@eonasdan/tempus-dominus/dist/plugins/customDateFormat.js"]
+# }
 
-doctype_list_js = {
-    "Workday": ["public/node_modules/@popperjs/core/dist/umd/popper-lite.min.js",
-                "public/node_modules/@eonasdan/tempus-dominus/dist/js/tempus-dominus.min.js",
-                "public/node_modules/@eonasdan/tempus-dominus/dist/plugins/customDateFormat.js"]
-}
+# doctype_list_js = {
+#     "Workday": ["public/node_modules/@popperjs/core/dist/umd/popper-lite.min.js",
+#                 "public/node_modules/@eonasdan/tempus-dominus/dist/js/tempus-dominus.min.js",
+#                 "public/node_modules/@eonasdan/tempus-dominus/dist/plugins/customDateFormat.js"]
+# }
 
-doctype_css = {
-    "Workday": "/assets/timeclock/node_modules/@eonasdan/tempus-dominus/dist/css/tempus-dominus.min.css"
-}
+# doctype_css = {
+#     "Workday": "/assets/timeclock/node_modules/@eonasdan/tempus-dominus/dist/css/tempus-dominus.min.css"
+# }
 
-doctype_list_css = {
-    "Workday": "/assets/timeclock/node_modules/@eonasdan/tempus-dominus/dist/css/tempus-dominus.min.css"
-}
+# doctype_list_css = {
+#     "Workday": "/assets/timeclock/node_modules/@eonasdan/tempus-dominus/dist/css/tempus-dominus.min.css"
+# }

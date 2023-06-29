@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_copy": 1,
  "autoname": "format:{employee_name}-{date}-{#####}",
  "creation": "2022-08-29 15:27:02.204545",
  "doctype": "DocType",
@@ -523,12 +524,14 @@
    "label": "last_modified"
   }
  ],
+ "hide_toolbar": 1,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2023-01-17 16:34:33.455016",
+ "modified": "2023-03-27 13:39:18.434934",
  "modified_by": "Administrator",
  "module": "Timeclock",
  "name": "Workday",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {
@@ -558,5 +561,6 @@
  ],
  "sort_field": "date",
  "sort_order": "DESC",
+ "states": [],
  "track_changes": 1
 }
