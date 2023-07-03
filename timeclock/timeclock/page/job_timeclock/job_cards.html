@@ -183,7 +183,7 @@
     <!-- make a card for each job, showing name, description, and status -->
     <!-- use frappe classes so dark mode and light mode will still work -->
     {% for job in jobs %}
-        <div class="card">
+        <div class="card job-card">
             <div class="card-body">
                 <h5 class="card-title">{{ job.name }}</h5>
                 <h6 class="card-subtitle mb-2 text-muted">{{ job.description }}</h6>
@@ -195,9 +195,12 @@
 <!-- style -->
 <style>
     /* on hover over the card, change cursor to pointer */
-    .card:hover {
+    .job-card:hover {
         cursor: pointer;
     }
+	.job-card {
+		height: 6.5rem;
+	}
     .card {
         color: var(--text-color);
         background-color: var(--bg-color);
