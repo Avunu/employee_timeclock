@@ -7,6 +7,7 @@ frappe.pages['job-timeclock'].on_page_load = async function(wrapper) {
 		single_column: true
 	});
 	page.add_button('Refresh Jobs', function(){refresh_jobs()});
+	page.add_button('Select User', function(){select_user()});
 	timeclock_form = new frappe.ui.FieldGroup({
 		parent: page.body,
 		// we need a container on the left for job cards and a container on the right for task cards for that job
@@ -22,6 +23,7 @@ frappe.pages['job-timeclock'].on_page_load = async function(wrapper) {
 		],
 	});
 	timeclock_form.make();
+	locals.timer = false;
 	await get_and_render_jobs();
 
 	// add event listener to job cards container
@@ -43,12 +45,6 @@ frappe.pages['job-timeclock'].on_page_load = async function(wrapper) {
 			let task = locals.tasks.find(task => task.operation === task_operation);
 			const operator = event.target.innerText
 			if (!locals.timer) {
-				locals.timer = {
-					start_time: null,
-					stop_time: null,
-				};
-			}
-			if (!locals.timer.stop_time) {
 				task = await task_timer(event, task, operator);
 			}
 			if (operator === 'Finish') {
@@ -79,11 +75,11 @@ async function get_and_render_jobs() {
 // this gets all tasks for a given job
 async function get_and_render_tasks(job_name) {
 	// await timeclock_form.set_value('task_cards', '');
-	const tasks = await frappe.db.get_list('Work Order Operation', {
+	const tasks = await frappe.db.get_list('Job Card', {
 		fields: ['*'],
 		filters: {
-			parent: job_name,
-			status: ['not in', ['Completed']],
+			work_order: job_name,
+			status: ['not in', ['Completed', 'Cancelled']],
 		},
 		order_by: 'operation'
 	});
@@ -96,6 +92,23 @@ async function get_and_render_tasks(job_name) {
 		frappe.show_alert({message: `No tasks found for ${job_name}.`, indicator: 'blue'});
 		refresh_jobs();
 	}
+	// if any tasks already have a start time, highlight that task card
+	// const started_task = tasks.find(task => task.start_time);
+	// if (started_task) {
+	// 	const started_task_card = timeclock_form.fields_dict.task_cards.$wrapper.find(`.card:contains(${started_task.operation})`);
+	// 	highlight_card(started_task_card, 'selected_task_card');
+	// 	locals.selected_task = started_task;
+	// 	// give the other tasks btn-inactive class
+	// 	const task_cards = timeclock_form.fields_dict.task_cards.$wrapper.find('.card');
+	// 	task_cards.each(function() {
+	// 		if ($(this).find('.card-title').text() !== started_task.operation) {
+	// 			$(this).find('.btn-btn').addClass('btn-inactive');
+	// 		}
+	// 	});
+	// 	// switch the start button to a stop button
+	// 	const start_btn = started_task_card.find('start-stop-button');
+	// 	start_btn.text('Stop');
+	// }
 }
 
 async function refresh_jobs() {
@@ -121,7 +134,12 @@ function highlight_card(selected_card, card_type) {
 
 async function task_timer(event, task, operator) {
 	const task_cards = timeclock_form.fields_dict.task_cards.$wrapper.find('.card');
-	task = await frappe.db.get_doc('Work Order Operation', task.name);
+	task = await frappe.db.get_doc('Work Order Operation', null, {
+		filters: {
+			parent: task.parent,
+			operation: task.operation
+		}
+	});
 	if (operator === 'Start') {
 		// get all the task card elements
 		// for each card other than the one that was clicked, set the buttons to class inactive-btn
@@ -132,10 +150,11 @@ async function task_timer(event, task, operator) {
 		});
 		// set the button that was clicked to say Stop
 		$(event.target).text('Stop')
-		locals.timer.start_time = new Date();
-		locals.timer.stop_time = null;
-		const updated_task = await frappe.db.set_value('Work Order Operation', task.name, 'time_started', locals.timer.start_time);
-		task = updated_task.message.operations.find(operation => operation.name === task.name)
+		const updated_work_order = await frappe.db.set_value('Work Order Operation', task.name, 'time_started', new Date());
+		task = updated_work_order.message.operations.find(operation => operation.name === task.name)
+		locals.timer = true;
+		// Start the timer display
+		timerInterval = setInterval(() => display_timer(task), 1000); // Update every second
 		return task;
 	} else {
 		if (operator === 'Stop') {
@@ -143,25 +162,38 @@ async function task_timer(event, task, operator) {
 			$(event.target).text('Start')
 		}
 		// set the stop time for the timer
-		locals.timer.stop_time = new Date();
+		const stop_time = new Date();
+		// Stop the timer display
+		clearInterval(timerInterval);
 		// calculate the elapsed time
 		// const elapsed_time = frappe.datetime.get_diff(locals.timer.stop_time, locals.timer.start_time);
-		const elapsed_time = (locals.timer.stop_time.getTime() - locals.timer.start_time.getTime()) / (1000 * 60);
+		const elapsed_time = (stop_time.getTime() - task.start_time.getTime()) / (1000 * 60);
 		task.time_taken_in_minutes += elapsed_time;
 		// set the elapsed time on the task
-		const updated_work_order = await frappe.db.set_value('Work Order Operation', task.name, 'time_taken_in_minutes', task.time_taken_in_minutes);
+		const updated_work_order = await frappe.db.set_value('Work Order Operation', task.name, {
+			time_taken_in_minutes: task.time_taken_in_minutes,
+			time_started: null
+		});
 		const updated_task = updated_work_order.message.operations.find(operation => operation.name === task.name);
-		console.log(updated_task);
 		// update the task in the locals.tasks array
 		const task_index = locals.tasks.findIndex(task => task.name === updated_task);
 		locals.tasks[task_index] = updated_task;
 		// update the task card in the task cards container
-		const task_card = task_cards.find(`.card:contains(${task.operation})`);
-		task_card.find('.time-taken').text(task.time_taken_in_minutes);
+		// const task_card = task_cards.find(`.card:contains(${task.operation})`);
+		// task_card.find('.time-taken').text(task.time_taken_in_minutes);
 		// set all the buttons to class active-btn
 		task_cards.find('.btn-btn').removeClass('inactive-btn').addClass('active-btn');
+		locals.timer = false;
 		return updated_task;
 	}
+}
+
+function display_timer(task) {
+	const task_cards = timeclock_form.fields_dict.task_cards.$wrapper.find('.card');
+	const task_card = task_cards.find(`.card:contains(${task.operation})`);
+	const time_taken = task_card.find('.time-taken');
+	const elapsed_time = Math.round((new Date().getTime() - task.start_time.getTime()) / 1000);
+	time_taken.text(elapsed_time);
 }
 
 async function complete_task(task) {
