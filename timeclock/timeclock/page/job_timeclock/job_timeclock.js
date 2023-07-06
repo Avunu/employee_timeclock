@@ -1,6 +1,9 @@
 let timeclock_form;
 let timerInterval;
 
+// debug
+frappe.realtime.on('debug', (message) => console.log(message));
+
 frappe.pages['job-timeclock'].on_page_load = async function(wrapper) {
 	var page = frappe.ui.make_app_page({
 		parent: wrapper,
@@ -43,12 +46,12 @@ frappe.pages['job-timeclock'].on_page_load = async function(wrapper) {
 	// add event listener to task cards container
 	timeclock_form.fields_dict.task_cards.$wrapper.on('click', async function(event) {
 		if ($(event.target).hasClass('active-btn')) {
+			console.log(event.target.innerText)
 			const task_operation = $(event.target).closest('.card').find('.card-title').text();
 			let task = locals.tasks.find(task => task.operation === task_operation);
 			const operator = event.target.innerText
-			// instead of using locals.timer, maybe we should just check if there is an open job card time log for this task
-			if (!locals.timer) {
-				await task_timer(event, task, operator);
+			if (operator === 'Start' || operator === 'Stop' || operator === 'Finish' && locals.timer) {
+				task = await task_timer(event, task, operator);
 			}
 			if (operator === 'Finish') {
 				await complete_task(task);
@@ -139,7 +142,9 @@ function highlight_card(selected_card, card_type) {
   }
 
 async function task_timer(event, task, operator) {
+	console.log('task timer')
 	const task_cards = timeclock_form.fields_dict.task_cards.$wrapper.find('.card');
+	const employee = null;
 	// task = await frappe.db.get_doc('Job Card', task.name);
 	if (operator === 'Start') {
 		// get all the task card elements
@@ -179,28 +184,19 @@ async function task_timer(event, task, operator) {
 		// 	employee: null,
 		// })
 
-		const employee = null;
 
-		frappe.call({
-			// apps/timeclock/timeclock/timeclock/page/job_timeclock/job_timeclock.py
+		await frappe.call({
 			method: 'timeclock.timeclock.page.job_timeclock.job_timeclock.manage_job_card_time_logs',
 			args: {
 				job_card: task.name,
-				operation: task.operation,
+				operator: operator,
 				employee: employee,
-			},
-			callback: function(r) {
-				task = r.message;
-				// update the task in the locals.tasks array
-				const task_index = locals.tasks.findIndex(t => t.name === task.name);
-				locals.tasks[task_index] = task;
 			}
 		});
-
+		
 		locals.timer = true;
 		// Start the timer display
-		display_timer(job_card_time_log, operator);
-		return;
+		// display_timer(job_card_time_log, operator);
 	} else {
 		if (operator === 'Stop') {
 			// set the button that was clicked to say Start
@@ -211,22 +207,23 @@ async function task_timer(event, task, operator) {
 		// add the to_time to the job card time log
 		// const job_card_time_log = await frappe.db.get_doc('Job Card Time Log', {parent: task.name, parent_field: 'time_logs', to_time: null})
 		// just make sure the job card in locals is up to date and use that
-		const job_card_time_log = await frappe.call({
-			method: 'frappe.client.get',
+		await frappe.call({
+			method: 'timeclock.timeclock.page.job_timeclock.job_timeclock.manage_job_card_time_logs',
 			args: {
-				doctype: 'Job Card Time Log',
-				parent: task.name,
-				filters: {
-					to_time: null
-				}
+				job_card: task.name,
+				operator: operator,
+				employee: employee,
 			}
-		})
-		await frappe.db.set_value('Job Card Time Log', job_card_time_log.name, 'to_time', frappe.datetime.now_datetime());
+		});
 		// set all the buttons to class active-btn
 		task_cards.find('.btn-btn').removeClass('inactive-btn').addClass('active-btn');
 		locals.timer = false;
-		return
 	}
+	task = await frappe.db.get_doc('Job Card', task.name);
+	// update the task in the locals.tasks array
+	const task_index = locals.tasks.findIndex(t => t.name === task.name);
+	locals.tasks[task_index] = task;
+	return task;
 }
 
 function display_timer(job_card_time_log, operator) {
