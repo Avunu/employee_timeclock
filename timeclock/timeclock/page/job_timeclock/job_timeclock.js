@@ -1,20 +1,18 @@
 let timeclock_form;
 let timerInterval;
-
-// debug
-frappe.realtime.on('debug', (message) => console.log(message));
+let page;
 
 frappe.pages['job-timeclock'].on_page_load = async function(wrapper) {
-	var page = frappe.ui.make_app_page({
+	page = frappe.ui.make_app_page({
 		parent: wrapper,
 		title: 'Job Timeclock',
 		single_column: true
 	});
+	page.add_button('Select Employee', function(){select_employee()});
 	page.add_button('Refresh Jobs', function(){refresh_jobs()});
-	// page.add_button('Select User', function(){select_user()}); // this could be a menu item, and be a dropdown of users. it could be used to set a default employee for the session, if there is a tablet that get's used by mostly one task/employee? Maybe on the employee selection prompt for the tag there could be an option to use a dropdown instead, in case someone doesn't have their tag...
+	// page.add_menu_item('Manual Employee Selection', function(){manual_employee_selection()});
 	timeclock_form = new frappe.ui.FieldGroup({
 		parent: page.body,
-		// TODO: large text field above jobs that displays the current employee, a large button over tasks to change employee
 		// we need a container on the left for job cards and a container on the right for task cards for that job
 		// these should be html elements
 		fields: [
@@ -28,8 +26,8 @@ frappe.pages['job-timeclock'].on_page_load = async function(wrapper) {
 	});
 	timeclock_form.make();
 	await get_and_render_jobs();
-	
 	locals.timer = false;
+	select_employee();
 
 	// add event listener to job cards container
 	// when a job card is clicked, get the tasks for that job and render them in the task cards container
@@ -46,7 +44,6 @@ frappe.pages['job-timeclock'].on_page_load = async function(wrapper) {
 	// add event listener to task cards container
 	timeclock_form.fields_dict.task_cards.$wrapper.on('click', async function(event) {
 		if ($(event.target).hasClass('active-btn')) {
-			console.log(event.target.innerText)
 			const task_operation = $(event.target).closest('.card').find('.card-title').text();
 			let task = locals.tasks.find(task => task.operation === task_operation);
 			const operator = event.target.innerText
@@ -142,9 +139,10 @@ function highlight_card(selected_card, card_type) {
   }
 
 async function task_timer(event, task, operator) {
-	console.log('task timer')
 	const task_cards = timeclock_form.fields_dict.task_cards.$wrapper.find('.card');
-	const employee = null;
+	if (!locals.employee) {
+		frappe.throw('Please select an employee.');
+	}
 	// task = await frappe.db.get_doc('Job Card', task.name);
 	if (operator === 'Start') {
 		// get all the task card elements
@@ -155,66 +153,21 @@ async function task_timer(event, task, operator) {
 			}
 		});
 		// set the button that was clicked to say Stop
-		$(event.target).text('Stop')
+		$(event.target).text('Stop').removeClass('start-button').addClass('stop-button');
 
-		// TODO: get the employee
-		// TODO: check and see if there is an unclosed entry for this employee, if so, close it
-		// const job_card_time_log = await frappe.db.insert({
-		// 	doctype: 'Job Card Time Log',
-		// 	parent: task.name,
-		// 	parent_field: 'time_logs',
-		// 	// time_started: new Date(),
-		// 	from_time: frappe.datetime.now_datetime(),
-		// 	operation: task.operation,
-		// 	employee: null // locals.employee.name or however we set the employee. is there just a popup anytime someone clicks start/stop/finish that asks for the employee, at which point they scan their tag?
-		// });
-
-			// add_child: function (parent_doc, doctype, parentfield, idx) {
-		// const job_card_time_log = frappe.model.add_child(task, 'Job Card Time Log', 'time_logs');
-		// // TODO: Add employee to job card time log
-		// job_card_time_log.from_time = frappe.datetime.now_datetime();
-		// await task.save();
-
-		// await frappe.db.insert({
-		// 	doctype: 'Job Card Time Log',
-		// 	Parent: task.name,
-		// 	Parenttype: 'Job Card',
-		// 	Parentfield: 'time_logs',
-		// 	from_time: frappe.datetime.now_datetime(),
-		// 	employee: null,
-		// })
-
-
-		await frappe.call({
-			method: 'timeclock.timeclock.page.job_timeclock.job_timeclock.manage_job_card_time_logs',
-			args: {
-				job_card: task.name,
-				operator: operator,
-				employee: employee,
-			}
-		});
+		await call_for_time_logs(task, operator);
 		
 		locals.timer = true;
-		// Start the timer display
+		// Start the timer display ?
 		// display_timer(job_card_time_log, operator);
 	} else {
 		if (operator === 'Stop') {
-			// set the button that was clicked to say Start
-			$(event.target).text('Start')
+			// set the button that was clicked to say Start and remove the stop-button class and add the start-button class
+			$(event.target).text('Start').removeClass('stop-button').addClass('start-button');
 		}
 		// Stop the timer display
-		display_timer(null, operator)
-		// add the to_time to the job card time log
-		// const job_card_time_log = await frappe.db.get_doc('Job Card Time Log', {parent: task.name, parent_field: 'time_logs', to_time: null})
-		// just make sure the job card in locals is up to date and use that
-		await frappe.call({
-			method: 'timeclock.timeclock.page.job_timeclock.job_timeclock.manage_job_card_time_logs',
-			args: {
-				job_card: task.name,
-				operator: operator,
-				employee: employee,
-			}
-		});
+		// display_timer(null, operator)
+		await call_for_time_logs(task, operator);
 		// set all the buttons to class active-btn
 		task_cards.find('.btn-btn').removeClass('inactive-btn').addClass('active-btn');
 		locals.timer = false;
@@ -224,6 +177,19 @@ async function task_timer(event, task, operator) {
 	const task_index = locals.tasks.findIndex(t => t.name === task.name);
 	locals.tasks[task_index] = task;
 	return task;
+}
+
+async function call_for_time_logs(task, operator) {
+	await frappe.call({
+		method: 'timeclock.timeclock.page.job_timeclock.job_timeclock.manage_job_card_time_logs',
+		args: {
+			job_card: task.name,
+			operator: operator,
+			employee: locals.employee.name,
+		},
+		freeze: true,
+	});
+	return
 }
 
 function display_timer(job_card_time_log, operator) {
@@ -254,4 +220,65 @@ async function complete_task(task) {
 			get_and_render_tasks(locals.selected_job.name);
 		},
 	);
+}
+
+async function select_employee() {
+	// use the web nfc api to get the employee id from the nfc tag
+	try {
+		const reader = new NDEFReader();
+		await reader.scan();
+		reader.onreading = async event => {
+			const records = event.message.records;
+			const employee_id = new TextDecoder().decode(records[0].data);
+			// locals.employee = await frappe.db.get_doc('Employee', employee_id);
+			// // set the employee field to the employee
+			// timeclock_form.set_value('employee_name', locals.employee.employee_name);
+			set_employee(employee_id);
+		}
+	} catch (error) {
+		frappe.show_alert({message: error, indicator: 'orange'});
+		// open a modal with a link field to select the employee
+		manual_employee_selection();
+	}
+}
+
+async function manual_employee_selection() {
+	const d = new frappe.ui.Dialog({
+		title: 'Select Employee',
+		fields: [
+			{
+				fieldtype: 'Link',
+				fieldname: 'employee',
+				label: 'Employee',
+				options: 'Employee',
+				reqd: 1,
+			}
+		],
+	});
+	d.fields_dict.employee.$input.on('awesomplete-selectcomplete', async function () {
+		// locals.employee = await frappe.db.get_doc('Employee', d.get_value('employee'));
+		// timeclock_form.set_value('employee_name', locals.employee.employee_name);
+		set_employee(d.get_value('employee'));
+		d.hide();
+	});
+	d.show();
+}
+
+async function set_employee(employee) {
+	locals.employee = await frappe.db.get_doc('Employee', employee);
+	// page.set_title_sub(locals.employee.employee_name);
+	// insert the employee name into the page-title div
+	// first check if an employee-name-container is already there. if so, remove it
+	$('.employee-name-container').remove();
+	$('.page-title').append(`<div class="flex fill-width title-area employee-name-container">
+		<div>
+			<div class="flex">
+				<h3 class="ellipsis title-text" title="${locals.employee.employee_name}">${locals.employee.employee_name}</h3> <span
+					class="indicator-pill whitespace-nowrap"></span>
+			</div>
+			<div class="ellipsis sub-heading hide text-muted"></div>
+		</div> <button class="btn btn-default more-button hide"> <svg class="icon icon-sm">
+				<use href="#icon-dot-horizontal"> </use>
+			</svg> </button>
+	</div>`);
 }
