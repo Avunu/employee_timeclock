@@ -1,14 +1,15 @@
 let timeclock_form;
 let timerInterval;
-let page;
+// let page;
 
 frappe.pages['job-timeclock'].on_page_load = async function (wrapper) {
-	page = frappe.ui.make_app_page({
+	var page = frappe.ui.make_app_page({
 		parent: wrapper,
 		title: 'Job Timeclock',
 		single_column: true
 	});
-	page.add_button('Select Employee', function () { select_employee() });
+	page.add_button('Select Employee', function () { manual_employee_selection() });
+	page.add_button('Select Workstation', function () { select_workstation() });
 	page.add_button('Refresh Jobs', function () { refresh_jobs() });
 	timeclock_form = new frappe.ui.FieldGroup({
 		parent: page.body,
@@ -24,6 +25,9 @@ frappe.pages['job-timeclock'].on_page_load = async function (wrapper) {
 		],
 	});
 	timeclock_form.make();
+	// get a list of all the workstations
+	workstation_list = await frappe.db.get_list('Workstation', { fields: ['name'], filters: {} });
+	locals.workstation_list = workstation_list.map(workstation => workstation.name);
 	await get_and_render_jobs();
 	locals.timer = false;
 	select_employee();
@@ -53,9 +57,14 @@ frappe.pages['job-timeclock'].on_page_load = async function (wrapper) {
 				await complete_task(task);
 				return;
 			}
-			locals.selected_task = task;
-			const selected_task_card = $(event.target).closest('.card');
-			highlight_card(selected_task_card, 'selected_task_card');
+			// this needs to be here so that if someone else closed the task on a different device, it will be reflected here.
+			if (task.status === "Completed") {
+				get_and_render_tasks(locals.selected_job.name);
+			} else {
+				locals.selected_task = task;
+				const selected_task_card = $(event.target).closest('.card');
+				highlight_card(selected_task_card, 'selected_task_card');
+			}
 		}
 	});
 }
@@ -76,19 +85,20 @@ async function get_and_render_jobs() {
 
 // this gets all tasks for a given job
 async function get_and_render_tasks(job_name) {
-	// await timeclock_form.set_value('task_cards', '');
 	const tasks = await frappe.db.get_list('Job Card', {
 		fields: ['*'],
 		filters: {
 			work_order: job_name,
 			status: ['not in', ['Completed', 'Cancelled']],
+			workstation: locals.workstation || ['in', locals.workstation_list]
 		},
 		order_by: 'operation'
 	});
 	locals.tasks = tasks;
 	const task_cards = frappe.render_template('task_cards', { tasks: tasks });
 	timeclock_form.set_value('task_cards', task_cards);
-	if (!tasks.length) {
+	// TODO: change this check so it just sees if there are any tasks at all for the job
+	if (!tasks.length && !locals.workstation) {
 		// if there are no more tasks on that job, this asks the user if they want to mark it as complete
 		frappe.confirm(
 			`There are no tasks for ${job_name}. Would you like to mark the job as complete?`,
@@ -144,13 +154,13 @@ async function log_time(event, task, operator) {
 		// set the button that was clicked to say Stop
 		$(event.target).text('Stop').removeClass('start-button').addClass('stop-button');
 
-		const times = await call_for_time_logs(task, operator);
+		const times = await call_for_time_logs(task, operator, locals.employee.name);
 
 		locals.timer = true;
 		// Start the timer display
 		display_timer(times.from_time, operator);
 	} else {
-		const times = await call_for_time_logs(task, operator);
+		const times = await call_for_time_logs(task, operator, locals.employee.name);
 		if (operator === 'Stop') {
 			// set the button that was clicked to say Start and remove the stop-button class and add the start-button class
 			$(event.target).text('Start').removeClass('stop-button').addClass('start-button');
@@ -170,13 +180,13 @@ async function log_time(event, task, operator) {
 	return task;
 }
 
-async function call_for_time_logs(task, operator) {
+async function call_for_time_logs(task, operator, employee) {
 	const from_time = await frappe.call({
 		method: 'timeclock.timeclock.page.job_timeclock.job_timeclock.manage_job_card_time_logs',
 		args: {
 			job_card: task.name,
 			operator: operator,
-			employee: locals.employee.name,
+			employee: employee,
 		},
 		freeze: true,
 	});
@@ -221,15 +231,15 @@ function format_elapsed_time(elapsed_time) {
 }
 
 async function complete_task(task) {
-	// TODO: check to see if there are open job card time logs for this task. if there are, either alert to close them, or close them automatically. could we just reroute through log_time and it would close any? Ah, but it would look for employee specific time logs. This needs to be a broader check.
-	// if it does close the and not just alert, then we need to handle refreshing multiple devices?, since someone else might have the task timer up on another tablet? Or will there be on tablet allowed per station, and only one station for any task?
 	// confirm marking the task as complete
 	frappe.confirm(
 		`Mark ${task.operation} as complete?`,
 		async function () {
+			// close all the time logs on the task
+			await call_for_time_logs(task, null, null);
 			// set the task status to completed
 			await frappe.db.set_value('Job Card', task.name, 'status', 'Completed');
-			frappe.show_alert({ message: `${task.operation} marked as complete.`, indicator: 'green' });
+			frappe.show_alert({ message: `${locals.selected_job.name} ${task.operation} marked as complete.`, indicator: 'green' });
 			// refresh the task cards container
 			get_and_render_tasks(locals.selected_job.name);
 		},
@@ -322,4 +332,34 @@ async function check_for_active_task() {
 		// display the timer
 		display_timer(job_card_time_log[0].from_time, 'Start');
 	}
+	else {
+		// there is no active task
+		// show the job cards
+		await get_and_render_jobs();
+	}
+}
+
+async function select_workstation() {
+	const d = new frappe.ui.Dialog({
+		title: 'Select Workstation',
+		fields: [
+			{
+				fieldtype: 'Select',
+				fieldname: 'workstation',
+				label: 'Workstation',
+				// options are all the workstations
+				options: ['', ...locals.workstation_list],
+				default: locals.workstation || '',
+				reqd: 1,
+			}
+		],
+	});
+	d.fields_dict.workstation.$input.on('change', async function () {
+		locals.workstation = d.get_value('workstation');
+		d.hide();
+		if (locals.selected_job) {
+			get_and_render_tasks(locals.selected_job.name);
+		}
+	});
+	d.show();
 }
