@@ -8,8 +8,10 @@ frappe.pages['job-timeclock'].on_page_load = async function (wrapper) {
 		title: 'Job Timeclock',
 		single_column: true
 	});
-	page.add_button('Select Employee', function () { manual_employee_selection() });
-	page.add_button('Select Workstation', function () { select_workstation() });
+	page.add_menu_item('Select Employee', function () { manual_employee_selection() });
+	page.add_menu_item('Select Workstation', function () { select_workstation() });
+	// page.add_button('Select Employee', function () { manual_employee_selection() });
+	// page.add_button('Select Workstation', function () { select_workstation() });
 	page.add_button('Refresh Jobs', function () { refresh_jobs() });
 	timeclock_form = new frappe.ui.FieldGroup({
 		parent: page.body,
@@ -25,9 +27,6 @@ frappe.pages['job-timeclock'].on_page_load = async function (wrapper) {
 		],
 	});
 	timeclock_form.make();
-	// get a list of all the workstations
-	workstation_list = await frappe.db.get_list('Workstation', { fields: ['name'], filters: {} });
-	locals.workstation_list = workstation_list.map(workstation => workstation.name);
 	await get_and_render_jobs();
 	locals.timer = false;
 	select_employee();
@@ -85,20 +84,23 @@ async function get_and_render_jobs() {
 
 // this gets all tasks for a given job
 async function get_and_render_tasks(job_name) {
-	const tasks = await frappe.db.get_list('Job Card', {
+	const all_tasks = await frappe.db.get_list('Job Card', {
 		fields: ['*'],
 		filters: {
 			work_order: job_name,
 			status: ['not in', ['Completed', 'Cancelled']],
-			workstation: locals.workstation || ['in', locals.workstation_list]
 		},
 		order_by: 'operation'
 	});
+	let tasks = all_tasks;
+	if (locals.workstation) {
+		// if there is a workstation selected, filter out tasks that are not assigned to that workstation
+		tasks = all_tasks.filter(task => task.workstation === locals.workstation);
+	}
 	locals.tasks = tasks;
 	const task_cards = frappe.render_template('task_cards', { tasks: tasks });
 	timeclock_form.set_value('task_cards', task_cards);
-	// TODO: change this check so it just sees if there are any tasks at all for the job
-	if (!tasks.length && !locals.workstation) {
+	if (!tasks.length) {
 		// if there are no more tasks on that job, this asks the user if they want to mark it as complete
 		frappe.confirm(
 			`There are no tasks for ${job_name}. Would you like to mark the job as complete?`,
@@ -204,7 +206,7 @@ function display_timer(from_time, operator) {
 
 // This is messy but it works, based on the assumption that all the pequea db times are in eastern time
 function run_timer(from_time) {
-	const elapsed_time = calculate_elapsed_time(from_time, new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })) + 1;
+	const elapsed_time = calculate_elapsed_time(from_time, new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })) + 2;
 	const formatted_time = format_elapsed_time(elapsed_time);
 	// Get the task card with a stop button
 	const task_card = timeclock_form.fields_dict.task_cards.$wrapper.find('.card:contains(Stop)');
@@ -303,15 +305,14 @@ async function set_employee() {
 
 async function check_for_active_task() {
 	// check if there is a job card time log for this employee that has no to_time
-	const job_card_time_log = await frappe.db.get_list('Job Card Time Log', {
-		filters: {
+	let job_card_time_log = await frappe.call({
+		method: 'timeclock.timeclock.page.job_timeclock.job_timeclock.get_job_card_time_logs',
+		args: {
 			employee: locals.employee.name,
-			// from_time is not null and to_time is null,
-			from_time: ['!=', null],
-			to_time: null,
 		},
-		fields: ['from_time', 'parent'],
+		freeze: true,
 	});
+	job_card_time_log = job_card_time_log.message;
 	if (job_card_time_log.length > 0) {
 		// there is an active task
 		// find the job card for that task and highlight it and load the tasks
@@ -340,6 +341,9 @@ async function check_for_active_task() {
 }
 
 async function select_workstation() {
+	// get a list of all the workstations
+	let workstation_list = await frappe.db.get_list('Workstation', { fields: ['name'], filters: {} });
+	workstation_list = workstation_list.map(workstation => workstation.name);
 	const d = new frappe.ui.Dialog({
 		title: 'Select Workstation',
 		fields: [
@@ -347,8 +351,8 @@ async function select_workstation() {
 				fieldtype: 'Select',
 				fieldname: 'workstation',
 				label: 'Workstation',
-				// options are all the workstations
-				options: ['', ...locals.workstation_list],
+				// options are all the workstations plus an empty option for all workstations
+				options: ['', ...workstation_list],
 				default: locals.workstation || '',
 				reqd: 1,
 			}

@@ -15,7 +15,8 @@ def manage_job_card_time_logs(job_card, operator=None, employee=None):
             else:
                 # the job card was marked as complete when another user submitted it for completion. Get the time log for the job card and employee with the most recent modified date
                 time_log = frappe.get_list('Job Card Time Log', filters={'parent': job_card, 'employee': employee}, fields=['name', 'from_time', 'to_time'], order_by='modified desc', limit=1)
-                time_log = frappe.get_doc('Job Card Time Log', time_log[0].name)
+                if time_log:
+                    time_log = frappe.get_doc('Job Card Time Log', time_log[0].name)
             if operator == 'Start':
                 # add a new job card time log to the time log table on the job card
                 time_log = frappe.new_doc('Job Card Time Log')
@@ -44,3 +45,12 @@ def manage_job_card_time_logs(job_card, operator=None, employee=None):
             return 'Success'
     except Exception as e:
         frappe.throw(f"Error in manage_job_card_time_logs: {str(e)}")
+
+@frappe.whitelist()
+def get_job_card_time_logs(employee):
+    try:
+        # get all time logs for this employee that have no end time
+        time_logs = frappe.get_list('Job Card Time Log', filters={'to_time': None, 'employee': employee}, fields=['parent', 'from_time'])
+        return time_logs
+    except Exception as e:
+        frappe.throw(f"Error in get_job_card_time_logs: {str(e)}")

@@ -1,11 +1,11 @@
 import json
-
 import frappe
 import time
 import datetime
 import calendar
 import re
 import math
+
 
 # set invalid values for the time fields
 invalid_values = ['', 0, '00:00', 'undefined', None, 'None', 'null', 'NULL']
@@ -37,7 +37,6 @@ def get_weekly_hours(employee):
     # return the total hours
     return employee_hours
 
-
 @frappe.whitelist(allow_guest=True)
 def determine_next_log_type(employee, data):
     data = frappe._dict(json.loads(data))
@@ -64,7 +63,6 @@ def determine_next_log_type(employee, data):
 
     # Return 'IN' or 'OUT' based on last checkin or out
     return next_log_type
-
 
 # frappe.set_value(doctype, name, fieldname, value)
 
@@ -107,7 +105,6 @@ def submit_checkin(web_form, data):
 def enqueue_update_workday_from_checkin(checkin, method=None):
     frappe.enqueue('timeclock.timeclock.api.update_workday_from_checkin', queue='short', is_async=True, checkin=checkin)
     return
-
 
 @frappe.whitelist(allow_guest=True)
 def update_workday_from_checkin(checkin, method=None):
@@ -201,7 +198,6 @@ def update_workday_from_checkin(checkin, method=None):
 
     return checkin
 
-
 def build_workday(checkin_times, workday):
     # sort the check_times
     checkin_times.sort()
@@ -242,8 +238,6 @@ def build_workday(checkin_times, workday):
     
     return workday
 
-
-
 def clear_workday_punch_on_checkin_trash(checkin, method=None):
     # check to see if a workday is linked to the checkin
     if checkin.workday:
@@ -278,7 +272,6 @@ def clear_workday_punch_on_checkin_trash(checkin, method=None):
         frappe.db.commit()
 
     return
-
 
 @frappe.whitelist(allow_guest=True)
 def workday_update_total_hours(workday, method=None):
