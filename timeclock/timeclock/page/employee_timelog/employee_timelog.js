@@ -20,10 +20,12 @@ frappe.pages['employee_timelog'].on_page_load = function(wrapper) {
 			{ fieldtype: 'Column Break', fieldname: 'column_break_1' },
 			// html field for clock
 			{ fieldtype: 'HTML', fieldname: 'clock', label: 'Clock', description: 'Clock' },
+			// html field for the date
+			{ fieldtype: 'HTML', fieldname: 'date', label: 'Date', description: 'Date' },
 			// section break
 			{ fieldtype: 'Section Break', fieldname: 'section_break_1' },
 			// button for manual time entry
-			{ fieldtype: 'Button', fieldname: 'manual_time_entry', label: 'Manual Time Entry', onclick: () => { manual_time_entry() } },
+			{ fieldtype: 'Button', fieldname: 'manual_time_entry', label: 'Manual Time Entry'},
 			// employee html field
 			{ fieldtype: 'HTML', fieldname: 'employee', label: 'Employee', description: 'Employee Name', options: '<h4 id="employee">Employee</h4>' },
 			// html field for reload button
@@ -34,9 +36,14 @@ frappe.pages['employee_timelog'].on_page_load = function(wrapper) {
 
 
 			
-	
-
+	updateClock();
+	setInterval(updateClock, 1000);
 	select_employee();
+
+	// on click on the manual time entry button, open a modal with a link field to select the employee
+	timelog_form.fields_dict.manual_time_entry.$input.on('click', function () {
+		manual_time_entry();
+	});
 }
 
 async function select_employee() {
@@ -90,4 +97,52 @@ async function set_employee() {
 
 async function log_time() {
 
+}
+
+async function manual_time_entry() {
+	console.log('manual time entry');
+	const d = new frappe.ui.Dialog({
+		title: 'Manual Time Entry',
+		fields: [
+			{
+				fieldtype: 'Datetime',
+				fieldname: 'time',
+				label: 'Time',
+				reqd: 1,
+			},
+			// clock out checkbox and clock in checkbox, only one can be checked at a time
+			// {
+			// 	fieldtype: 'Radio',
+			// 	fieldname: 'type',
+			// 	label: 'Type',
+			// 	options: 'Clock In\nClock Out',
+			// 	reqd: 1,
+			// },
+		],
+	});
+	d.set_primary_action('Submit', async function () {
+		const time = d.get_value('time');
+		const type = d.get_value('type');
+		const employee = locals.employee.name;
+		// const doc = await frappe.db.insert({
+		// 	doctype: 'Time Log',
+		// 	time: time,
+		// 	type: type,
+		// 	employee: employee,
+		// });
+		d.hide();
+	});
+	d.show();
+}
+
+// run the digital clock
+function updateClock() {
+	const now = new Date();
+	const hours = now.getHours() % 12 || 12;
+	const minutes = now.getMinutes().toString().padStart(2, '0');
+	const amPm = now.getHours() < 12 ? 'AM' : 'PM';
+	const timeString = `${hours}:${minutes} ${amPm}`;
+	const dateString = now.toDateString();
+	timelog_form.fields_dict.clock.$wrapper.html(`<h1 id="time" style="text-align: right">${timeString}</h1>`);
+	timelog_form.fields_dict.date.$wrapper.html(`<h3 id="date" style="text-align: right">${dateString}</h3>`);
 }
