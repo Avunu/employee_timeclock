@@ -1,6 +1,5 @@
 let timeclock_form;
 let timerInterval;
-// let page;
 
 frappe.pages['job-timeclock'].on_page_load = async function (wrapper) {
 	var page = frappe.ui.make_app_page({
@@ -105,6 +104,7 @@ async function get_and_render_tasks(job_name) {
 		frappe.confirm(
 			`There are no tasks for ${job_name}. Would you like to mark the job as complete?`,
 			async function () {
+				// this gives an error, says we can't change the status after submission
 				await frappe.db.set_value('Work Order', job_name, 'status', 'Completed');
 				frappe.show_alert({ message: `${job_name} marked as complete.`, indicator: 'green' });
 				refresh_jobs();
@@ -206,7 +206,7 @@ function display_timer(from_time, operator) {
 
 // This is messy but it works, based on the assumption that all the pequea db times are in eastern time
 function run_timer(from_time) {
-	const elapsed_time = calculate_elapsed_time(from_time, new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })) + 2;
+	const elapsed_time = calculate_elapsed_time(from_time, new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
 	const formatted_time = format_elapsed_time(elapsed_time);
 	// Get the task card with a stop button
 	const task_card = timeclock_form.fields_dict.task_cards.$wrapper.find('.card:contains(Stop)');
@@ -240,6 +240,7 @@ async function complete_task(task) {
 			// close all the time logs on the task
 			await call_for_time_logs(task, null, null);
 			// set the task status to completed
+			// this isn't sticking. there's no error, but the task comes up again because the status isn't changing
 			await frappe.db.set_value('Job Card', task.name, 'status', 'Completed');
 			frappe.show_alert({ message: `${locals.selected_job.name} ${task.operation} marked as complete.`, indicator: 'green' });
 			// refresh the task cards container

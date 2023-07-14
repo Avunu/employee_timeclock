@@ -1,180 +1,6 @@
-// frappe.web_form is employee_timelog.js
-// function reset_form(form_entry) {
-// 	// reset the form
-// 	update_form_value(form_entry, 'manual_override', '');
-// 	update_form_value(form_entry, 'manual_override_date', frappe.datetime.now_date());
-// 	update_form_value(form_entry, 'manual_override_time', '');
-// 	update_form_value(form_entry, 'time', '');
-// 	update_form_value(form_entry, 'log_type', 'IN');
-// 	update_form_value(form_entry, 'employee', '');
-// 	jQuery("input[data-fieldname='employee']").focus();
-// }
-
-// function update_form_value(form_entry, field_name, value) {
-// 	form_entry[field_name] = value;
-// 	frappe.web_form.set_value(field_name, value);
-// }
-
-// function save_form(form_entry) {
-// 	// save the form
-// 	Object.assign(frappe.web_form.doc, form_entry);
-// 	frappe.web_form.doc.doctype = frappe.web_form.doc_type;
-// 	frappe.web_form.doc.web_form_name = frappe.web_form.name;
-// 	// make sure employee is set
-// 	if (!'employee' in form_entry) {
-// 		return;
-// 	}
-// 	// make sure time isn't in the future
-// 	else if (Date.parse(form_entry.time) > Date.parse(frappe.datetime.now_datetime())) {
-// 		time_travel_gif = 'https://media4.giphy.com/media/3ov9jU4ycPvfrPTsly/giphy.gif';
-// 		alert_message = '<b>Time Traveler!</b><br>It looks like you are trying to clock in the future. Please check your time and try again.<br><img src="' + time_travel_gif + '" style="width: 100%; max-width: 10rem; margin-top: 1rem;">';
-// 		frappe.show_alert({
-// 			message: __(alert_message),
-// 			indicator: 'orange'
-// 		}, 5);
-// 		reset_form(form_entry);
-// 		return;
-// 	}
-// 	// tests passed, save the form
-// 	else {
-// 		window.saving = true;
-// 		frappe.form_dirty = false;
-// 		frappe.call({
-// 			type: "POST",
-// 			method: "timeclock.timeclock.api.submit_checkin",
-// 			args: {
-// 				web_form: frappe.web_form.name,
-// 				data: frappe.web_form.doc
-// 			},
-// 			callback: function (response) {
-// 				employee = form_entry.employee;
-// 				log_type = response.message;
-// 				reset_form(form_entry);
-// 				frappe.call({
-// 					method: "timeclock.timeclock.api.get_weekly_hours",
-// 					args: {
-// 						"employee": employee
-// 					},
-// 					callback: function (response) {
-// 						employee_name = response.message[0];
-// 						weekly_hours = response.message[1];
-// 						alert_message = '<h3>Clocked ' + log_type.toLowerCase() + '!</h3><large>' + employee_name + ', you have logged ' + weekly_hours + ' hours this week.</large>';
-// 						// set the alert color based on the log type
-// 						if (log_type == 'IN') {
-// 							alert_color = 'green';
-// 						} else {
-// 							alert_color = 'red';
-// 						}
-// 						frappe.show_alert({
-// 							message: __(alert_message),
-// 							indicator: alert_color
-// 						}, 7);
-// 					},
-// 					error: (r) => {
-// 						reset_form(form_entry);
-// 					}
-// 				});
-// 			}
-// 		});
-// 		return;
-// 	}
-// }
-
-// frappe.init_client_script = () => {
-// 	try {
-
-// 		var firstOpen = true;
-// 		var time;
-
-// 		const manual_override_time = new tempusDominus.TempusDominus(document.querySelector("[data-fieldname='manual_override_time']"), {
-// 			display: {
-// 				viewMode: 'clock',
-// 				theme: 'light',
-// 				icons: {
-// 					type: 'icons',
-// 					up: 'octicon octicon-chevron-up',
-// 					down: 'octicon octicon-chevron-down'
-// 				},
-// 				components: {
-// 					decades: false,
-// 					year: false,
-// 					month: false,
-// 					date: false,
-// 					hours: true,
-// 					minutes: true,
-// 					seconds: false
-// 				}
-// 			}
-// 		});
-
-// 		// focus on the employee field on page load
-// 		frappe.web_form.after_load = () => {
-// 			jQuery("input[data-fieldname='employee']").focus();
-// 		}
-
-// 		// create "clock in" and "clock out" buttons from the "log_type" select/dropdown
-// 		jQuery("select[data-fieldname='log_type'] option").each(function (i, e) {
-// 			select_option = jQuery(this).val();
-// 			(jQuery("<input type='radio' name='r' style='display:none;' />")
-// 				.attr("value", select_option)
-// 				.attr("id", select_option)
-// 				.attr("checked", i == 0)
-// 				.click(function () {
-// 					jQuery("select[data-fieldname='log_type']").val(select_option);
-// 				}).add($("<label class='btn btn-light btn-lg mr-4' for='" + select_option + "'>Clock " + this.textContent.toLowerCase() + "</label>")))
-// 				.appendTo("#r");
-// 		});
-
-// 		jQuery("#reset").click(function () {
-// 			window.location.href = '/employee-timeclock?new=1';
-// 		});
-
-// 		// calculate and set form values, save the form after employee selection
-// 		frappe.web_form.on('employee', (field, value) => {
-// 			let form_entry = frappe.web_form.get_values();
-// 			if ('employee' in form_entry) {
-// 				employee = form_entry.employee;
-// 			} else {
-// 				return;
-// 			}
-// 			// set the time first
-// 			if (form_entry.manual_override) {
-// 				update_form_value(form_entry, 'manual_override_time', manual_override_time.viewDate.format({ hour12: false, hour: '2-digit', minute: 'numeric', second: 'numeric' }));
-// 				time = form_entry.manual_override_date + ' ' + form_entry.manual_override_time;
-// 			} else {
-// 				time = frappe.datetime.now_datetime();
-// 			}
-// 			update_form_value(form_entry, 'time', time);
-
-// 			if (form_entry.manual_override) {
-// 				save_form(form_entry);
-// 			} else {
-// 				// get the next log time from the API
-// 				frappe.call({
-// 					method: "timeclock.timeclock.api.determine_next_log_type",
-// 					args: {
-// 						"employee": employee,
-// 						"data": form_entry
-// 					},
-// 					callback: function (response) {
-// 						log_type = response.message;
-// 						update_form_value(form_entry, 'log_type', log_type);
-// 						save_form(form_entry);
-// 					}
-// 				});
-// 			}
-// 		});
-
-// 	} catch (e) {
-// 		console.error('Error in web form client script');
-// 		console.error(e);
-// 	}
-// }
-
-
 let timelog_form
 
-frappe.pages['employee_timelog'].on_page_load = function(wrapper) {
+frappe.pages['employee_timelog'].on_page_load = function (wrapper) {
 	var page = frappe.ui.make_app_page({
 		parent: wrapper,
 		title: 'Employee Timelog',
@@ -198,11 +24,11 @@ frappe.pages['employee_timelog'].on_page_load = function(wrapper) {
 			// html field for the date
 			{ fieldtype: 'HTML', fieldname: 'date', label: 'Date', description: 'Date' },
 			// section break
-			{ fieldtype: 'Section Break', fieldname: 'section_break_1' },
+			// { fieldtype: 'Section Break', fieldname: 'section_break_1' },
 			// button for manual time entry
 			// { fieldtype: 'Button', fieldname: 'manual_time_entry', label: 'Manual Time Entry'},
 			// employee html field
-			{ fieldtype: 'HTML', fieldname: 'employee', label: 'Employee', description: 'Employee Name', options: '<h4 id="employee"></h4>' },
+			// { fieldtype: 'HTML', fieldname: 'employee', label: 'Employee', description: 'Employee Name', options: '<h4 id="employee"></h4>' },
 			// html field for reload button
 			// { fieldtype: 'HTML', fieldname: 'reload', label: 'Reload', description: 'Reload the page', options: '<button class="btn btn-primary btn-lg" onclick="window.location.reload();">Reload</button>' },
 		],
@@ -211,6 +37,8 @@ frappe.pages['employee_timelog'].on_page_load = function(wrapper) {
 
 	updateClock();
 	setInterval(updateClock, 1000);
+	// set and interval to reload the page every hour
+	setInterval(function () { window.location.reload(); }, 3600000);
 	select_employee();
 
 	// on click on the manual time entry button, open a modal with a link field to select the employee
@@ -230,6 +58,7 @@ async function select_employee() {
 			// find the employee whose attendance device id matches the employee tag id
 			employee_list = await frappe.db.get_list('Employee', { fields: ['employee_name', 'name'], filters: { attendance_device_id: employee_tag_id } });
 			locals.employee = employee_list[0];
+			locals.manual_override = false;
 			set_employee();
 		}
 	} catch (error) {
@@ -253,18 +82,23 @@ async function manual_employee_selection() {
 		],
 	});
 	d.fields_dict.employee.$input.on('awesomplete-selectcomplete', async function () {
-		// filter to just get employee_name and name fields. we don't want all the employee data being accessed here.
-		employee_list = await frappe.db.get_list('Employee', { fields: ['employee_name', 'name'], filters: { name: d.get_value('employee') } });
-		locals.employee = employee_list[0];
-		set_employee();
+		locals.manual_override = false;
+		get_employee_by_name(d.get_value('employee'));
 		d.hide();
 	});
 	d.show();
 }
 
+async function get_employee_by_name(employee_name) {
+	// filter to just get employee_name and name fields. we don't want all the employee data being accessed here.
+	employee_list = await frappe.db.get_list('Employee', { fields: ['employee_name', 'name'], filters: { name: employee_name } });
+	locals.employee = employee_list[0];
+	set_employee();
+}
+
 async function set_employee() {
 	// set the employee name in the employee field
-	timelog_form.fields_dict.employee.$wrapper.html(`<h4 id="employee">${locals.employee.employee_name}</h4>`);
+	// timelog_form.fields_dict.employee.$wrapper.html(`<h4 id="employee">${locals.employee.employee_name}</h4>`);
 	log_time();
 }
 
@@ -274,6 +108,7 @@ async function log_time() {
 		method: "timeclock.timeclock.api.determine_next_log_type",
 		args: {
 			"employee": locals.employee.name,
+			"data": null
 		},
 		callback: function (response) {
 			log_type = response.message;
@@ -282,6 +117,7 @@ async function log_time() {
 			// set the log type
 			// timelog_form.fields_dict.log_type.$input.val(log_type);
 			locals.log_type = log_type;
+			locals.time = frappe.datetime.now_datetime();
 			// save the form
 			save_form();
 		}
@@ -289,20 +125,43 @@ async function log_time() {
 }
 
 async function save_form() {
+	if (Date.parse(locals.time) > Date.parse(frappe.datetime.now_datetime())) {
+		time_travel_gif = 'https://media4.giphy.com/media/3ov9jU4ycPvfrPTsly/giphy.gif';
+		alert_message = '<b>Time Traveler!</b><br>It looks like you are trying to log time in the future. Please check your time and try again.<br><img src="' + time_travel_gif + '" style="width: 100%; max-width: 10rem; margin-top: 1rem;">';
+		frappe.show_alert({
+			message: __(alert_message),
+			indicator: 'orange'
+		}, 5);
+		// reset_form(form_entry);
+		return;
+	}
 	// save the form
-	const time = frappe.datetime.now_datetime();
-	const type = locals.log_type
-	const employee = locals.employee.name;
-	const doc = await frappe.db.insert({
-		doctype: 'Time Log',
-		time: time,
-		type: type,
-		employee: employee,
+	await frappe.call({
+		// type: "POST",
+		// // /var/www/pequea.avu.nu/html/apps/timeclock/timeclock/timeclock/page/employee_timelog/employee_timelog.py
+		// method: "timeclock.timeclock.page.employee_timelog.employee_timelog.submit_checkin",
+		// /var/www/pequea.avu.nu/html/apps/timeclock/timeclock/timeclock/api.py
+		method: "timeclock.timeclock.api.submit_checkin2",
+		args: {
+			data: {
+				employee: locals.employee.name,
+				time: locals.time,
+				log_type: locals.log_type,
+				manual_override: locals.manual_override,
+				device_id: 'Employee Clock-in/out Device'
+			}
+		}
+	});
+	const weekly_hours = await frappe.call({
+		method: "timeclock.timeclock.api.get_weekly_hours",
+		args: {
+			"employee": locals.employee.name
+		}
 	});
 	// show an alert
-	alert_message = `<h3>Clocked ${type.toLowerCase()}!</h3><large>${locals.employee.employee_name}, you have logged ${doc.weekly_hours} hours this week.</large>`;
+	alert_message = `<h3>Clocked ${locals.log_type.toLowerCase()}!</h3><large>${locals.employee.employee_name}, you have logged ${weekly_hours.message[1]} hours this week.</large>`;
 	// set the alert color based on the log type
-	if (type == 'IN') {
+	if (locals.log_type == 'IN') {
 		alert_color = 'green';
 	} else {
 		alert_color = 'red';
@@ -326,30 +185,67 @@ async function manual_time_entry() {
 				reqd: 1,
 			},
 			{
-				fieldtype: 'Datetime',
+				fieldtype: 'HTML',
 				fieldname: 'time',
 				label: 'Time',
+				description: 'Time',
+				// options will be an html time field
+				options: `
+					<form>
+						<label for="startTime">Time: </label>
+						<input type="time" id="startTime" />
+					</form>
+				`,
+			},
+			// field for the date
+			{
+				fieldtype: 'Date',
+				fieldname: 'date',
+				label: 'Date',
+				description: 'Date',
+				default: frappe.datetime.now_date(),
 				reqd: 1,
 			},
-			{ fieldtype: 'HTML', fieldname: 'type', label: 'Type', description: 'Type', reqd: 1, options: 
-				`<h4>Clock in/out</h4>
-				<form>
-				<input type="radio" id="clock_in" value="Clock In">
-				<label for="clock_in">Clock In</label><br>
-				<input type="radio" id="clock_out" value="Clock Out">
-				<label for="clock_out">Clock Out</label><br></form>
-				</form>`
+			{
+				fieldtype: 'HTML',
+				fieldname: 'log_type',
+				label: 'Log Type',
+				description: 'Log Type',
+				options: `
+					<h4>Clock in/out</h4>
+					<form>
+						<input type="radio" id="clock_in" name="log_type" value="Clock In">
+						<label for="clock_in">Clock In</label><br>
+						<input type="radio" id="clock_out" name="log_type" value="Clock Out">
+						<label for="clock_out">Clock Out</label><br>
+					</form>
+				`,
 			},
 		],
 	});
-	d.set_primary_action('Submit', async function () {
-		const time = d.get_value('time');
-		const type = d.get_value('type');
-		const employee = d.get_value('employee');
 
+	d.set_primary_action('Submit', async function () {
+		// locals.time = d.get_value('time');
+		// get the time from the time input in the time field
+		const time = d.$wrapper.find('#startTime').val();
+		const date = d.get_value('date');
+		// combine the date and time into a datetime
+		locals.time = frappe.datetime.add_days(date, 0) + ' ' + time;
+		locals.log_type = document.querySelector('input[name="log_type"]:checked').value;
+		locals.manual_override = true;
+		if (!locals.time || !locals.log_type) {
+			frappe.show_alert({ message: 'Please fill out all fields', indicator: 'orange' });
+			return;
+		}
+		get_employee_by_name(d.get_value('employee'));
 		d.hide();
 	});
+
 	d.show();
+	// render the tempus_dominus_template in the time field
+	// could not get this to work
+	// d.set_value('time', frappe.render_template('tempus_dominus_template'));
+
 }
 
 // run the digital clock

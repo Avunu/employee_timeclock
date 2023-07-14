@@ -6,7 +6,13 @@ def manage_job_card_time_logs(job_card, operator=None, employee=None):
     try:
         if employee:
             # check if there is a job card time log that has no end time for this employee
-            time_log = frappe.get_list('Job Card Time Log', filters={'to_time': None, 'employee': employee}, fields=['name', 'from_time', 'to_time'])
+            # time_log = frappe.get_list('Job Card Time Log', filters={'to_time': None, 'employee': employee}, fields=['name', 'from_time', 'to_time'])
+            time_log = frappe.db.sql("""
+                SELECT name, from_time, to_time
+                FROM `tabJob Card Time Log`
+                WHERE to_time IS NULL
+                AND employee = %(employee)s
+            """, {"employee": employee}, as_dict=True)
             if time_log:
                 # update the time log with the end time
                 time_log = frappe.get_doc('Job Card Time Log', time_log[0].name)
@@ -14,7 +20,15 @@ def manage_job_card_time_logs(job_card, operator=None, employee=None):
                 time_log.save()
             else:
                 # the job card was marked as complete when another user submitted it for completion. Get the time log for the job card and employee with the most recent modified date
-                time_log = frappe.get_list('Job Card Time Log', filters={'parent': job_card, 'employee': employee}, fields=['name', 'from_time', 'to_time'], order_by='modified desc', limit=1)
+                # time_log = frappe.get_list('Job Card Time Log', filters={'parent': job_card, 'employee': employee}, fields=['name', 'from_time', 'to_time'], order_by='modified desc', limit=1)
+                time_log = frappe.db.sql("""
+                    SELECT name, from_time, to_time
+                    FROM `tabJob Card Time Log`
+                    WHERE parent = %(job_card)s
+                    AND employee = %(employee)s
+                    ORDER BY modified desc
+                    LIMIT 1
+                """, {"job_card": job_card, "employee": employee}, as_dict=True)
                 if time_log:
                     time_log = frappe.get_doc('Job Card Time Log', time_log[0].name)
             if operator == 'Start':
@@ -27,7 +41,7 @@ def manage_job_card_time_logs(job_card, operator=None, employee=None):
                 time_log.employee = employee
                 time_log.from_time = frappe.utils.now_datetime()
                 time_log.to_time = None
-                time_log.idx = len(frappe.get_list('Job Card Time Log', filters={'parent': job_card, 'employee': employee}, fields=['name'])) + 1
+                # time_log.idx = len(frappe.get_list('Job Card Time Log', filters={'parent': job_card, 'employee': employee}, fields=['name'])) + 1
                 time_log.save()
             frappe.db.commit()
             return {
@@ -36,7 +50,13 @@ def manage_job_card_time_logs(job_card, operator=None, employee=None):
             }
         else:
             # look for all time logs that have no end time for this job card, regardless of employee, and close them
-            time_logs = frappe.get_list('Job Card Time Log', filters={'to_time': None, 'parent': job_card}, fields=['name', 'from_time', 'to_time'])
+            # time_logs = frappe.get_list('Job Card Time Log', filters={'to_time': None, 'parent': job_card}, fields=['name', 'from_time', 'to_time'])
+            time_logs = frappe.db.sql("""
+                SELECT name, from_time, to_time
+                FROM `tabJob Card Time Log`
+                WHERE to_time IS NULL
+                AND parent = %(job_card)s
+            """, {"job_card": job_card}, as_dict=True)
             for time_log in time_logs:
                 time_log = frappe.get_doc('Job Card Time Log', time_log.name)
                 time_log.to_time = frappe.utils.now_datetime()
@@ -49,8 +69,26 @@ def manage_job_card_time_logs(job_card, operator=None, employee=None):
 @frappe.whitelist()
 def get_job_card_time_logs(employee):
     try:
-        # get all time logs for this employee that have no end time
-        time_logs = frappe.get_list('Job Card Time Log', filters={'to_time': None, 'employee': employee}, fields=['parent', 'from_time'])
+        # Construct the SQL query string
+        sql_query = """
+            SELECT parent, from_time
+            FROM `tabJob Card Time Log`
+            WHERE to_time IS NULL
+            AND employee = %(employee)s
+        """
+
+        # Execute the SQL query and fetch the results
+        time_logs = frappe.db.sql(sql_query, {"employee": employee}, as_dict=True)
+
         return time_logs
     except Exception as e:
         frappe.throw(f"Error in get_job_card_time_logs: {str(e)}")
+
+# @frappe.whitelist()
+# def get_job_card_time_logs(employee):
+#     try:
+#         # get all time logs for this employee that have no end time
+#         time_logs = frappe.get_list('Job Card Time Log', filters={'to_time': None, 'employee': employee}, fields=['parent', 'from_time'])
+#         return time_logs
+#     except Exception as e:
+#         frappe.throw(f"Error in get_job_card_time_logs: {str(e)}")

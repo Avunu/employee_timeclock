@@ -39,7 +39,8 @@ def get_weekly_hours(employee):
 
 @frappe.whitelist(allow_guest=True)
 def determine_next_log_type(employee, data):
-    data = frappe._dict(json.loads(data))
+    # data is unused
+    # data = frappe._dict(json.loads(data))
 
     # Get the checkins and checkouts of the employee for the current day
     response = frappe.get_all('Employee Checkin',
@@ -359,4 +360,41 @@ def update_checkins_from_workday(workday, method=None):
                         'Employee Checkin', existing_checkins[i-1]['name'])
                     checkin.delete(ignore_permissions=True)
                     frappe.db.commit()
+    return
+
+@frappe.whitelist(allow_guest=True)
+def submit_checkin2(data):
+    '''Save the web form'''
+    data = frappe._dict(json.loads(data))
+    entry_time = datetime.datetime.strptime(data.time, '%Y-%m-%d %H:%M:%S')
+    checkin_time = entry_time.strftime('%Y-%m-%d %H:%M')+':00'
+    checkin_exists = []
+    # make sure that checkin doesn't exist with the same time
+    checkin_exists = frappe.get_all('Employee Checkin',
+                                    filters={
+                                        'employee': data.employee,
+                                        'time': checkin_time,
+                                    },
+                                    fields=['name'],
+                                    order_by='time desc',
+                                    )
+    if checkin_exists:
+        # DO WE NEED THIS? THE EMPLOYEE AND TIME ARE ALREADY IN...
+        checkin = frappe.get_doc('Employee Checkin', checkin_exists[0]['name'])
+        # update the checkin
+        checkin.time = checkin_time
+        checkin.save(ignore_permissions=True)
+        frappe.db.commit()
+    else:
+        # create the checkin
+        checkin = frappe.new_doc('Employee Checkin')
+        checkin.employee = data.employee
+        checkin.time = checkin_time
+        checkin.log_type = data.log_type
+        checkin.manual_override = data.manual_override
+        checkin.device_id = data.device_id
+        checkin.insert(ignore_permissions=True)
+        # update the workday
+        update_workday_from_checkin(checkin)
+
     return
