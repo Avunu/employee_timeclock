@@ -100,16 +100,18 @@ async function get_and_render_tasks(job_name) {
 	const task_cards = frappe.render_template('task_cards', { tasks: tasks });
 	timeclock_form.set_value('task_cards', task_cards);
 	if (!tasks.length) {
+		// show an alert that there aren't any open tasks for this job
+		frappe.show_alert({ message: `There are no open tasks for ${job_name}.`, indicator: 'orange' });
 		// if there are no more tasks on that job, this asks the user if they want to mark it as complete
-		frappe.confirm(
-			`There are no tasks for ${job_name}. Would you like to mark the job as complete?`,
-			async function () {
-				// this gives an error, says we can't change the status after submission
-				await frappe.db.set_value('Work Order', job_name, 'status', 'Completed');
-				frappe.show_alert({ message: `${job_name} marked as complete.`, indicator: 'green' });
-				refresh_jobs();
-			},
-		)
+		// frappe.confirm(
+		// 	`There are no tasks for ${job_name}. Would you like to mark the job as complete?`,
+		// 	async function () {
+		// 		// this gives an error, says we can't change the status after submission
+		// 		await frappe.db.set_value('Work Order', job_name, 'status', 'Completed');
+		// 		frappe.show_alert({ message: `${job_name} marked as complete.`, indicator: 'green' });
+		// 		refresh_jobs();
+		// 	},
+		// )
 	}
 }
 
@@ -240,8 +242,14 @@ async function complete_task(task) {
 			// close all the time logs on the task
 			await call_for_time_logs(task, null, null);
 			// set the task status to completed
-			// this isn't sticking. there's no error, but the task comes up again because the status isn't changing
-			await frappe.db.set_value('Job Card', task.name, 'status', 'Completed');
+			// call the backend to submit the task
+			await frappe.call({
+				method: 'timeclock.timeclock.page.job_timeclock.job_timeclock.finish_job_card',
+				args: {
+					job_card_name: task.name,
+				},
+				freeze: true,
+			});
 			frappe.show_alert({ message: `${locals.selected_job.name} ${task.operation} marked as complete.`, indicator: 'green' });
 			// refresh the task cards container
 			get_and_render_tasks(locals.selected_job.name);

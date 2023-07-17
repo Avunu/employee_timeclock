@@ -1,4 +1,5 @@
 import frappe
+import asyncio
 
 
 @frappe.whitelist()
@@ -84,11 +85,30 @@ def get_job_card_time_logs(employee):
     except Exception as e:
         frappe.throw(f"Error in get_job_card_time_logs: {str(e)}")
 
-# @frappe.whitelist()
-# def get_job_card_time_logs(employee):
-#     try:
-#         # get all time logs for this employee that have no end time
-#         time_logs = frappe.get_list('Job Card Time Log', filters={'to_time': None, 'employee': employee}, fields=['parent', 'from_time'])
-#         return time_logs
-#     except Exception as e:
-#         frappe.throw(f"Error in get_job_card_time_logs: {str(e)}")
+@frappe.whitelist()
+def finish_job_card(job_card_name):
+    try:
+        job_card = frappe.get_doc('Job Card', job_card_name)
+        # THIS IS VERY HACKY AND SHOULD BE FIXED WITH A BETTER SOLUTION
+        # get the last time log for this job card using sql
+        if job_card.total_completed_qty != job_card.for_quantity:
+            # get the difference between the total_completed_qty and the for_quantity
+            difference = job_card.for_quantity - job_card.total_completed_qty
+            time_log = frappe.db.sql("""
+                SELECT name
+                FROM `tabJob Card Time Log`
+                WHERE parent = %(job_card)s
+                ORDER BY modified desc
+                LIMIT 1
+            """, {"job_card": job_card_name}, as_dict=True)
+            if time_log:
+                time_log = frappe.get_doc('Job Card Time Log', time_log[0].name)
+                # set the completed_qty to the job_card for_quantity
+                time_log.completed_qty = difference
+                time_log.save()
+            job_card.reload()
+        job_card.submit()
+        frappe.db.commit()
+        return 'Success'
+    except Exception as e:
+        frappe.throw(f"Error in finish_job_card: {str(e)}")
