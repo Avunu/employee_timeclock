@@ -8,8 +8,10 @@ frappe.pages['employee_timelog'].on_page_load = function (wrapper) {
 	});
 	page.set_title('Employee Clock-in/out')
 	// page.set_title_sub('Please scan your ID')
-	page.add_menu_item('Select Employee', function () { manual_employee_selection() });
 	page.add_button('Manual Time Entry', function () { manual_time_entry() });
+	page.add_menu_item('Select Employee', function () { manual_employee_selection() });
+	// add a menu item for requesting permission to use the nfc reader
+	page.add_menu_item('Request NFC Permission', function () { request_nfc_permission() });
 
 	// create a new timelog form
 	timelog_form = new frappe.ui.FieldGroup({
@@ -47,11 +49,36 @@ frappe.pages['employee_timelog'].on_page_load = function (wrapper) {
 	// });
 }
 
+async function request_nfc_permission() {
+	frappe.show_alert({ message: 'Requesting NFC permission', indicator: 'green' });
+	try {
+		reader = new NDEFReader();
+		await reader.scan();
+		frappe.show_alert({ message: 'NFC permission granted', indicator: 'green' });
+		// wait 1 second
+		await new Promise(r => setTimeout(r, 1000));
+		// refresh the page
+		window.location.reload();
+	} catch (error) {
+		frappe.show_alert({ message: error, indicator: 'orange' });
+	}
+}
+
 async function select_employee() {
 	// use the web nfc api to get the employee id from the nfc tag
 	try {
+		// request permission to use the nfc reader
+		// await window.navigator.nfc.requestPermission();
+		// if ('NDEFReader' in window) {
+		// 	frappe.show_alert({ message: 'NFC is supported', indicator: 'green' });
+		// } else {
+		// 	frappe.show_alert({ message: 'NFC is not supported', indicator: 'orange' });
+		// }
 		const reader = new NDEFReader();
 		await reader.scan();
+		reader.onreadingerror = () => {
+			frappe.show_alert({ message: 'Cannot read data from the NFC tag. Try again.', indicator: 'orange' });
+		}
 		reader.onreading = async event => {
 			const records = event.message.records;
 			const employee_tag_id = new TextDecoder().decode(records[0].data);

@@ -4,13 +4,17 @@
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
- "modified": "2023-07-11 14:14:31.978322",
+ "modified": "2023-08-17 16:24:56.586298",
  "modified_by": "Administrator",
  "module": "Timeclock",
  "name": "employee_timelog",
  "owner": "Administrator",
  "page_name": "employee_timelog",
- "roles": [],
+ "roles": [
+  {
+   "role": "Guest"
+  }
+ ],
  "script": null,
  "standard": "Yes",
  "style": null,
