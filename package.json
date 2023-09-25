@@ -1,6 +1,32 @@
 {
+  "name": "timeclock",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:job_timeclock": "vite build --watch --config=./timeclock/www/job_timeclock/src/vite.config.js",
+    "dev:timeclock": "vite build --watch --config=./timeclock/www/timeclock/vite.config.js",
+    "dev:project_list": "vite build --watch --config=./timeclock/www/project_list/vite.config.js",
+    "preview:job_timeclock": "vite build --config=./timeclock/www/job_timeclock/src/vite.config.js",
+    "preview:timeclock": "vite build --config=./timeclock/www/timeclock/vite.config.js",
+    "preview:project_list": "vite build --config=./timeclock/www/project_list/vite.config.js"
+  },
   "dependencies": {
-    "@eonasdan/tempus-dominus": "^6.0.0-beta9",
-    "@popperjs/core": "^2.11.5"
+    "@eonasdan/tempus-dominus": "^6",
+    "@headlessui/vue": "^1.7.16",
+    "@heroicons/vue": "^2.0.18",
+    "@popperjs/core": "^2.11.8",
+    "@vueuse/core": "^10.4.1",
+    "frappe-ui": "^0.1.5",
+    "getmac": "^5",
+    "onscan.js": "^1.5.2",
+    "vue": "^3.2.37",
+    "vue-router": "^4.2.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.30",
+    "tailwindcss": "^3.3.3",
+    "vite": "^4"
   }
 }

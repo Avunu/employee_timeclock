@@ -4,3 +4,4 @@
 *.swp
 tags
 timeclock/docs/current
+node_modules
