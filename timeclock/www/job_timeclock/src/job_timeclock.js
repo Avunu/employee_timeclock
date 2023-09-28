@@ -5,7 +5,7 @@ import "./job_timeclock.css";
 import { createApp } from "vue";
 
 // create vue app
-import JobTimeclock from "./JobTimeclock.vue";
+import JobTimeClock from "./JobTimeClock.vue";
 
-let app = createApp(JobTimeclock);
+let app = createApp(JobTimeClock);
 app.mount("#app");

@@ -1,23 +1,51 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import path from 'path'
+import fs from 'fs'
+import { resolve } from 'path'
+
+// Custom plugin to delete index.js before each build
+const deleteFilePlugin = {
+	name: 'delete-file',
+	buildStart() {
+		// files to delete
+		const files = [
+			'index.js',
+			'index.css'
+		]
+		files.forEach(file => {
+			const filePath = resolve(__dirname, '../' + file)
+			fs.unlink(filePath, (err) => {
+				if (err && err.code === 'ENOENT') {
+					// File doesn't exist, no problem
+					console.log(file + ' doesn’t exist, won’t remove it.')
+				} else if (err) {
+					// Other errors
+					console.error('Error occurred while removing ' + file, err)
+				} else {
+					console.log(file + ' removed')
+				}
+			})
+		})
+	}
+}
+
 
 export default defineConfig({
-	plugins: [vue()],
+	plugins: [vue(), deleteFilePlugin],
 	build: {
-		outDir: path.resolve(__dirname, '../'),
-		root: path.resolve(__dirname, '.'),
+		outDir: resolve(__dirname, '../'),
+		root: resolve(__dirname, '.'),
 		target: 'es2020',
 		emptyOutDir: false,
 		minify: true,
 		lib: {
-			entry: path.resolve(__dirname, 'job_timeclock.js'),
+			entry: resolve(__dirname, 'job_timeclock.js'),
 			name: 'job_timeclock',
-			fileName: (format) => `index.js` // creates module only output
+			fileName: (format) => `index.js`
 		},
 		rollupOptions: {
 			output: {
-				assetFileNames: `index.css`   // For assets (CSS in this case)
+				assetFileNames: 'index.css'
 			}
 		}
 	},

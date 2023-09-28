@@ -5,46 +5,45 @@
     </div>
 </template>
 
-<script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+<script lang="ts">
+import { defineComponent, ref, onMounted, onUnmounted } from 'vue';
 
-const taskStarted = ref(false);
-const startTime = ref(null);
-const elapsedTime = ref('00:00:00');
+export default defineComponent({
+    name: 'TimerWidget',
+    data() {
+        return {
+            taskStarted: false,
+            startTime: new Date(),
+            elapsedTime: '00:00:00',
+            interval: null as any, // Adjust as necessary
+        };
+    },
+    methods: {
+        startTask() {
+            this.taskStarted = true;
+            this.startTime = new Date();
+            this.interval = setInterval(() => {
+                const now = new Date();
+                const timeDiff = now.getTime() - this.startTime.getTime();
 
-let interval;
+                const hours = Math.floor(timeDiff / (1000 * 60 * 60));
+                const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
 
-const startTask = () => {
-    taskStarted.value = true;
-    startTime.value = new Date();
-    interval = setInterval(() => {
-        const now = new Date();
-        const timeDiff = now - startTime.value;
+                this.elapsedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        },
 
-        const hours = Math.floor(timeDiff / (1000 * 60 * 60));
-        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
-
-        elapsedTime.value = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    }, 1000);
-}
-
-const stopTask = () => {
-    taskStarted.value = false;
-    clearInterval(interval);
-}
-
-onMounted(() => {
-    // Optional logic here
-});
-
-onUnmounted(() => {
-    clearInterval(interval);
-});
-
-// You can export functions if needed to control the timer from outside
-defineExpose({
-    startTask,
-    stopTask
+        stopTask() {
+            this.taskStarted = false;
+            clearInterval(this.interval);
+        },
+    },
+    mounted() {
+        // Optional logic here
+    },
+    unmounted() {
+        clearInterval(this.interval);
+    },
 });
 </script>

@@ -10,65 +10,70 @@ from frappe.utils.data import now_datetime, format_datetime
 SECRET_KEY = frappe.get_site_config().get("encryption_key")
 
 
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 @rate_limit(limit=1, seconds=1)
 def authenticate_employee(rfid):
     # Validate the RFID against the database
-    employee = frappe.get_value(
+    employee_id = frappe.get_value(
         "Employee", {"attendance_device_id": rfid}, "name")
-    employee_name = frappe.get_value(
-        "Employee", {"attendance_device_id": rfid}, "employee_name")
 
-    if not employee:
+    if not employee_id:
         return {"status": "error", "message": _("Invalid RFID")}
 
     # If valid, generate a JWT
-    expires = (datetime.datetime.now() + datetime.timedelta(minutes=30)).timestamp()
-    token = jwt.encode(
-        payload={"employee_id": employee, "exp": expires},
-        key=SECRET_KEY,
-        algorithm='HS256')
+    token = refresh_token(employee_id)
 
     return {
         "status": "success",
-        "employee_name": employee_name,
         "token": token}
+
+
+def refresh_token(employee_id):
+    employee_name = frappe.get_value(
+        "Employee", {"employee": employee_id}, "employee_name")
+    # If valid, generate a JWT
+    expires = (datetime.datetime.now() +
+               datetime.timedelta(minutes=30)).timestamp()
+    token = jwt.encode(
+        payload={"employee_id": employee_id,
+                 "employee_name": employee_name, "exp": expires},
+        key=SECRET_KEY,
+        algorithm='HS256')
+
+    return token
 
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=1, seconds=1)
 def get_work_orders(token):
     try:
-        employee_id = extract_employee_from_token(token)
-    except frappe.AuthenticationError:
-        return {"status": "error", "message": _("Invalid token")}
+        employee_id, token = extract_employee_from_token(token)
     except Exception as e:
-        return {"status": "error", "message": _("Unknown error")}
-    
+        return e
+
     # Get the employee's work orders
     # work order status can be Submitted, Not Started, or In Process
     work_orders = frappe.get_list("Work Order",
                                   filters={"status": [
                                       "in", ["Submitted", "Not Started", "In Process"]]},
-                                  fields=["name", "production_item", "status"])
-    return {"status": "success", "work_orders": work_orders}
+                                  fields=["name", "production_item", "status"], ignore_permissions=True)
+    return {"status": "success", "token": token, "work_orders": work_orders}
 
 
 @frappe.whitelist(allow_guest=True)
-@rate_limit(limit=10, seconds=1)
+@rate_limit(limit=4, seconds=1)
 def get_job_cards(token, work_order):
+    # authenticate the employee
     try:
-        employee_id = extract_employee_from_token(token)
-    except frappe.AuthenticationError:
-        return {"status": "error", "message": _("Invalid token")}
+        employee_id, token = extract_employee_from_token(token)
     except Exception as e:
-        return {"status": "error", "message": _("Unknown error")}
-    
+        return e
+
     # Get the employee's job cards
     job_cards = frappe.get_list("Job Card",
-                                  filters={"work_order": work_order},
-                                  fields=["name", "operation", "status"])
-    return {"status": "success", "job_cards": job_cards}
+                                filters={"work_order": work_order},
+                                fields=["name", "operation", "status"], ignore_permissions=True)
+    return {"status": "success", "token": token, "job_cards": job_cards}
 
 
 def extract_employee_from_token(token):
@@ -77,10 +82,13 @@ def extract_employee_from_token(token):
         payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
         employee_id = payload.get("employee_id")
 
+        # refresh the token
+        token = refresh_token(employee_id)
+
         if not employee_id:
             raise jwt.InvalidTokenError
 
-        return employee_id
+        return employee_id, token
 
     except jwt.ExpiredSignatureError:
         # The token has expired
