@@ -3,6 +3,7 @@ import datetime
 import time
 
 import frappe
+from frappe.query_builder import DocType
 from frappe.rate_limiter import rate_limit
 from frappe.utils.data import now_datetime, format_datetime
 
@@ -15,7 +16,7 @@ SECRET_KEY = frappe.get_site_config().get("encryption_key")
 def authenticate_employee(rfid):
     # Validate the RFID against the database
     employee_id = frappe.get_value(
-        "Employee", {"attendance_device_id": rfid}, "name")
+        "Attendance Device ID", {"id": rfid}, "parent")
 
     if not employee_id:
         return {"status": "error", "message": _("Invalid RFID")}
@@ -23,24 +24,34 @@ def authenticate_employee(rfid):
     # If valid, generate a JWT
     token = refresh_token(employee_id)
 
+    # get the last employee checkin to see if the employee is clocked in or out
+    last_checkin = frappe.get_list("Employee Checkin",
+                                   filters={"employee": employee_id},
+                                   order_by="modified desc",
+                                   limit=1,
+                                   ignore_permissions=True,
+                                   pluck="log_type")
+
+    # get the last Job Card Time Log where there is no to_time to see if a timer is running
+    open_job_card_time_log = frappe.get_list("Job Card Time Log",
+                                                filters={"employee": employee_id,
+                                                         "to_time": None},
+                                                order_by="modified desc",
+                                                limit=1,
+                                                ignore_permissions=True,
+                                                pluck="name")
+    
+    if (open_job_card_time_log):
+        open_job_card_name = frappe.get_value("Job Card Time Log", open_job_card_time_log, "parent")
+        open_job_card = frappe.get_doc("Job Card", open_job_card_name)
+    
+    # check to see if there is any Job Card Time Log that was started but not ended
+
     return {
         "status": "success",
+        "last_checkin": last_checkin[0] if last_checkin else None,
+        "open_job_card": open_job_card.name if open_job_card_time_log else None,
         "token": token}
-
-
-def refresh_token(employee_id):
-    employee_name = frappe.get_value(
-        "Employee", {"employee": employee_id}, "employee_name")
-    # If valid, generate a JWT
-    expires = (datetime.datetime.now() +
-               datetime.timedelta(minutes=30)).timestamp()
-    token = jwt.encode(
-        payload={"employee_id": employee_id,
-                 "employee_name": employee_name, "exp": expires},
-        key=SECRET_KEY,
-        algorithm='HS256')
-
-    return token
 
 
 @frappe.whitelist(allow_guest=True)
@@ -99,3 +110,18 @@ def extract_employee_from_token(token):
         # The token is invalid for some other reason
         frappe.throw(_("Invalid token. Please re-authenticate."),
                      exc=frappe.AuthenticationError)
+
+
+def refresh_token(employee_id):
+    employee_name = frappe.get_value(
+        "Employee", {"employee": employee_id}, "employee_name")
+    # If valid, generate a JWT
+    expires = (datetime.datetime.now() +
+               datetime.timedelta(minutes=30)).timestamp()
+    token = jwt.encode(
+        payload={"employee_id": employee_id,
+                 "employee_name": employee_name, "exp": expires},
+        key=SECRET_KEY,
+        algorithm='HS256')
+
+    return token

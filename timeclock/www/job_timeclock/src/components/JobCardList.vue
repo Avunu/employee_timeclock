@@ -1,8 +1,7 @@
 <template>
     <Column title="Job Cards" description="Select a job card to start the timer" class="w-1/2">
         <div id="JobCards">
-            <JobCardWidget v-for="jobCard in jobCards" :key="jobCard.id" :jobCard="jobCard" @start="startTimer"
-                @stop="stopTimer" />
+            <JobCardWidget v-for="jobCard in jobCards" :key="jobCard.name" :jobCard="jobCard" />
         </div>
     </Column>
 </template>
@@ -25,11 +24,6 @@ export default defineComponent({
             type: Array as PropType<JobCard[]>,
             default: () => [],
         },
-    },
-    methods: {
-        toggleTimer(status: string) {
-            this.$emit('toggleTimer', status);
-        }
     },
 });
 

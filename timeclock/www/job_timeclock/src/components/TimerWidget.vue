@@ -1,6 +1,9 @@
 <template>
+    
     <div v-if="taskStarted" class="fixed bottom-4 right-4 p-4 bg-gray-200 rounded-lg shadow-md">
         <h4 class="font-bold text-xl">Task Timer</h4>
+        <button @click="startTask">Start Timer</button>
+        <button @click="stopTask">End Timer</button>
         <p class="text-gray-700">{{ elapsedTime }}</p>
     </div>
 </template>
@@ -41,6 +44,7 @@ export default defineComponent({
     },
     mounted() {
         // Optional logic here
+        console.log(`Does this work.`)
     },
     unmounted() {
         clearInterval(this.interval);

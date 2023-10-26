@@ -15,7 +15,9 @@
         <JobCardList :jobCards="jobCards" v-if="selectedWorkOrder" @toggleTimer="toggleTimer" />
 
         <!-- Timer Widget -->
-        <TimerWidget ref="timerRef" class="fixed bottom-4 right-4" />
+       <TimerWidget ref="timerRef" class="fixed bottom-4 right-4" />
+    
+    
     </main>
 
     <main v-else>
@@ -110,7 +112,7 @@ export default defineComponent({
             }
         },
 
-        selectWorkOrder(workOrder: any) {
+        selectWorkOrder(workOrder: WorkOrder) {
             this.selectedWorkOrder = workOrder;
             this.getJobCards(workOrder.name);
         },

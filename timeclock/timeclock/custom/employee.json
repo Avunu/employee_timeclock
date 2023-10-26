@@ -1,0 +1,15 @@
+{
+    "custom_fields": [
+        {
+            "dt": "Employee",
+            "fieldname": "attendance_device_ids",
+            "fieldtype": "Table",
+            "insert_after": "attendance_device_id",
+            "label": "Attendance Device IDs",
+            "options": "Attendance Device ID"
+        }
+    ],
+    "property_setters": [],
+    "sync_on_migrate": 1,
+    "doctype": "Employee"
+}
