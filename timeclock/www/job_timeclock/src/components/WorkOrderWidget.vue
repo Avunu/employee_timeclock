@@ -30,6 +30,10 @@ export default defineComponent({
             type: Boolean,
             default: false,
         },
-    }
+    },
+    mounted() {
+        // console.log(this.workOrder)
+    },
+    
 });
 </script>
