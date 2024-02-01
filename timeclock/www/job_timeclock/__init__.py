@@ -1,3 +1,5 @@
+import getmac
+
 import jwt
 import datetime
 import time
@@ -15,6 +17,7 @@ SECRET_KEY = frappe.get_site_config().get("encryption_key")
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=1, seconds=1)
 def authenticate_employee(rfid):
+	# mac_address = getmac.get_mac_address()
     # Validate the RFID against the database
     employee_id = frappe.get_value(
         "Attendance Device ID", {"id": rfid}, "parent")
@@ -136,23 +139,17 @@ def get_job_cards(token, work_order):
                                 filters={"work_order": work_order},
                                 fields=["name", "operation", "status","sequence_id"], ignore_permissions=True)
     
-
-    try:
-        job_cards, time_logs = update_job_cards_with_time_log(job_cards, employee_id)
+    if job_cards == []:
+        return {"status": "success", "token": token, "job_cards": job_cards, "time_logs":''  }
+    else:
+        job_cards, time_logs = update_job_cards_with_time_log2(job_cards, employee_id)
         job_cards = sorted(job_cards, key=attrgetter('sequence_id'))
         return {"status": "success", "token": token, "job_cards": job_cards, "time_logs":time_logs  }
-    
-    except:
-        # job_cards = []
-        # for card in job_cards:
-        #     full = frappe.get_doc("Job Card", card.name)
-        #     job_cards.append(card)
-        return {"status": "success", "token": token, "job_cards": job_cards}
+
 
 
 # Created to work with get_job_cards
-def update_job_cards_with_time_log(job_cards, employee_id):
-
+def update_job_cards_with_time_log(job_cards, employee_id):        
     new_job_cards = []
     for card in job_cards:
         full = frappe.get_doc("Job Card", card.name)
@@ -160,31 +157,62 @@ def update_job_cards_with_time_log(job_cards, employee_id):
         #get all the time Logs
         time_logs = full.time_logs
 
-        # filter by employee.
-        employee_logs= []
-        for log in time_logs:
-            if log.employee == employee_id:
-                employee_logs.append(log)
-
-        if employee_logs == []:
-            new_log = frappe.get_doc("Job Card Time Log")
-            new_log.from_time = ''
-            new_log.to_time = ''
-            new_log.time_in_mins = ''
-            new_log.employee = employee_id
-            latest_time_log = new_log
-        else:
-            # get the last time log
-            latest_time_log = max(employee_logs, key=lambda log:log.from_time)
-
-        # add attributes to job_card
-        total_time = full.total_time_in_mins
-        card.total_time_in_mins = total_time
-        card.time_log = latest_time_log
-        new_job_cards.append(card)
-
+      
+        employee_logs = [log for log in time_logs if log.employee == employee_id]
     
+        
+        # get the last time log
+        if employee_logs != []:
+            latest_time_log = max(employee_logs, key=lambda log:log.from_time)
+            card.time_logs = latest_time_log
+            new_job_cards.append(card)
+        else:
+            card.time_logs = time_logs
+            new_job_cards.append(card)
+
     return new_job_cards, time_logs
+
+def update_job_cards_with_time_log2(job_cards, employee_id):
+    machines = {
+        'Machine Staining Hours': 'HR-MACH-ST-00052', 
+        'Sanding Machine Hours':'HR-MACH-SA-00053', 
+        'CNC Machine Time':'HR-MACH-CNC-00051',
+        'Planing Machine Time':'HR-MACH-PL-00054'}
+        
+    new_job_cards = []
+    all_logs = []
+    for card in job_cards:
+        full = frappe.get_doc("Job Card", card.name)
+        
+        #get all the time Logs
+        time_logs = full.time_logs
+        all_logs.append(time_logs)
+
+        # filter for machine.
+        if card.operation in machines.keys():
+            for key,machine_id in machines.items():
+                if key == card.operation:
+                    employee_logs= []
+                    for log in time_logs:
+                        if log.employee == machine_id:
+                            employee_logs.append(log)
+                    break
+        # filter by employee.
+        else:
+            employee_logs= []
+            for log in time_logs:
+                if log.employee == employee_id:
+                    employee_logs.append(log)
+
+        if employee_logs != []:
+            latest_time_log = max(employee_logs, key=lambda log:log.from_time)
+            card.time_logs = latest_time_log
+            new_job_cards.append(card)
+        else:
+            card.time_logs = time_logs
+            new_job_cards.append(card)
+
+    return new_job_cards, all_logs
 
 def extract_employee_from_token(token):
     try:
@@ -227,30 +255,61 @@ def refresh_token(employee_id):
 
 @frappe.whitelist(allow_guest=True)
 def log_start_time_of_jobcard(employee_id, start_time, jobcard_name):
-    
-    job_card = frappe.get_doc("Job Card", jobcard_name)
+
+    job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
     new_time_log = frappe.new_doc('Job Card Time Log')
 
-    new_time_log.update({
-        'from_time': start_time,
-        'employee': employee_id
-    })
+    # List of "Machine employees" to be able to run machines same time as other processes.
+    machines = {
+        'Machine Staining Hours': 'HR-MACH-ST-00052', 
+        'Sanding Machine Hours':'HR-MACH-SA-00053', 
+        'CNC Machine Time':'HR-MACH-CNC-00051',
+        'Planing Machine Time':'HR-MACH-PL-00054'}
+
+    if job_card.operation in machines.keys():
+        for key,machine_id in machines.items():
+            if key == job_card.operation:
+                new_time_log.update({
+                    'from_time': start_time,
+                    'employee': machine_id
+                })
+                break
+    else:
+        new_time_log.update({
+            'from_time': start_time,
+            'employee': employee_id
+        })
 
     try:
         job_card.append('time_logs', new_time_log)
-        job_card.save()
+        job_card.save(ignore_permissions=True)
         updated_log = job_card.time_logs
-        return {"status": "success", "updated_log": updated_log}
-    except:
-        return {"status": "failed", "job_card":job_card}
+        return {"status": "success", "job_card": job_card, "updated_log": updated_log, "serverError": True}
+    except Exception as e:
+        frappe.log_error('Error Saving Log', e)
+        # job_card = 'log_start_time_failed.'
+        job_card.save(ignore_permissions=True)
+        return {"status": "failed", "job_card":job_card, "serverError": True}
     
     
 
 @frappe.whitelist(allow_guest=True)
-def log_end_time_of_jobcard(employee_id, end_time, jobcard_name ):
+def log_end_time_of_jobcard(employee_id, end_time, jobcard_name):
 
-    job_card = frappe.get_doc("Job Card", jobcard_name)
+    job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
     
+    # List of "Machine employees" to be able to run machines same time as other processes.
+    machines = {
+        'Machine Staining Hours': 'HR-MACH-ST-00052', 
+        'Sanding Machine Hours':'HR-MACH-SA-00053', 
+        'CNC Machine Time':'HR-MACH-CNC-00051',
+        'Planing Machine Time':'HR-MACH-PL-00054'}
+
+    if job_card.operation in machines.keys():
+        for key,machine_id in machines.items():
+            if key == job_card.operation:
+                employee_id = machine_id
+                break
 
     employee_logs = []
     for log in job_card.time_logs:
@@ -266,7 +325,7 @@ def log_end_time_of_jobcard(employee_id, end_time, jobcard_name ):
 
     try:
         job_card.append('time_logs', last_time_log)
-        job_card.save()
+        job_card.save(ignore_permissions=True)
         updated_log = job_card.time_logs
         return {"status": "success", "updated_log": updated_log}
     except:
@@ -282,6 +341,12 @@ def get_employees():
         {'id':5, 'name':'Nate Stoltzfus','sCode':'5234512345'},
         {'id':6, 'name':'Nate Vasquez','sCode':'6234512345'},
         {'id':7, 'name':'Levi Fisher','sCode':'7234512345'},
+        {'id':8, 'name':'Sammy James S.','sCode':'8234512345'},
+        {'id':9, 'name':'Sylvan Jr.','sCode':'9234512345'},
     ]
 
     return {'status': 'success', 'employees': employees}
+
+@frappe.whitelist(allow_guest=True)
+def verify_device():
+    pass

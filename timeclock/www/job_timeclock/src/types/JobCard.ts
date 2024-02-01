@@ -6,6 +6,7 @@ export interface JobCard {
     operation: string;
     status: string;
     sequence_id: string;
+    serverError: Boolean;
     time_log: {
         employee: string;
         from_time: Date;

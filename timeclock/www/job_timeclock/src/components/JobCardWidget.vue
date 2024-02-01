@@ -3,7 +3,7 @@
         {{ jobCard.operation }}
         <!-- <Button @click="toggleTimer(jobCard.status)" :label="jobCard.status !== 'Completed' ? 'Start' : 'Stop'"></Button> -->
         <!-- <Button @click="toggleTimer(jobCard.status)" :state="jobCard.status === 'Completed' ? 'True' : 'False'"></Button> -->
-        <TimerWidget class="timer" @send_start_time="start_time" @send_end_time="end_time" :jobCard="jobCard"/>
+        <TimerWidget class="timer" :jobCard="jobCard" :employee_id="employee_id"/>
     </Card>
 </template>
 
@@ -27,25 +27,16 @@ export default defineComponent({
             type: Object as PropType<JobCard>,
             default: () => {},
         },
+        employee_id: String,
     },
     methods: {
-
-        start_time(start_time_frappe: String, name:String){
-            // console.log(startTime)
-            // console.log(name)
-            this.$emit('send_start_time', start_time_frappe, name);
-        },
-        end_time(end_time_frappe:String, name:String){
-            // console.log(endTime)
-            // console.log(name)
-            this.$emit('send_end_time', end_time_frappe, name);
-        }
+        
     },
 });
 
 </script>
   
-<style>
+<style scoped>
 .card_title{
     font-family: 'Poppins', sans-serif;
     color: black;
