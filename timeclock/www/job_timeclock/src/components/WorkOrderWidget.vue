@@ -1,10 +1,10 @@
 <template>
-    <Card @click="$emit('click', workOrder)" :class="{ 'bg-blue-100': isSelected }">
+    <Card @click="click" :class="{ 'bg-blue-100': isSelected }">
         <div class="flex flex-col">
-            <h3 class="font-semibold text-xl-gray-500">{{ workOrder.production_item }}</h3>
-            <span>{{ workOrder.name }}</span>
+            <h3 class="text-xl xl:text-4xl">{{ workOrder.production_item }}</h3>
+            <span class="text-lg" v-if="selected === false">{{ workOrder.name }}</span>
         </div>
-        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+        <span v-if="selected === false" class="px-2 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 text-green-800">
             {{ workOrder.status }}
         </span>
     </Card>
@@ -31,9 +31,34 @@ export default defineComponent({
             default: false,
         },
     },
-    mounted() {
-        // console.log(this.workOrder)
+    data():{
+        selected: Boolean,
+    }{
+        return {
+            selected: false,
+        };
     },
+
+    methods:{
+      click(workOrder){
+        if (this.selected === true){
+            this.selected = false;
+        } else {
+        this.$emit('click', workOrder);
+        this.selected = true;
+        }
+      },
+      
+      
+
+    mounted() {
+        this.selected = false;
+
+},
+    },
+    unmounted(){
+        this.selected = false;
+    }
     
 });
 </script>

@@ -1,7 +1,7 @@
 <template>
-    <header class="bg-white shadow fixed w-screen top-0 z-10 h-20">
-        <div class="mx-auto px-4 py-6 sm:px-6 lg:px-8 flex h-center items-center justify-between">
-            <h1 class="text-3xl font-bold tracking-tight text-gray-900">{{ header }}</h1>
+    <header class="block rounded-lg bg-gray-300 fixed w-screen">
+        <div class="mx-auto px-4 py-6 lg:px-8 flex h-center items-center justify-between">
+            <h1 class="text-4xl font-bold tracking-tight text-gray-900">{{ header }}</h1>
             <button class="bg-teal-300 hover:bg-teal-400 text-white font-normal py-2 px-8 rounded" v-if="activeSession" @click="log_out_employee(this.token)">Clock Out</button>
             <button class="bg-green-500 hover:bg-green-600 text-white font-normal py-2 px-4 rounded" v-if="activeSession" @click="switchEmployee">Switch Employee</button>
             <SessionTimer :employeeName="employeeName" :tokenExpiration="tokenExpiration" v-if="activeSession" />
@@ -17,14 +17,13 @@
         <JobCardList name='job_cards_comp' :jobCards="jobCards" v-if="selectedWorkOrder" :employee_id = "this.employeeId" />
         </transition>
 
-        <!-- Timer Widget -->
-       <!-- <TimerWidget  class="fixed bottom-4 right-4" /> -->
     </main>
 
-    <main v-else: class="bg-white fixed w-auto top-100 z-50 h-20">
+    <main v-else: class="bg-white fixed w-auto top-100 z-50 h-24">
         <!-- When session is inactive -->
         <!-- Use this when scanner is working. -->
         <!-- <AuthorizationMessage /> -->
+        <!-- <StartScreen :employees="employees" @send_login="receive_login" @send_employee="get_token_from_employee"/> -->
         
         <!-- This is to log in without scanner -->
         <h1 class="text-3xl font-bold top-50">Employee List</h1>
@@ -36,7 +35,7 @@
 <script lang="ts">
 import { defineComponent, provide, watch } from 'vue';
 import { useStorage } from '@vueuse/core';
-import jwtDecode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 import onScan from 'onscan.js';
 import { FrappeCall } from '../../FrappeCall.js';
 
@@ -50,6 +49,7 @@ import JobCardList from './components/JobCardList.vue';
 import { JobCard } from './types/JobCard';
 import EmployeeList from './components/EmployeeList.vue';
 import { Employee } from './types/Employee';
+import StartScreen from './components/StartScreen.vue';
 
 export default defineComponent({
     name: 'JobTimeClock',
@@ -59,7 +59,8 @@ export default defineComponent({
         SessionTimer,
         TimerWidget,
         WorkOrderList,
-        EmployeeList
+        EmployeeList,
+        StartScreen,
     },
     data(): {
         employeeId: string,
@@ -107,6 +108,25 @@ export default defineComponent({
     //     }
     // },
     methods: {
+        async check_for_erp_log_in(){
+            const response = await FrappeCall('timeclock.www.job_timeclock.check_for_erp_log_in', {});
+            if (response.user_id === 'Guest') {
+                console.log(response.user_id);
+            } else {
+                console.log('Session logged in', response.user_id);
+            };
+            // if (frappe.session.user ! == 'Guest'){
+            //     console.log('User ID:', frappe.session.user);
+            // } else {
+            //     console.log('Please log in to access the ERP.')
+            // }
+        },
+
+        // async test_erp_log_in(){
+        //     const response = await FrappeCall('login', { usr: 'Administrator', pwd: 'admin' });
+        //     console.log(response);
+        // },
+        
         async authenticateEmployee(sCode: string) {
             const response = await FrappeCall('timeclock.www.job_timeclock.authenticate_employee', { rfid: sCode });
 
@@ -122,7 +142,8 @@ export default defineComponent({
                 
                 await this.getWorkOrders();
             } else {
-                console.log("Sorry! You are not authenticated.");
+                console.log("Sorry! You are not authenticated.")
+                console.log(response.message)
                 this.activeSession = false
             }
         },
@@ -161,9 +182,9 @@ export default defineComponent({
         async getJobCards(workOrderName: string) {
             const response = await FrappeCall('timeclock.www.job_timeclock.get_job_cards', { token: this.token, work_order: workOrderName });
             if (response?.status === 'success') {
-                this.token = response.token;
-                this.jobCards = response.job_cards;
-                this.time_logs = response.time_logs;
+                this.token = response.token
+                this.jobCards = response.job_cards
+                this.time_logs = response.time_logs
                 // console.log(this.time_logs);
                 // giving serverError property to jobCards
                 // for (let i=0; i < this.jobCards.operation; i++){
@@ -173,7 +194,7 @@ export default defineComponent({
                 // }
                 // // console.log(response.job_cards);
             } else {
-                this.jobCards = [];
+                this.jobCards = []
                 // console.log('getJobCards: Token no longer active.')
                 this.activeSession = false
             }
@@ -281,6 +302,14 @@ export default defineComponent({
             this.authenticateEmployee(employee.sCode);
         },
 
+        // To receive send_login Emit from StartScreen.vue
+        receive_login(sCode: string){
+            console.log('Receive login succeeded: ', sCode)
+            this.authenticateEmployee(sCode);
+        },
+
+
+
     },
 
     mounted() {
@@ -288,6 +317,7 @@ export default defineComponent({
             // Initialize getting token and then work orders. 
             this.getWorkOrders();
         }
+        this.check_for_erp_log_in();
 
         // This code is to hardwire employees logging in without scan.
         this.employees = this.get_employees();

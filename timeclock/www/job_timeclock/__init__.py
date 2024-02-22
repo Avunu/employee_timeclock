@@ -335,18 +335,24 @@ def log_end_time_of_jobcard(employee_id, end_time, jobcard_name):
 def get_employees():
     employees = [
         {'id':1, 'name':'Nick Alzamora', 'sCode':'1234512345' },
-        {'id':2, 'name':'Sammy Glick', 'sCode':'2234512345'},
+        {'id':2, 'name':'Sammy Glick', 'sCode':'2013620484'},
         {'id':3, 'name':'Alan Mendoza','sCode':'3234512345'},
         {'id':4, 'name':'Elmer Sol','sCode':'4234512345'},
         {'id':5, 'name':'Nate Stoltzfus','sCode':'5234512345'},
         {'id':6, 'name':'Nate Vasquez','sCode':'6234512345'},
         {'id':7, 'name':'Levi Fisher','sCode':'7234512345'},
-        {'id':8, 'name':'Sammy James S.','sCode':'8234512345'},
-        {'id':9, 'name':'Sylvan Jr.','sCode':'9234512345'},
+        {'id':8, 'name':'Sylvan Jr.','sCode':'9234512345'},
+        {'id':9, 'name':'Omar Blank.','sCode':'10234512345'},
+        {'id':10, 'name':'Mannie Fisher.','sCode':'11234512345'},
+        {'id':10, 'name':'Tester Testing McTesterson','sCode':'1939516420'},
     ]
 
     return {'status': 'success', 'employees': employees}
 
+
 @frappe.whitelist(allow_guest=True)
-def verify_device():
-    pass
+def check_for_erp_log_in():
+    if frappe.session.user != 'Guest':
+        return {'user_id': frappe.session.user}
+    else:
+        return {'user_id': frappe.session.user}

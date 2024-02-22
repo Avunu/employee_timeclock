@@ -1,7 +1,7 @@
 <template>
     <Column :class="{ 'w-full': !selectedWorkOrder, 'w-1/2': selectedWorkOrder }" title="Work Orders"
         description="Select a work order to view job cards">
-        <div id="WorkOrders">
+        <div>
             <WorkOrderWidget v-for="workOrder in workOrders" :key="workOrder.name" :workOrder="workOrder"
                 :isSelected="selectedWorkOrder && selectedWorkOrder.name === workOrder.name"
                 @click="selectWorkOrder(workOrder)" />
@@ -33,6 +33,7 @@ export default defineComponent({
             if (this.selectedWorkOrder && this.selectedWorkOrder.name === workOrder.name) {
                 // Deselect the current work order if clicked again
                 this.$emit('select', null);
+                this.isSelected = false;
             } else {
                 // Otherwise, select the new work order
                 this.$emit('select', workOrder);

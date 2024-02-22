@@ -1,7 +1,7 @@
 <template>
-  <div class="text-black-500 text-h2">
+  <div class="text-black-500 xl:text-xl">
     <strong>Employee:</strong> {{ employeeName }}
-    <div v-if="tokenExpiration" class="text-gray-500 text-h4">
+    <div v-if="tokenExpiration" class="text-gray-500 text-m xl:text-xl">
       {{ timeLeftDisplay }}
     </div>
   </div>

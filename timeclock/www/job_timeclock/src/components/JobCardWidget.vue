@@ -1,5 +1,5 @@
 <template>
-    <Card class="card_title">
+    <Card class="font-sans text-black text-lg lg:text-4xl">
         {{ jobCard.operation }}
         <!-- <Button @click="toggleTimer(jobCard.status)" :label="jobCard.status !== 'Completed' ? 'Start' : 'Stop'"></Button> -->
         <!-- <Button @click="toggleTimer(jobCard.status)" :state="jobCard.status === 'Completed' ? 'True' : 'False'"></Button> -->
