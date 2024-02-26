@@ -1,9 +1,9 @@
 <template>
-    <header class="block rounded-lg bg-gray-300 fixed w-screen">
+    <header class="block rounded-lg bg-gray-300 fixed w-screen overflow-hidden">
         <div class="mx-auto px-4 py-6 lg:px-8 flex h-center items-center justify-between">
-            <h1 class="text-4xl font-bold tracking-tight text-gray-900">{{ header }}</h1>
-            <button class="bg-teal-300 hover:bg-teal-400 text-white font-normal py-2 px-8 rounded" v-if="activeSession" @click="log_out_employee(this.token)">Clock Out</button>
-            <button class="bg-green-500 hover:bg-green-600 text-white font-normal py-2 px-4 rounded" v-if="activeSession" @click="switchEmployee">Switch Employee</button>
+            <button class="text-4xl font-bold tracking-tight text-gray-900" @click="refresh_page">{{ header }}</button>
+            <button class="bg-teal-300 hover:bg-teal-400 text-white font-normal lg:text-3xl py-4 px-8 rounded ring-2 ring-offset-1 ring-gray-100" v-if="activeSession" @click="log_out_employee(this.token)">Clock Out</button>
+            <button class="bg-green-500 hover:bg-green-600 text-white font-normal lg:text-3xl py-4 px-4 rounded ring-2 ring-offset-1 ring-gray-100" v-if="activeSession" @click="switchEmployee">Switch Employee</button>
             <SessionTimer :employeeName="employeeName" :tokenExpiration="tokenExpiration" v-if="activeSession" />
         </div>
     </header>
@@ -19,16 +19,17 @@
 
     </main>
 
-    <main v-else: class="bg-white fixed w-auto top-100 z-50 h-24">
+    <!-- <main v-else: class="bg-white fixed w-auto top-100 z-50 h-24"> -->
+        <main v-else:>
         <!-- When session is inactive -->
         <!-- Use this when scanner is working. -->
-        <!-- <AuthorizationMessage /> -->
+        <AuthorizationMessage />
         <!-- <StartScreen :employees="employees" @send_login="receive_login" @send_employee="get_token_from_employee"/> -->
         
         <!-- This is to log in without scanner -->
-        <h1 class="text-3xl font-bold top-50">Employee List</h1>
+        <!-- <h1 class="text-3xl font-bold top-50">Employee List</h1>
         <p>Click who you are:</p>
-        <EmployeeList :employees="employees" @send_employee="get_token_from_employee"/>
+        <EmployeeList :employees="employees" @send_employee="get_token_from_employee"/> -->
     </main>
 </template>
 
@@ -306,6 +307,11 @@ export default defineComponent({
         receive_login(sCode: string){
             console.log('Receive login succeeded: ', sCode)
             this.authenticateEmployee(sCode);
+        },
+
+        refresh_page(){
+            window.location.reload();
+            console.log('Page reloaded.')
         },
 
 

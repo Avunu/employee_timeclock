@@ -2,11 +2,11 @@
     
     <!-- <div v-if="taskStarted" class="fixed bottom-4 right-4 p-4 bg-gray-200 rounded-lg shadow-md"> -->
     <div>
-        <h4 class="font-bold text-xl justify-right">Task Timer</h4>
-        <button class="btn" @click="startTask(jobCard)" v-if="taskStarted === false && completed_jobCard === false">Start Timer</button>
-        <button class="stop" @click="stopTask(jobCard)" v-if="taskStarted  && completed_jobCard === false">Stop Timer</button>
-        <button class="complete" @click="complete_task" >Complete</button>
-        <p class="text-gray-700" v-if="completed_jobCard === false">{{ elapsedTime }}</p>
+        <h4 class="font-bold text-xl">Task Timer</h4>
+        <button class="bg-green-400 text-white font-normal lg:text-3xl focus:bg-green-200 rounded-md px-2 py-4 lg:px-8 lg:py-8" @click="startTask(jobCard)" v-if="taskStarted === false && completed_jobCard === false">Start Timer</button>
+        <button class="bg-red-400 text-white font-normal lg:text-3xl focus:bg-red-200 rounded-md px-2 py-4 lg:px-8 lg:py-8" @click="stopTask(jobCard)" v-if="taskStarted  && completed_jobCard === false">Stop Timer</button>
+        <button class="bg-gray-800 text-white font-normal lg:text-3xl focus:bg-gray-200 rounded-md px-2 py-4 lg:px-8 lg:py-8" @click="complete_task" >Complete</button>
+        <p class="text-gray-700 text-md font-family-sans" v-if="completed_jobCard === false">{{ elapsedTime }}</p>
     </div>
 </template>
 
@@ -187,7 +187,7 @@ export default defineComponent({
 
 </script>
 
-<style scoped>
+<!-- <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400&display=swap');
 
 * {
@@ -275,5 +275,5 @@ body {
 .btn-block {
   display: block;
   width: 100%;
-}
-</style>
+} -->
+<!-- </style> -->

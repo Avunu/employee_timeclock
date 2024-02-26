@@ -1,7 +1,7 @@
 <template>
-<div>
-    <Card class="w-screen w-1/2 p-4 m-4 bg-white shadow-lg rounded-lg box-border h-20 hover:bg-gray-300 justify_content:center" v-for="employee in employees" :key="employee.id" @click="send_employee(employee)">
-    <h1 class="text-3xl center font-thin">{{ employee.name }}</h1>
+<div class="flex-row overflow-x-auto w-screen">
+    <Card class="w-full p-4 m-4 bg-white shadow-lg rounded-lg box-border h-20 hover:bg-blue-300 justify_content:center" v-for="employee in employees" :key="employee.id" @click="send_employee(employee)">
+    <h1 class="text-4xl center font-thin">{{ employee.name }}</h1>
     </Card>
 </div>
 </template>

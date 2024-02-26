@@ -1,9 +1,7 @@
 <template>
-    <Card class="font-sans text-black text-lg lg:text-4xl">
-        {{ jobCard.operation }}
-        <!-- <Button @click="toggleTimer(jobCard.status)" :label="jobCard.status !== 'Completed' ? 'Start' : 'Stop'"></Button> -->
-        <!-- <Button @click="toggleTimer(jobCard.status)" :state="jobCard.status === 'Completed' ? 'True' : 'False'"></Button> -->
-        <TimerWidget class="timer" :jobCard="jobCard" :employee_id="employee_id"/>
+    <Card class="flex flex-row font-sans text-black text-lg lg:text-4xl">
+        <div class="w-2/5">{{ jobCard.operation }}</div>
+        <TimerWidget class="w-3/5" :jobCard="jobCard" :employee_id="employee_id"/>
     </Card>
 </template>
 
@@ -36,7 +34,7 @@ export default defineComponent({
 
 </script>
   
-<style scoped>
+<!-- <style scoped>
 .card_title{
     font-family: 'Poppins', sans-serif;
     color: black;
@@ -51,4 +49,4 @@ export default defineComponent({
     font-size: 12px;
     font-weight: lighter;
 }
-</style>
+</style> -->

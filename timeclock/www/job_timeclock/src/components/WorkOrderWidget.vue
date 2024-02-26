@@ -1,5 +1,5 @@
 <template>
-    <Card @click="click" :class="{ 'bg-blue-100': isSelected }">
+    <Card @click="click" :class="{ 'bg-blue-100': isSelected }" class="overflow-hidden">
         <div class="flex flex-col">
             <h3 class="text-xl xl:text-4xl">{{ workOrder.production_item }}</h3>
             <span class="text-lg" v-if="selected === false">{{ workOrder.name }}</span>
