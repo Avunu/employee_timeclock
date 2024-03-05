@@ -256,6 +256,8 @@ def refresh_token(employee_id):
 @frappe.whitelist(allow_guest=True)
 def log_start_time_of_jobcard(employee_id, start_time, jobcard_name):
 
+    work_orders = check_all_job_cards(employee_id, start_time)
+
     job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
     new_time_log = frappe.new_doc('Job Card Time Log')
 
@@ -274,6 +276,7 @@ def log_start_time_of_jobcard(employee_id, start_time, jobcard_name):
                     'employee': machine_id
                 })
                 break
+
     else:
         new_time_log.update({
             'from_time': start_time,
@@ -284,14 +287,13 @@ def log_start_time_of_jobcard(employee_id, start_time, jobcard_name):
         job_card.append('time_logs', new_time_log)
         job_card.save(ignore_permissions=True)
         updated_log = job_card.time_logs
-        return {"status": "success", "job_card": job_card, "updated_log": updated_log, "serverError": True}
+        return {"status": "success", "job_card": job_card, "updated_log": updated_log, "work_orders": work_orders}
+
     except Exception as e:
         frappe.log_error('Error Saving Log', e)
         # job_card = 'log_start_time_failed.'
         job_card.save(ignore_permissions=True)
         return {"status": "failed", "job_card":job_card, "serverError": True}
-    
-    
 
 @frappe.whitelist(allow_guest=True)
 def log_end_time_of_jobcard(employee_id, end_time, jobcard_name):
@@ -327,10 +329,55 @@ def log_end_time_of_jobcard(employee_id, end_time, jobcard_name):
         job_card.append('time_logs', last_time_log)
         job_card.save(ignore_permissions=True)
         updated_log = job_card.time_logs
-        return {"status": "success", "updated_log": updated_log}
+        return {"status": "success", "updated_log": updated_log, }
     except:
         return {"status": "failed", "job_card":job_card}
- 
+
+# Function to check out employee of a job card, when they start a new one. 
+@frappe.whitelist(allow_guest=True)
+def check_all_job_cards(employee_id, time):
+    # work_orders = frappe.db.get_list('Work Order', filters=[{
+    #     'status':'Not Started'}, {'status':'In Process'}], pluck='name')
+    work_orders = frappe.db.get_list('Work Order', or_filters=[{
+        'status':'Not Started'},{'status':'In Process'}], fields=["name","status"], ignore_permissions=True)
+
+    # Get all job cards and check for employee id
+    job_cards_list = []
+    for work_order in work_orders:
+        # return work_order
+        #get job cards by work
+        job_cards = frappe.db.get_list("Job Card", 
+                                       filters={"work_order":work_order.name}, 
+                                       fields=["name"], 
+                                       ignore_permissions=True)
+        if len(job_cards) == 0:
+            break
+        else:
+            return job_cards
+            for job_card in job_cards:
+                full_job_card = frappe.get_doc("Job Card", job_card.name)
+                job_card.time_logs = full_job_card.time_logs
+
+                for log in job_card.time_logs:
+                    if log.employee == employee_id:
+                        job_cards_list.append(job_card)
+                
+        if len(job_cards_list) == 0:
+            break
+    # Go through job cards for employee
+    card_logged_out = []
+    job_cards_list= []
+    return job_cards_list
+    for card in job_cards_list:
+        for log in card.time_log:
+            if log.to_time==False:
+                response = log_end_time_of_jobcard(employee_id, time, card.name)
+                # return card
+                # response_list.append(response)
+                # card_logged_out.append(card)
+    
+    return 'aye'
+
 @frappe.whitelist(allow_guest=True)
 def get_employees():
     employees = [

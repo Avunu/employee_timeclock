@@ -1,14 +1,30 @@
 <template>
-    <header class="block rounded-lg bg-gray-300 fixed w-screen overflow-hidden">
+    <div class="h-screen flex flex-col">
+    <header class="block rounded-lg bg-gray-300 fixed w-screen">
         <div class="mx-auto px-4 py-6 lg:px-8 flex h-center items-center justify-between">
-            <button class="text-4xl font-bold tracking-tight text-gray-900" @click="refresh_page">{{ header }}</button>
-            <button class="bg-teal-300 hover:bg-teal-400 text-white font-normal lg:text-3xl py-4 px-8 rounded ring-2 ring-offset-1 ring-gray-100" v-if="activeSession" @click="log_out_employee(this.token)">Clock Out</button>
-            <button class="bg-green-500 hover:bg-green-600 text-white font-normal lg:text-3xl py-4 px-4 rounded ring-2 ring-offset-1 ring-gray-100" v-if="activeSession" @click="switchEmployee">Switch Employee</button>
+            
+            <!-- Job Timeclock Header -->
+            <button class="text-4xl font-bold tracking-tight text-gray-900" 
+            @click="refresh_page">{{ header }}</button>
+            
+            <!-- Clock out -->
+            <button class="z-1 bg-teal-300 hover:bg-teal-400 text-white font-normal lg:text-3xl py-4 px-8 rounded ring-2 ring-offset-1 ring-gray-100" 
+            v-if="activeSession" @click="log_out_employee(this.token)">Clock Out</button>
+            
+            <!-- Work station Dropdown -->
+            <!-- <button class="bg-teal-500 hover:bg-teal-700 text-white font-normal lg:text-3xl py-4 px-8 rounded ring-2 ring-offset-1 ring-gray-100" 
+            v-if="activeSession" @click="show_dropdown">{{ workstation_name }}</button> -->
+
+            <DropDownMenu v-if="activeSession" @select_workstation="select_workstation" />
+
+            <!-- Switch Employee -->
+            <button class="bg-green-500 hover:bg-green-600 text-white font-normal lg:text-3xl py-4 px-4 rounded ring-2 ring-offset-1 ring-gray-100" 
+            v-if="activeSession" @click="switchEmployee">Switch Employee</button>
             <SessionTimer :employeeName="employeeName" :tokenExpiration="tokenExpiration" v-if="activeSession" />
         </div>
     </header>
 
-    <main class="flex h-screen overflow-hidden pt-16" v-if="activeSession">
+    <main class="h-screen overflow-hidden pt-16 z-1" v-if="activeSession">
         <!-- When session is active -->
         <!-- Work Orders Section -->
         <WorkOrderList :workOrders="workOrders" :selectedWorkOrder="selectedWorkOrder" @select="selectWorkOrder" />
@@ -24,6 +40,7 @@
         <!-- When session is inactive -->
         <!-- Use this when scanner is working. -->
         <AuthorizationMessage />
+        <DropDownMenu @select_workstation="select_workstation" />
         <!-- <StartScreen :employees="employees" @send_login="receive_login" @send_employee="get_token_from_employee"/> -->
         
         <!-- This is to log in without scanner -->
@@ -31,6 +48,7 @@
         <p>Click who you are:</p>
         <EmployeeList :employees="employees" @send_employee="get_token_from_employee"/> -->
     </main>
+</div>
 </template>
 
 <script lang="ts">
@@ -51,6 +69,7 @@ import { JobCard } from './types/JobCard';
 import EmployeeList from './components/EmployeeList.vue';
 import { Employee } from './types/Employee';
 import StartScreen from './components/StartScreen.vue';
+import DropDownMenu from './components/DropDownMenu.vue';
 
 export default defineComponent({
     name: 'JobTimeClock',
@@ -62,6 +81,7 @@ export default defineComponent({
         WorkOrderList,
         EmployeeList,
         StartScreen,
+        DropDownMenu,
     },
     data(): {
         employeeId: string,
@@ -75,7 +95,9 @@ export default defineComponent({
         workOrders: WorkOrder[],
         activeSession: Boolean,
         employeeLoggedIn: Boolean,
-        employees: Employee[]
+        employees: Employee[],
+        dropdown_value: string,
+        active_dropdown: Boolean,
     } {
         return {
             employeeId: '',
@@ -90,6 +112,7 @@ export default defineComponent({
             activeSession: false,
             employeeLoggedIn: false,
             employees: [],
+            active_dropdown:false,
         };
     },
 
@@ -129,6 +152,18 @@ export default defineComponent({
         // },
         
         async authenticateEmployee(sCode: string) {
+            if (this.activeSession === true){
+                this.setSessionFalse;
+                this.activeSession= false;
+                this.token = null;
+                this.tokenExpiration = 0;
+                this.jobCards= [];
+                this.selectedWorkOrder= null;
+                this.workOrders = [];
+                this.employeeId= '';
+                this.employeeName= '';
+            }
+            
             const response = await FrappeCall('timeclock.www.job_timeclock.authenticate_employee', { rfid: sCode });
 
             if (response?.status === 'success') {
@@ -146,6 +181,14 @@ export default defineComponent({
                 console.log("Sorry! You are not authenticated.")
                 console.log(response.message)
                 this.activeSession = false
+                this.setSessionFalse
+                this.token = null
+                this.tokenExpiration = 0
+                this.jobCards= []
+                this.selectedWorkOrder= null
+                this.workOrders = []
+                this.employeeId= ''
+                this.employeeName= ''
             }
         },
 
@@ -208,7 +251,19 @@ export default defineComponent({
         },
 
         startTimer(timeout: number){
-            const timeoutId = setTimeout(this.setSessionFalse, timeout);
+            const timeoutId = setTimeout(this.endTimer, timeout);
+        },
+
+        endTimer(){
+            this.setSessionFalse;
+            this.activeSession= false;
+            this.token = null;
+            this.tokenExpiration = 0;
+            this.jobCards= [];
+            this.selectedWorkOrder= null;
+            this.workOrders = [];
+            this.employeeId= '';
+            this.employeeName= '';
         },
 
         resetTimer(timeout: number){
@@ -314,6 +369,15 @@ export default defineComponent({
             console.log('Page reloaded.')
         },
 
+        show_dropdown(){
+            this.active_dropdown = true;
+            console.log('drop down:', this.active_dropdown)
+        },
+
+        select_workstation(workstation){
+            console.log('Workstation Name',workstation)
+
+        }
 
 
     },

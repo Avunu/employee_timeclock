@@ -79,6 +79,7 @@ export default defineComponent({
           
           if (response?.status === 'success') {
               console.log('Start Time sent.')
+              console.log('Work Orders ', response.work_orders)
               this.taskStarted = true
               this.start_timer(this.startTime);
           }
