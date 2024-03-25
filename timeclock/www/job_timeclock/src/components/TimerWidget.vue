@@ -5,17 +5,19 @@
         <h4 class="font-bold text-xl">Task Timer</h4>
         <button class="bg-green-400 text-white font-normal lg:text-3xl focus:bg-green-200 rounded-md px-2 py-4 lg:px-8 lg:py-8" @click="startTask(jobCard)" v-if="taskStarted === false && completed_jobCard === false">Start Timer</button>
         <button class="bg-red-400 text-white font-normal lg:text-3xl focus:bg-red-200 rounded-md px-2 py-4 lg:px-8 lg:py-8" @click="stopTask(jobCard)" v-if="taskStarted  && completed_jobCard === false">Stop Timer</button>
-        <button class="bg-gray-800 text-white font-normal lg:text-3xl focus:bg-gray-200 rounded-md px-2 py-4 lg:px-8 lg:py-8" @click="complete_task" >Complete</button>
+        <button class="bg-gray-800 text-white font-normal lg:text-3xl focus:bg-gray-200 rounded-md px-2 py-4 lg:px-8 lg:py-8" @click="complete_task(jobCard)" >Complete</button>
         <p class="text-gray-700 text-md font-family-sans" v-if="completed_jobCard === false">{{ elapsedTime }}</p>
     </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, onUnmounted, PropType, watch } from 'vue';
+import { defineComponent, PropType, watch } from 'vue';
 import { JobCard } from '../types/JobCard';
 import { START_LOCATION } from 'vue-router';
-import { useThrottledRefHistory } from '@vueuse/core';
+import { useThrottledRefHistory, useStorage } from '@vueuse/core';
 import { FrappeCall } from '../../../FrappeCall.js';
+import { useToast } from 'vue-toastification';
+const toast = useToast()
 
 export default defineComponent({
     name: 'TimerWidget',
@@ -53,6 +55,8 @@ export default defineComponent({
     // },
     },
     methods: {
+        
+
         get_time_in_string(date: Date){
           const year = date.getUTCFullYear();
           const month = date.getUTCMonth() + 1; // Months are zero-based
@@ -61,29 +65,38 @@ export default defineComponent({
           const minute = date.getUTCMinutes();
           const second = date.getUTCSeconds();
           const pad = (num: number) => (num < 10 ? '0' + num : num);
-          const frappeString = `${year}-${pad(month)}-${pad(day)} ${pad(hour-5)}:${pad(minute)}:${pad(second)}`;
+          const frappeString = `${year}-${pad(month)}-${pad(day)} ${pad(hour-4)}:${pad(minute)}:${pad(second)}`;
           
           return frappeString
         },
       
         async startTask(jobCard: JobCard) {
-          // console.log(this.employee_id);
           this.startTime = new Date();
           this.start_time_frappe = this.get_time_in_string(this.startTime);
-          // console.log('frappe time', this.start_time_frappe)
           // this.$emit('send_start_time', this.start_time_frappe, jobCard.name);
-          // console.log('start time', this.startTime)
 
           // Server call to test time. 
+          // console.log('start_time',this.start_time_frappe);
           const response = await FrappeCall('timeclock.www.job_timeclock.log_start_time_of_jobcard', {employee_id: this.employee_id, start_time: this.start_time_frappe, jobcard_name: jobCard.name });
           
           if (response?.status === 'success') {
-              console.log('Start Time sent.')
-              console.log('Work Orders ', response.work_orders)
-              this.taskStarted = true
-              this.start_timer(this.startTime);
+            // console.log('Start Time sent.')
+            // console.log('Started Time: ', response.card_logged_out)
+            this.taskStarted = true
+            this.start_timer(this.startTime)
+            this.timer_started = true
+            this.$emit('emit_timer', this.timer_started)
+            this.jobCard.is_active = true
+            if (response.card_logged_out !== ''){
+              // Make Sure the new card's is_active value is updated as well.
+              console.log(response.card_logged_out)
+              toast.success(`Another card was logged out.`);
+              this.$emit('emit_logged_out_card', {"card_logged_out":response.card_logged_out, "card_logged_in":this.jobCard})
+              
+            }
           }
           else {
+              toast.error(`${this.jobCard.Operation} failed to start.`);
               console.log('did not work.')
               console.log(response.job_card)
           }
@@ -119,65 +132,89 @@ export default defineComponent({
                 console.log('End Time sent.')
                 clearInterval(this.interval);
                 this.taskStarted = false;
+                this.timer_started = false;
+                this.$emit('emit_timer', this.timer_started)
+                // console.log('end_time',this.end_time_frappe)
+                this.jobCard.is_active = false
             }
             else {
+                toast.error(`${this.jobCard.Operation} failed to end.`);
                 console.log('End job card did not work.')
             }
 
         },
 
-        complete_task(){
+        async complete_task(jobCard){
           if (this.completed_jobCard === false){
+            console.log(this.jobCard)
             if(confirm('Are you sure you want to submit?')) {
-              this.completed_jobCard = true
+              // this.completed_jobCard = true
+              const now = new Date();
+              const complete_time = this.get_time_in_string(now)
+              const response = await FrappeCall('timeclock.www.job_timeclock.submit_jobcard',{jobCard:jobCard, complete_time:complete_time, employee_id:this.employee_id})
+              if (response?.status === 'success'){
+                this.completed_jobCard = true
+                console.log(response.job_card)
+              } else {
+                this.completed_jobCard = false
+                console.log(response.error_message)
+              }
             } else {
               this.completed_jobCard = false
-          // Put logic here to submit job Card
         }
       } else {
         console.log('aye')
       }
     },
+
+    initialize_ongoing_timer(){
+      this.taskStarted = true
+      const time_from = this.jobCard.time_logs.from_time
+      this.start_time = new Date(time_from)
+      this.start_timer(this.start_time)
+
+      // This is to change style in job card widget.
+      this.timer_started = true;
+      this.$emit('emit_timer', this.timer_started)
+      // console.log('if statement failed.')
+
+    }
+    
   },
 
     mounted() {
-        // console.log(this.jobCard)
         // Turn off timer and buttons if job card is already complete.
         if (this.jobCard.status === 'Completed'){
           this.completed_jobCard = true
-          // console.log(this.jobCard.name)
         }
-        // if (this.jobCard.operation === 'Truss Assembly'){
-        //   console.log(this.jobCard)
-        // }
- 
-        // watch(() => this.jobCard, (new_jobCard) => {
-        //   if (this.JobCard.time_log.start_timer && this.JobCard.time_log.from_time == ''){
-        //     this.taskStarted = true
-        //     const time_from = this.jobCard.time_log.from_time
-        //     this.start_time = new Date(time_from)
-        //     this.start_timer(this.start_time)
-        //   }
-        // })
+
+        watch(() => this.jobCard.is_active, (newStatus) => {
+            // If you don't do this, it will refresh every time you switch work orders.
+            // console.log('watching.')
+            if (newStatus === false){
+              // console.log('Status now False.')
+              this.taskStarted = false
+              clearInterval(this.interval)
+              this.timer_started = false
+              this.$emit('emit_timer', this.timer_started)
+              // console.log('end_time',this.end_time_frappe)
+            } 
+            
+        }, { immediate: true },
+        )
+
     },
 
     beforeMount(){
-        // console.log('jobcard in timerwidget',this.jobCard);
-
-        if (this.jobCard.time_logs.time_in_mins !== 0){
+   
+        if (this.jobCard.is_active === true){
+          this.initialize_ongoing_timer()
+        } else{
           this.taskStarted = false
-          // console.log('if statement failed.')
-        } else {
           // Initializer time on timer for a previously started timer. 
-          this.taskStarted = true
-          const time_from = this.jobCard.time_logs.from_time
-          this.start_time = new Date(time_from)
-          this.start_timer(this.start_time)
+          
         }
-        
-        // if (!this.jobCard.time_logs.to_time && this.jobCard.status !== 'Completed') {
-        //   console.log('incomplete timelog', this.jobCard)
-        // }
+
     },
 
     unmounted() {

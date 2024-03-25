@@ -1,22 +1,20 @@
 <template>
-    <div class="h-screen flex flex-col">
-    <header class="block rounded-lg bg-gray-300 fixed w-screen">
-        <div class="mx-auto px-4 py-6 lg:px-8 flex h-center items-center justify-between">
+    <div class="static h-screen flex z-0">
+    <header class="z-10 block rounded-lg bg-gray-300 fixed w-screen">
+        <div class="z-100 mx-auto px-4 py-6 lg:px-8 flex h-center items-center justify-between">
             
             <!-- Job Timeclock Header -->
             <button class="text-4xl font-bold tracking-tight text-gray-900" 
             @click="refresh_page">{{ header }}</button>
             
             <!-- Clock out -->
-            <button class="z-1 bg-teal-300 hover:bg-teal-400 text-white font-normal lg:text-3xl py-4 px-8 rounded ring-2 ring-offset-1 ring-gray-100" 
+            <button class="bg-teal-300 hover:bg-teal-400 text-white font-normal lg:text-3xl py-4 px-8 rounded ring-2 ring-offset-1 ring-gray-100" 
             v-if="activeSession" @click="log_out_employee(this.token)">Clock Out</button>
             
             <!-- Work station Dropdown -->
-            <!-- <button class="bg-teal-500 hover:bg-teal-700 text-white font-normal lg:text-3xl py-4 px-8 rounded ring-2 ring-offset-1 ring-gray-100" 
-            v-if="activeSession" @click="show_dropdown">{{ workstation_name }}</button> -->
-
-            <DropDownMenu v-if="activeSession" @select_workstation="select_workstation" />
-
+            <KeepAlive include="workstation">
+            <DropDownMenu v-if="activeSession" @send_workstation="select_workstation" />
+            </KeepAlive>
             <!-- Switch Employee -->
             <button class="bg-green-500 hover:bg-green-600 text-white font-normal lg:text-3xl py-4 px-4 rounded ring-2 ring-offset-1 ring-gray-100" 
             v-if="activeSession" @click="switchEmployee">Switch Employee</button>
@@ -24,23 +22,22 @@
         </div>
     </header>
 
-    <main class="h-screen overflow-hidden pt-16 z-1" v-if="activeSession">
+    <main class="z-0 flex w-full overflow-hidden my-16 pt-16" v-if="activeSession">
         <!-- When session is active -->
         <!-- Work Orders Section -->
-        <WorkOrderList :workOrders="workOrders" :selectedWorkOrder="selectedWorkOrder" @select="selectWorkOrder" />
+        <WorkOrderList class="z-0" :workOrders="workOrders" :selectedWorkOrder="selectedWorkOrder" @select="selectWorkOrder" />
         <!-- Job Cards Section -->
         <transition name="job_card_list">
-        <JobCardList name='job_cards_comp' :jobCards="jobCards" v-if="selectedWorkOrder" :employee_id = "this.employeeId" />
+        <JobCardList class="z-0" name='job_cards_comp' :jobCards="jobCards" v-if="selectedWorkOrder" :employee_id = "this.employeeId"/>
         </transition>
 
     </main>
 
     <!-- <main v-else: class="bg-white fixed w-auto top-100 z-50 h-24"> -->
-        <main v-else:>
+        <main v-else: class="w-full h-screen">
         <!-- When session is inactive -->
         <!-- Use this when scanner is working. -->
         <AuthorizationMessage />
-        <DropDownMenu @select_workstation="select_workstation" />
         <!-- <StartScreen :employees="employees" @send_login="receive_login" @send_employee="get_token_from_employee"/> -->
         
         <!-- This is to log in without scanner -->
@@ -71,6 +68,10 @@ import { Employee } from './types/Employee';
 import StartScreen from './components/StartScreen.vue';
 import DropDownMenu from './components/DropDownMenu.vue';
 
+//  Toastification is a simple system to make toast notifications.
+import { useToast } from 'vue-toastification';
+const toast = useToast()
+
 export default defineComponent({
     name: 'JobTimeClock',
     components: {
@@ -98,6 +99,7 @@ export default defineComponent({
         employees: Employee[],
         dropdown_value: string,
         active_dropdown: Boolean,
+        workstation: string,
     } {
         return {
             employeeId: '',
@@ -113,24 +115,24 @@ export default defineComponent({
             employeeLoggedIn: false,
             employees: [],
             active_dropdown:false,
+            workstation: '',
+            
         };
     },
 
     // computed: {
-    //     isSessionActive() {
-    //         const currentTime = Date.now();
-    //         // console.log(currentTime);
-    //         // console.log(this.tokenExpiration);
-    //         if((this.tokenExpiration) && (this.tokenExpiration > currentTime)){
-    //             console.log('Logged in');
-    //             return true
-    //         } else {
-    //             console.log('session was not activated');
-    //             return false
-    //         }
-    //         // return (this.tokenExpiration && this.tokenExpiration > currentTime) as boolean;
+    //     sorted_jobCards(){
+    //         const cards = this.jobCards
+    //         cards.sort((a) =>{
+    //             const valueA = a["operation"];
+    //             const valueB = b[this.sortValue];
+    //             if (valueA < valueB) return -1;
+    //             if (valueA > valueB) return 1;
+    //             return 0;
+    //         });
     //     }
     // },
+
     methods: {
         async check_for_erp_log_in(){
             const response = await FrappeCall('timeclock.www.job_timeclock.check_for_erp_log_in', {});
@@ -145,31 +147,25 @@ export default defineComponent({
             //     console.log('Please log in to access the ERP.')
             // }
         },
-
-        // async test_erp_log_in(){
-        //     const response = await FrappeCall('login', { usr: 'Administrator', pwd: 'admin' });
-        //     console.log(response);
-        // },
         
         async authenticateEmployee(sCode: string) {
-            if (this.activeSession === true){
-                this.setSessionFalse;
-                this.activeSession= false;
-                this.token = null;
-                this.tokenExpiration = 0;
-                this.jobCards= [];
-                this.selectedWorkOrder= null;
-                this.workOrders = [];
-                this.employeeId= '';
-                this.employeeName= '';
-            }
-            
+
+            this.token = null;
+            this.tokenExpiration = 0;
+            this.jobCards= [];
+            this.selectedWorkOrder= null;
+            this.workOrders = [];
+            this.employeeId= '';
+            this.employeeName= '';
+            this.workstation = this.workstation;
+
             const response = await FrappeCall('timeclock.www.job_timeclock.authenticate_employee', { rfid: sCode });
 
             if (response?.status === 'success') {
                 this.token = response.token;
                 this.activeSession = true;
                 if (response.last_checkin === 'OUT'){
+                    toast.success(`${this.employee_name} has punched in.`);
                     this.log_employee_in(this.token)
                 } else {
                     // console.log('You are already logged in.');
@@ -221,6 +217,7 @@ export default defineComponent({
         selectWorkOrder(workOrder: WorkOrder) {
             this.selectedWorkOrder = workOrder;
             this.getJobCards(workOrder.name);
+
         },
 
         async getJobCards(workOrderName: string) {
@@ -228,15 +225,27 @@ export default defineComponent({
             if (response?.status === 'success') {
                 this.token = response.token
                 this.jobCards = response.job_cards
-                this.time_logs = response.time_logs
-                // console.log(this.time_logs);
-                // giving serverError property to jobCards
-                // for (let i=0; i < this.jobCards.operation; i++){
-                //     if (this.jobCards[i].operation === 'Truss Assembly'){
-                //     console.log(this.time_logs[i])
-                // }
-                // }
-                // // console.log(response.job_cards);
+                // console.log(response.active_cards)
+                for (let i = 0; i < this.jobCards.length; i++){
+                    this.jobCards[i].is_active = response.active_cards[i]
+                    
+                }
+                // console.log(this.jobCards)
+
+                // Check for workstation
+                if (this.workstation !== ''){
+                    const response2 = await FrappeCall('timeclock.www.job_timeclock.sort_jobcard_by_workstation', {jobCards: this.jobCards, workstation: this.workstation});
+                    if (response2?.status === 'success'){
+                        this.jobCards = response2.sorted_job_cards
+                        // console.log(response2.sorted_job_cards)
+                    } else {
+                        console.log('sort failed.')
+                    }
+                    
+                    
+                } else{
+                    console.log('Workstation: default')
+                }
             } else {
                 this.jobCards = []
                 // console.log('getJobCards: Token no longer active.')
@@ -299,6 +308,13 @@ export default defineComponent({
         },
 
         switchEmployee(){
+            toast.success(`${this.employeeName} switched user.`);
+            // toast('Signed Out.', {
+            //     toastClassName: "custom_default",
+            //     bodyClassName: ['custom_class-1','custom-class-2']
+
+            // });
+
             this.activeSession= false;
             this.token = null;
             this.tokenExpiration = 0;
@@ -307,7 +323,17 @@ export default defineComponent({
             this.workOrders = [];
             this.employeeId= '';
             this.employeeName= '';
-        
+
+            this.employeeId='';
+            this.employeeName= '';
+            this.jobCards= [];
+            this.selectedWorkOrder= null;
+            this.tokenExpiration= 0;
+            this.workOrders= [];
+            this.activeSession= false;
+            this.employeeLoggedIn= false;
+            this.employees= [];
+            
         },
 
         async log_out_employee(token){
@@ -328,6 +354,7 @@ export default defineComponent({
             const response = await FrappeCall('timeclock.www.job_timeclock.log_out_employee', { token: token, time: current_time });
             
             if (response?.status === 'success') {
+                toast.success(`${this.employeeName} has punched out.`);
                 console.log('You are now logged out.', response.log)
                 this.activeSession= false
                 this.token = null
@@ -341,6 +368,7 @@ export default defineComponent({
                 
                 }
             else {
+                toast.error(`${this.employeeName} was not properly signed out.`);
                 console.log('Did not work. You are still logged in:', response.log)
             }
         },
@@ -364,21 +392,22 @@ export default defineComponent({
             this.authenticateEmployee(sCode);
         },
 
+        // For 'Job Timeclock' refresh button on click. 
         refresh_page(){
             window.location.reload();
             console.log('Page reloaded.')
         },
 
-        show_dropdown(){
-            this.active_dropdown = true;
-            console.log('drop down:', this.active_dropdown)
-        },
-
         select_workstation(workstation){
             console.log('Workstation Name',workstation)
-
-        }
-
+            this.workstation = workstation
+            if (localStorage.getItem('workstation')){
+                this.replaceState(
+                    Object.assign(state, JSON)
+                )
+            localStorage.setItem('workstation', workstation)
+            }
+        },
 
     },
 
@@ -416,8 +445,9 @@ export default defineComponent({
             }
         }, { immediate: true },
         )
-    }
+    },
 });
+
 </script>
 
 <style scoped>
@@ -429,5 +459,19 @@ export default defineComponent({
 .job_card_list-enter-from,
 .job_card_list-leave-to {
   opacity: 0;
+}
+
+.Vue-Toastification__toast--default.custom_default {
+        background-color: rgb(15, 255, 35);
+    }
+
+/* Applied to the toast body when using regular strings as content */
+.Vue-Toastification__toast-body.custom-class-1 {
+    font-size: 30px;
+}
+
+/* Applied to a wrapper div when using a custom component as content */
+.Vue-Toastification__toast-component-body.custom-class-2 {
+    width: 100%;
 }
 </style>

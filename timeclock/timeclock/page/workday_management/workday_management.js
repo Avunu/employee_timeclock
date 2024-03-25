@@ -1,6 +1,6 @@
 // create a custom sort selector for the Workday Management Report
 frappe.ui.SortSelector = class SortSelector extends frappe.ui.SortSelector {
-	get_sql_string () {
+	get_sql_string() {
 		return '`tabWorkday`.`employee_name` asc, `tabWorkday`.`date` asc';
 	}
 }
@@ -46,13 +46,16 @@ frappe.views.ReportView = class ReportView extends frappe.views.ReportView {
 		this.filters = [  // Optional filters for the list
 			['Workday', 'date', '>=', frappe.datetime.add_days(frappe.datetime.get_today(), -7)],
 			['Workday', 'date', '<=', frappe.datetime.get_today()],
-		],
+		];
 
 		// Setup buttons
 		this.primary_action = null;
 		this.secondary_action = null;
 		jQuery(document.body).toggleClass('full-width', true);
+
+		return this.get_list_view_settings();
 	}
+
 	setup_main_section() {
 		return frappe.run_serially(
 			[
@@ -68,6 +71,7 @@ frappe.views.ReportView = class ReportView extends frappe.views.ReportView {
 			].map((fn) => fn.bind(this))
 		);
 	}
+
 	setup_extra_filters() {
 		// append new buttons "This Week" and "This Month" to the filter area
 		let today = frappe.datetime.get_today();
@@ -115,6 +119,7 @@ frappe.views.ReportView = class ReportView extends frappe.views.ReportView {
 		this.page.sidebar.toggle();
 		this.sort_selector.wrapper[0].hidden = 1;
 	}
+
 	setup_view_menu() {
 		// do nothing
 	}

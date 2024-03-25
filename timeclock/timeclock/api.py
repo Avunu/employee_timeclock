@@ -288,10 +288,6 @@ def workday_update_total_hours(workday, method=None):
     check_outs = [x for x in check_outs if x and regex.match(x)]
     # combine the check_ins and check_outs into a single list
     check_times = []
-    # debug - print the variable type of check_ins and check_outs
-    # frappe.msgprint(f'check_ins: {type(check_ins)}')
-    # frappe.msgprint(f'check_outs: {type(check_outs)}')
-    # frappe.msgprint(f'date: {type(date)}')
     for i in range(len(check_ins)):
         # if the check_in starts with '0:' then replace it with '12:'
         if check_ins[i].startswith('0:'):
@@ -304,6 +300,9 @@ def workday_update_total_hours(workday, method=None):
         check_times.append(datetime.datetime.strptime(str(date) + ' ' + str(check_outs[i]), '%Y-%m-%d %I:%M %p'))
     
     workday = build_workday(check_times, workday)
+
+    # emit update event
+    workday.notify_update()
 
     return workday
 

@@ -1,7 +1,7 @@
 <!-- DropdownMenu.vue -->
 <template>
-    <Menu as="div" class="relative inline-block text-left">
-    <div class="z-100">
+    <Menu as="div" class="z-1000 relative inline-block text-left">
+    <div>
     <MenuButton class="bg-teal-500 hover:bg-teal-700 text-white font-normal lg:text-3xl py-4 px-8 rounded ring-2 ring-offset-1 ring-gray-100">
     {{ this.selected }}
     </MenuButton>
@@ -11,22 +11,13 @@
     <MenuItems class="absolute right-0 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
     <!-- <select v-model="this.selected"> -->
     <div class="py-1 text-3xl">
-    <MenuItem v-slot="{active}" v-for="workstation in this.workstations" :key="workstation" @click="send_workstation(workstation)">
+    <MenuItem class="z-100" v-slot="{active}" v-for="workstation in this.workstations" :key="workstation" @click="send_workstation(workstation)">
         <a href="#" :class="[active ? 'bg-gray-100 text-gray-900' : 'text-gray-700', 'block px-4 py-2 text-3xl']">
         {{ workstation.name }}
         </a>
     </MenuItem>
-    <!-- <MenuItem v-slot="{ active }">
-            <a href="#" :class="[active ? 'bg-gray-100 text-gray-900' : 'text-gray-700', 'block px-4 py-2 text-sm']">Account settings</a>
-          </MenuItem>
-          <MenuItem v-slot="{ active }">
-            <a href="#" :class="[active ? 'bg-gray-100 text-gray-900' : 'text-gray-700', 'block px-4 py-2 text-sm']">Support</a>
-          </MenuItem>
-          <MenuItem v-slot="{ active }">
-            <a href="#" :class="[active ? 'bg-gray-100 text-gray-900' : 'text-gray-700', 'block px-4 py-2 text-sm']">License</a>
-          </MenuItem>     -->
+
         </div>
-    <!-- </select> -->
     </MenuItems>
     </transition>
     
@@ -34,10 +25,11 @@
 </template>
 
 <script lang="ts">
-import {defineComponent} from 'vue';
+import { defineComponent } from 'vue';
+import { useStorage } from '@vueuse/core';
 import { Menu, MenuButton, MenuItems, MenuItem  } from '@headlessui/vue';
 export default defineComponent({
-  name: "DropdownMenu",
+  name: "DropDownMenu", 
   components:{
     MenuItems,
     MenuItem,
@@ -61,11 +53,22 @@ export default defineComponent({
         workstation_name: 'Workstation',
     };
   },
+
+  computed:{
+    workstation_name(){
+      if (this.state){
+        this.workstation_name = this.state
+      } else {
+        this.workstation_name
+      }
+    }
+  },
+
   watch: {
     // The watcher that emits an event to the parent component when the selected option changes
-    selected(newValue) {
-      this.$emit("set_workstation", newValue);
-    },
+    // selected(newValue) {
+    //   this.$emit("set_workstation", newValue);
+    // },
   },
   methods: {
     // The method that toggles the active state and shows or hides the menu
@@ -74,12 +77,20 @@ export default defineComponent({
     },
 
     send_workstation(workstation){
-        console.log(workstation.name);
-    },
+        // console.log(workstation.name);
+        this.$emit("send_workstation", workstation.name);
+        this.selected = workstation.name;
+        const state = useStorage('defaultWorkstation', workstation.name);
+        
+
   },
   mounted(){
-    console.log('Dropdown Working.')
+    if (this.state){
+      this.selected = this.state
+    }
+    
   },
+}
 });
 </script>
 
