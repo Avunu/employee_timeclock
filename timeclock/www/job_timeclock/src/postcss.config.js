@@ -4,5 +4,6 @@ module.exports = {
         'postcss-import': {},
         tailwindcss: {},
         autoprefixer: {},
-    }
+    },
+    presets:[require('frappe-ui/src/utils/tailwind.config')],
 }

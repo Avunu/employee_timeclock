@@ -55,6 +55,7 @@ import { jwtDecode } from 'jwt-decode';
 import onScan from 'onscan.js';
 import { FrappeCall } from '../../FrappeCall.js';
 
+
 // import sub components
 import AuthorizationMessage from './components/AuthorizationMessage.vue';
 import SessionTimer from './components/SessionTimer.vue';
@@ -70,6 +71,11 @@ import DropDownMenu from './components/DropDownMenu.vue';
 
 //  Toastification is a simple system to make toast notifications.
 import { useToast } from 'vue-toastification';
+// Trying to use realtime to track when employees clock out for the day
+// then shutting off their time when they do. 
+import { FrappeUI, initSocket } from 'frappe-ui';
+
+
 const toast = useToast()
 
 export default defineComponent({
@@ -430,6 +436,7 @@ export default defineComponent({
 
         this.scanner = scanner;
         // this.scanner.simulate(document, '1234512345');
+        // const socket = initSocket[]
 
         watch(() => this.token, (newToken) => {
             // If you don't do this, it will refresh every time you switch work orders.

@@ -77,6 +77,7 @@ export default defineComponent({
 
           // Server call to test time. 
           // console.log('start_time',this.start_time_frappe);
+          // console.log(this.employee_id)
           const response = await FrappeCall('timeclock.www.job_timeclock.log_start_time_of_jobcard', {employee_id: this.employee_id, start_time: this.start_time_frappe, jobcard_name: jobCard.name });
           
           if (response?.status === 'success') {
@@ -87,7 +88,7 @@ export default defineComponent({
             this.timer_started = true
             this.$emit('emit_timer', this.timer_started)
             this.jobCard.is_active = true
-            if (response.card_logged_out !== ''){
+            if (response.card_logged_out !== 'no cards logged out'){
               // Make Sure the new card's is_active value is updated as well.
               console.log(response.card_logged_out)
               toast.success(`Another card was logged out.`);

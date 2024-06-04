@@ -11,7 +11,11 @@ import JobTimeClock from "./JobTimeClock.vue";
 import Toast from 'vue-toastification';
 import 'vue-toastification/dist/index.css';
 
+//  Import frappe
+import { FrappeUI } from "frappe-ui";
+
 let app = createApp(JobTimeClock);
 app.use(Toast);
+app.use(FrappeUI);
 app.mount("#app");
 

@@ -110,6 +110,8 @@ def log_out_employee(token, time):
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=1, seconds=1)
 def get_work_orders(token):
+    frappe.publish_realtime('test','aye yooooo')
+    
     try:
         employee_id, token = extract_employee_from_token(token)
     except Exception as e:
@@ -300,8 +302,6 @@ def refresh_token(employee_id):
 @frappe.whitelist(allow_guest=True)
 def log_start_time_of_jobcard(employee_id, start_time, jobcard_name):
 
-    card_logged_out = check_all_job_cards(employee_id, start_time)
-
     job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
     new_time_log = frappe.new_doc('Job Card Time Log')
 
@@ -315,6 +315,8 @@ def log_start_time_of_jobcard(employee_id, start_time, jobcard_name):
     if job_card.operation in machines.keys():
         for key,machine_id in machines.items():
             if key == job_card.operation:
+                # log out other machine times.
+                card_logged_out = check_all_job_cards(machine_id, start_time)
                 new_time_log.update({
                     'from_time': start_time,
                     'employee': machine_id
@@ -322,10 +324,18 @@ def log_start_time_of_jobcard(employee_id, start_time, jobcard_name):
                 break
 
     else:
-        new_time_log.update({
-            'from_time': start_time,
-            'employee': employee_id
-        })
+        # here so that machine time won't log employee out
+        try:
+            card_logged_out = check_all_job_cards(employee_id, start_time)
+            new_time_log.update({
+                'from_time': start_time,
+                'employee': employee_id,
+            })
+        except:
+            new_time_log.update({
+                'from_time': start_time,
+                'employee': employee_id,
+            })
 
     try:
         job_card.append('time_logs', new_time_log)
@@ -395,7 +405,7 @@ def check_all_job_cards(employee_id, time):
                                        fields=["name"], 
                                        ignore_permissions=True)
         
-        if len(job_cards) == 0 or work_order.name == 'MFG-WO-2023-00057':
+        if len(job_cards) == 0:
             pass
         else:
             for job_card in job_cards:
@@ -407,20 +417,30 @@ def check_all_job_cards(employee_id, time):
                     if log.employee == employee_id and job_card not in duplicate:
                         job_cards_list.append(job_card)
                         duplicate.append(job_card)
+    # Exit if no job cards are found with employee.
+    if len(job_cards_list) == 0:
+        return 'no cards logged out'
+    
+    machines = [
+        'Machine Staining Hours',
+        'Sanding Machine Hours',
+        'CNC Machine Time',
+        'Planing Machine Time']
     
     # Go through job cards for employee
     card_logged_out = []
     for card in job_cards_list:
         # job_card = frappe.get_doc('Job Card', card.name, ignore_permissions = True)
         for log in card.time_logs:
-            if not log.to_time and card:
+            if not log.to_time and card and (card.operation not in machines) and log.employee == employee_id:
                 response = log_end_time_of_jobcard(employee_id, time, card.name)
                 card_logged_out.append(log)
             else:
                 pass
                 
     if len(card_logged_out)==0:
-        return ''
+        return 'no cards logged out'
+    # return {'card_logged_out':card_logged_out, 'employee':employee_id}
     return card_logged_out
 
 @frappe.whitelist(allow_guest=True)

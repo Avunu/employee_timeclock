@@ -1,3 +1,5 @@
+frappe.realtime.on('doc_update', data => console.log(data))
+
 // create a custom sort selector for the Workday Management Report
 frappe.ui.SortSelector = class SortSelector extends frappe.ui.SortSelector {
 	get_sql_string() {
@@ -9,7 +11,7 @@ frappe.ui.SortSelector = class SortSelector extends frappe.ui.SortSelector {
 frappe.views.ReportView = class ReportView extends frappe.views.ReportView {
 	setup_defaults() {
 		this.page_name = frappe.get_route_str();
-		this.page_title = __('Workday Management');
+		this.page_title = __(this.doctype + '  Management');
 		this.meta = frappe.get_meta(this.doctype);
 		this.settings = frappe.listview_settings[this.doctype] || {};
 		this.user_settings = frappe.get_user_settings(this.doctype);
@@ -53,7 +55,6 @@ frappe.views.ReportView = class ReportView extends frappe.views.ReportView {
 		this.secondary_action = null;
 		jQuery(document.body).toggleClass('full-width', true);
 
-		return this.get_list_view_settings();
 	}
 
 	setup_main_section() {
@@ -132,5 +133,7 @@ frappe.pages['workday-management'].on_page_load = function (wrapper) {
 		parent: wrapper,  // The parent element for the list
 		title: 'Workday Management',  // The title for the list
 	});
-	list_factory.make(['List', 'Workday', 'Report']);
+	list_factory.route = ['List', 'Workday', 'Report']
+	list_factory.page_name = frappe.get_route_str();
+	list_factory.make(list_factory.route);
 };
