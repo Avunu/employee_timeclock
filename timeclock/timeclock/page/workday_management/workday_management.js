@@ -55,6 +55,7 @@ frappe.views.ReportView = class ReportView extends frappe.views.ReportView {
 		this.secondary_action = null;
 		jQuery(document.body).toggleClass('full-width', true);
 
+		return this.get_list_view_settings();
 	}
 
 	setup_main_section() {

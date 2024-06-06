@@ -298,7 +298,7 @@ export default defineComponent({
             const minute = this.date.getUTCMinutes();
             const second = this.date.getUTCSeconds();
             const pad = (num: number) => (num < 10 ? '0' + num : num);
-            const current_time = `${year}-${pad(month)}-${pad(day)} ${pad(hour-5)}:${pad(minute)}`;
+            const current_time = `${year}-${pad(month)}-${pad(day)} ${pad(hour-4)}:${pad(minute)}`;
             // console.log(current_time);
             
             // Log Call
@@ -353,7 +353,7 @@ export default defineComponent({
             const minute = date.getUTCMinutes();
             const second = date.getUTCSeconds();
             const pad = (num: number) => (num < 10 ? '0' + num : num);
-            const current_time = `${year}-${pad(month)}-${pad(day)} ${pad(hour-5)}:${pad(minute)}`;
+            const current_time = `${year}-${pad(month)}-${pad(day)} ${pad(hour-4)}:${pad(minute)}`;
             // console.log(current_time);
             
             // Log Call

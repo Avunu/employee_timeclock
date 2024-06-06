@@ -71,8 +71,8 @@ def log_in_employee(token, time):
     new_log.employee = employee_id
     new_log.time= time
     new_log.log_type = "IN"
-    new_log.device_id = "Job Time Clock Scan"
     new_log.manual_override = False
+    new_log.device_id = 'Job Timeclock Scanner'
     try:
         new_log.insert(ignore_permissions=True)
     except:
@@ -88,6 +88,7 @@ def log_in_employee(token, time):
     # except:
     #     return {"status":"unsuccessful", "log": new_log}
 
+# Issue with logout. The log is made but _unsaved = True. so its not passing to workday management 
 @frappe.whitelist(allow_guest=True)  
 def log_out_employee(token, time):
     employee_id, token = extract_employee_from_token(token)
@@ -97,8 +98,10 @@ def log_out_employee(token, time):
     new_log.time= time
     new_log.log_type = "OUT"
     new_log.manual_override = False
+    new_log.device_id = 'Job Timeclock Scanner'
     try:
         new_log.insert(ignore_permissions=True)
+        new_log.save()
     except:
         pass
     if new_log:
