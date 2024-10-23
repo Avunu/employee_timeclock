@@ -180,6 +180,7 @@ export default defineComponent({
                 
                 await this.getWorkOrders();
             } else {
+                toast.error('Error Clocking In Employee')
                 console.log("Sorry! You are not authenticated.")
                 console.log(response.message)
                 this.activeSession = false
@@ -314,7 +315,7 @@ export default defineComponent({
         },
 
         switchEmployee(){
-            toast.success(`${this.employeeName} switched user.`);
+            toast.success(`${this.employeeName} switched user.`,{timeout:100});
             // toast('Signed Out.', {
             //     toastClassName: "custom_default",
             //     bodyClassName: ['custom_class-1','custom-class-2']
@@ -418,6 +419,10 @@ export default defineComponent({
     },
 
     mounted() {
+
+        toast.success('Page Loaded.');
+        console.log('Page loaded.');
+
         if (this.token) {
             // Initialize getting token and then work orders. 
             this.getWorkOrders();
