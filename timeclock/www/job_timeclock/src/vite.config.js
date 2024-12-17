@@ -47,7 +47,7 @@ export default defineConfig({
 			output: {
 				assetFileNames: 'index.css'
 			}
-		}
+		},
 	},
 	optimizeDeps: {
 		include: [

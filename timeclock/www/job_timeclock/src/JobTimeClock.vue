@@ -73,7 +73,7 @@ import DropDownMenu from './components/DropDownMenu.vue';
 import { useToast } from 'vue-toastification';
 // Trying to use realtime to track when employees clock out for the day
 // then shutting off their time when they do. 
-import { FrappeUI, initSocket } from 'frappe-ui';
+// import { FrappeUI, initSocket } from 'frappe-ui';
 
 
 const toast = useToast()

@@ -65,7 +65,7 @@ export default defineComponent({
           const minute = date.getUTCMinutes();
           const second = date.getUTCSeconds();
           const pad = (num: number) => (num < 10 ? '0' + num : num);
-          const frappeString = `${year}-${pad(month)}-${pad(day)} ${pad(hour-4)}:${pad(minute)}:${pad(second)}`;
+          const frappeString = `${year}-${pad(month)}-${pad(day)} ${pad(hour-5)}:${pad(minute)}:${pad(second)}`;
           
           return frappeString
         },
