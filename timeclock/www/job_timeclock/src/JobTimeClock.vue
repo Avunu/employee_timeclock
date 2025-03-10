@@ -8,8 +8,8 @@
             @click="refresh_page">{{ header }}</button>
             
             <!-- Clock out -->
-            <button class="bg-teal-300 hover:bg-teal-400 text-white font-normal lg:text-3xl py-4 px-8 rounded ring-2 ring-offset-1 ring-gray-100" 
-            v-if="activeSession" @click="log_out_employee(this.token)">Clock Out</button>
+            <!--<button class="bg-teal-300 hover:bg-teal-400 text-white font-normal lg:text-3xl py-4 px-8 rounded ring-2 ring-offset-1 ring-gray-100" -->
+            <!-- v-if="activeSession" @click="log_out_employee(this.token)">Clock Out</button>-->
             
             <!-- Work station Dropdown -->
             <KeepAlive include="workstation">
@@ -170,13 +170,14 @@ export default defineComponent({
             if (response?.status === 'success') {
                 this.token = response.token;
                 this.activeSession = true;
-                if (response.last_checkin === 'OUT'){
-                    toast.success(`${this.employee_name} has punched in.`);
-                    this.log_employee_in(this.token)
-                } else {
+                // This was commented out because of errors for Allen during night shift.
+                // if (response.last_checkin === 'OUT'){
+                //    toast.success(`${this.employee_name} has punched in.`);
+                //    this.log_employee_in(this.token)
+                //} else {
                     // console.log('You are already logged in.');
-                    this.employeeLoggedIn= true;
-                }
+                //    this.employeeLoggedIn= true;
+                //}
                 
                 await this.getWorkOrders();
             } else {
@@ -286,6 +287,7 @@ export default defineComponent({
             this.startTimer(timeout);
         },
 
+        // This is not currently working.
         async log_employee_in(token: string){
             // console.log('You are not clocked in.');
             
@@ -341,7 +343,8 @@ export default defineComponent({
             this.employees= [];
             
         },
-
+        
+        // This does not currently work. Comes from button that is cancelled out.
         async log_out_employee(token){
             
             // Calculate current time to log in.
