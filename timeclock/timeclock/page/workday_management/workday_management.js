@@ -117,9 +117,22 @@ frappe.views.ReportView = class ReportView extends frappe.views.ReportView {
 		this.filter_area.$filter_list_wrapper.prepend(this_month_button);
 		this.filter_area.$filter_list_wrapper.prepend(last_week_button);
 		this.filter_area.$filter_list_wrapper.prepend(this_week_button);
+
+		// Add Bulk Add button
+		this.setup_bulk_add_button();
+
 		// hide filter sidebar
 		this.page.sidebar.toggle();
 		this.sort_selector.wrapper[0].hidden = 1;
+	}
+
+	setup_bulk_add_button() {
+		this.page.add_inner_button(__("Bulk Add"), () => {
+			frappe.ui.form.show_workday_bulk_add(() => {
+				// Refresh the list view after bulk add
+				this.refresh();
+			});
+		});
 	}
 
 	setup_view_menu() {

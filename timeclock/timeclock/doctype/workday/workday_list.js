@@ -39,99 +39,13 @@
 frappe.listview_settings['Workday'] = {
     refresh: function (listview) {
         listview.page.add_inner_button(__("Bulk Add"), function () {
-            frappe.model.with_doctype("Workday", function () {
-                // get a list of all active employees for the employees MultiSelect field
-                frappe.db.get_list("Employee",
-                    { filters: { status: "Active" }, fields: ["name", "employee_name"], limit: 1000 }
-                ).then(r => {
-                    var employees = r.map(e => { return { value: e.name, label: e.employee_name } });
-                    // create the dialog form
-                    var dialog = new frappe.ui.Dialog({
-                        title: __("Bulk Add Workday"),
-                        fields: [
-                            {
-                                fieldname: 'date',
-                                label: __('Date'),
-                                fieldtype: 'Date',
-                                reqd: 1,
-                            },
-                            {
-                                fieldname: 'employees',
-                                label: __('Employees'),
-                                fieldtype: 'MultiSelect',
-                                options: 'Workday Employee',
-                                get_data: () => employees,
-                                reqd: 1,
-                            },
-                            {
-                                fieldname: 'punches',
-                                label: __('Punches'),
-                                fieldtype: 'Table',
-                                options: 'Workday Punches',
-                                fields: [
-                                    {
-                                        fieldtype: "Data",
-                                        fieldname: "checkin",
-                                        label: __("Check In"),
-                                        in_list_view: 1,
-                                        reqd: 1
-                                    },
-                                    {
-                                        fieldtype: "Data",
-                                        fieldname: "checkout",
-                                        label: __("Check Out"),
-                                        in_list_view: 1,
-                                        reqd: 1
-                                    },
-                                ],
-                                onload: function (field) {
-                                    // convert the input fields to a new native <input type="time">
-                                    field.grid.wrapper.find('input[data-fieldname="checkin"]').each(function (i, e) { e.type = 'time'; }
-                                    );
-                                    field.grid.wrapper.find('input[data-fieldname="checkout"]').each(function (i, e) { e.type = 'time'; }
-                                    );
-                                },
-                            },
-                        ],
-                    });
-                    // add a button to the dialog form to save the entries
-                    dialog.set_primary_action(__("Save"), function () {
-                        // create a list of workday entries
-                        var date = dialog.get_value('date');
-                        var employees = dialog.get_value('employees');
-                        var punches = dialog.get_value("punches").map(w => {
-                            return {
-                                checkin: w.checkin,
-                                checkout: w.checkout,
-                            };
-                        });
-                        // save the workday entries
-                        frappe.call({
-                            method: "timeclock.timeclock.doctype.workday.workday.bulk_add_punches",
-                            args: {
-                                date: date,
-                                employees: employees,
-                                punches: punches
-                            },
-                            callback: function (r) {
-                                if (r.message) {
-                                    frappe.msgprint(r.message);
-                                }
-                                dialog.hide();
-                                //frappe.set_route("List", "Workday");
-                            }
-                        });
-                    });
-                    // show the dialog form
-                    dialog.show();
-                }
-                );
+            frappe.ui.form.show_workday_bulk_add(() => {
+                // Refresh the list view after bulk add
+                listview.refresh();
             });
         });
     },
 };
-
-
 
 frappe.ui.form.on('Workday', {
     refresh: function (frm) {
