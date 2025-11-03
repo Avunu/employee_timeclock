@@ -1,3 +1,8 @@
+
+frappe.realtime.on("console_log", (message) => {
+	console.log(message);
+});
+
 frappe.provide("frappe.ui.form");
 
 frappe.ui.form.WorkdayBulkAddQuickEntryForm = class WorkdayBulkAddQuickEntryForm extends (
@@ -100,12 +105,12 @@ frappe.ui.form.WorkdayBulkAddQuickEntryForm = class WorkdayBulkAddQuickEntryForm
 					frappe.msgprint(r.message);
 				}
 				this.dialog.hide();
-				
+
 				// Call after_insert callback if provided
 				if (this.after_insert) {
 					this.after_insert();
 				}
-				
+
 				// Refresh current view
 				if (cur_list) {
 					cur_list.refresh();
@@ -116,7 +121,7 @@ frappe.ui.form.WorkdayBulkAddQuickEntryForm = class WorkdayBulkAddQuickEntryForm
 };
 
 // Helper function to show the bulk add dialog
-frappe.ui.form.show_workday_bulk_add = function(after_insert) {
+frappe.ui.form.show_workday_bulk_add = function (after_insert) {
 	const quick_entry = new frappe.ui.form.WorkdayBulkAddQuickEntryForm(
 		"Workday",
 		after_insert

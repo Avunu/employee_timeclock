@@ -88,6 +88,7 @@
   "column_break_12",
   "check_out_12",
   "check_out_12_dt",
+  "section_break_gpbt",
   "last_modified"
  ],
  "fields": [
@@ -521,13 +522,19 @@
    "fieldname": "last_modified",
    "fieldtype": "Datetime",
    "hidden": 1,
-   "label": "last_modified"
+   "label": "Last Modified"
+  },
+  {
+   "fieldname": "section_break_gpbt",
+   "fieldtype": "Section Break",
+   "label": "Document Info"
   }
  ],
+ "grid_page_length": 50,
  "hide_toolbar": 1,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2023-03-27 13:39:18.434934",
+ "modified": "2025-11-03 09:58:21.021431",
  "modified_by": "Administrator",
  "module": "Timeclock",
  "name": "Workday",
@@ -559,6 +566,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "date",
  "sort_order": "DESC",
  "states": [],

@@ -8,6 +8,8 @@ app_color = "grey"
 app_email = "mail@avu.nu"
 app_license = "MIT"
 app_include_js = "timeclock.bundle.js"
+export_python_type_annotations = True
+
 webform_include_js = {
     "Employee Checkin": [
         "public/node_modules/@popperjs/core/dist/umd/popper-lite.min.js",
