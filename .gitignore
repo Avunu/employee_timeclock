@@ -1,8 +1,8 @@
 .DS_Store
-*.pyc
 *.egg-info
+*.pyc
 *.swp
+dist
+node_modules
 tags
 timeclock/docs/current
-node_modules
-dist
