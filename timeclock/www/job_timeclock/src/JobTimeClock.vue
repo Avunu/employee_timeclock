@@ -438,6 +438,7 @@ export default defineComponent({
         });
 
         this.scanner = scanner;
+        window.scanner = scanner;
         // this.scanner.simulate(document, '1234512345');
         // const socket = initSocket[]
 
