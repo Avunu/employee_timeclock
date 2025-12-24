@@ -116,17 +116,20 @@ export default defineComponent({
 
         },
 
+        formatElapsedTime(startTime: Date): string {
+          const now = new Date();
+          const timeDiff = now.getTime() - startTime.getTime();
+
+          const hours = Math.floor(timeDiff / (1000 * 60 * 60));
+          const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+
+          return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        },
+
         start_timer(time){
           this.interval = setInterval(() => {
-                const now = new Date();
-                const timeDiff = now.getTime() - time.getTime();
-
-                const hours = Math.floor(timeDiff / (1000 * 60 * 60));
-                const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
-
-                this.elapsedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            
+                this.elapsedTime = this.formatElapsedTime(time);
             }, 1000);
           
           
@@ -180,15 +183,7 @@ export default defineComponent({
 
         start_rework_timer(time){
           this.reworkInterval = setInterval(() => {
-                const now = new Date();
-                const timeDiff = now.getTime() - time.getTime();
-
-                const hours = Math.floor(timeDiff / (1000 * 60 * 60));
-                const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
-
-                this.reworkElapsedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            
+                this.reworkElapsedTime = this.formatElapsedTime(time);
             }, 1000);
         },
 
