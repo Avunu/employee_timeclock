@@ -35,7 +35,7 @@ export default defineComponent({
         reworkStartTime: Date,
         reworkElapsedTime: String,
         reworkInterval: Object,
-        rework_start_time_frappe: Date,
+        reworkStartTimeFrappe: Date,
 
     } {
         return {
@@ -49,7 +49,7 @@ export default defineComponent({
             reworkStartTime: new Date(),
             reworkElapsedTime: '00:00:00',
             reworkInterval: null as any,
-            rework_start_time_frappe: new Date(),
+            reworkStartTimeFrappe: new Date(),
         };
     },
 
@@ -159,11 +159,11 @@ export default defineComponent({
 
         async startRework(jobCard: JobCard) {
           this.reworkStartTime = new Date();
-          this.rework_start_time_frappe = this.get_time_in_string(this.reworkStartTime);
+          this.reworkStartTimeFrappe = this.get_time_in_string(this.reworkStartTime);
 
           const response = await FrappeCall('timeclock.www.job_timeclock.log_rework_start_time', {
             employee_id: this.employee_id, 
-            start_time: this.rework_start_time_frappe, 
+            start_time: this.reworkStartTimeFrappe, 
             jobcard_name: jobCard.name 
           });
           

@@ -13,6 +13,14 @@ from operator import itemgetter, attrgetter
 # import secret key from site_config.json
 SECRET_KEY = frappe.get_site_config().get("encryption_key")
 
+# List of "Machine employees" to be able to run machines same time as other processes.
+MACHINE_OPERATIONS = {
+    'Machine Staining Hours': 'HR-MACH-ST-00052', 
+    'Sanding Machine Hours':'HR-MACH-SA-00053', 
+    'CNC Machine Time':'HR-MACH-CNC-00051',
+    'Planing Machine Time':'HR-MACH-PL-00054'
+}
+
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=1, seconds=1)
 def authenticate_employee(rfid):
@@ -153,12 +161,6 @@ def get_job_cards(token, work_order):
 
 
 def update_job_cards_with_time_log(job_cards, employee_id):
-    machines = {
-        'Machine Staining Hours': 'HR-MACH-ST-00052', 
-        'Sanding Machine Hours':'HR-MACH-SA-00053', 
-        'CNC Machine Time':'HR-MACH-CNC-00051',
-        'Planing Machine Time':'HR-MACH-PL-00054'}
-        
     new_job_cards = []
     all_logs = []
     for card in job_cards:
@@ -169,8 +171,8 @@ def update_job_cards_with_time_log(job_cards, employee_id):
         all_logs.append(time_logs)
 
         # filter for machine.
-        if card.operation in machines.keys():
-            for key,machine_id in machines.items():
+        if card.operation in MACHINE_OPERATIONS.keys():
+            for key,machine_id in MACHINE_OPERATIONS.items():
                 if key == card.operation:
                     employee_logs= []
                     for log in time_logs:
@@ -308,15 +310,8 @@ def log_start_time_of_jobcard(employee_id, start_time, jobcard_name):
     job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
     new_time_log = frappe.new_doc('Job Card Time Log')
 
-    # List of "Machine employees" to be able to run machines same time as other processes.
-    machines = {
-        'Machine Staining Hours': 'HR-MACH-ST-00052', 
-        'Sanding Machine Hours':'HR-MACH-SA-00053', 
-        'CNC Machine Time':'HR-MACH-CNC-00051',
-        'Planing Machine Time':'HR-MACH-PL-00054'}
-
-    if job_card.operation in machines.keys():
-        for key,machine_id in machines.items():
+    if job_card.operation in MACHINE_OPERATIONS.keys():
+        for key,machine_id in MACHINE_OPERATIONS.items():
             if key == job_card.operation:
                 # log out other machine times.
                 card_logged_out = check_all_job_cards(machine_id, start_time)
@@ -357,15 +352,8 @@ def log_end_time_of_jobcard(employee_id, end_time, jobcard_name):
 
     job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
     
-    # List of "Machine employees" to be able to run machines same time as other processes.
-    machines = {
-        'Machine Staining Hours': 'HR-MACH-ST-00052', 
-        'Sanding Machine Hours':'HR-MACH-SA-00053', 
-        'CNC Machine Time':'HR-MACH-CNC-00051',
-        'Planing Machine Time':'HR-MACH-PL-00054'}
-
-    if job_card.operation in machines.keys():
-        for key,machine_id in machines.items():
+    if job_card.operation in MACHINE_OPERATIONS.keys():
+        for key,machine_id in MACHINE_OPERATIONS.items():
             if key == job_card.operation:
                 employee_id = machine_id
                 break
@@ -424,18 +412,12 @@ def check_all_job_cards(employee_id, time):
     if len(job_cards_list) == 0:
         return 'no cards logged out'
     
-    machines = [
-        'Machine Staining Hours',
-        'Sanding Machine Hours',
-        'CNC Machine Time',
-        'Planing Machine Time']
-    
     # Go through job cards for employee
     card_logged_out = []
     for card in job_cards_list:
         # job_card = frappe.get_doc('Job Card', card.name, ignore_permissions = True)
         for log in card.time_logs:
-            if not log.to_time and card and (card.operation not in machines) and log.employee == employee_id:
+            if not log.to_time and card and (card.operation not in MACHINE_OPERATIONS.keys()) and log.employee == employee_id:
                 response = log_end_time_of_jobcard(employee_id, time, card.name)
                 card_logged_out.append(log)
             else:
@@ -511,15 +493,8 @@ def log_rework_start_time(employee_id, start_time, jobcard_name):
     job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
     new_time_log = frappe.new_doc('Job Card Time Log')
 
-    # List of "Machine employees" to be able to run machines same time as other processes.
-    machines = {
-        'Machine Staining Hours': 'HR-MACH-ST-00052', 
-        'Sanding Machine Hours':'HR-MACH-SA-00053', 
-        'CNC Machine Time':'HR-MACH-CNC-00051',
-        'Planing Machine Time':'HR-MACH-PL-00054'}
-
-    if job_card.operation in machines.keys():
-        for key,machine_id in machines.items():
+    if job_card.operation in MACHINE_OPERATIONS.keys():
+        for key,machine_id in MACHINE_OPERATIONS.items():
             if key == job_card.operation:
                 new_time_log.update({
                     'from_time': start_time,
@@ -554,15 +529,8 @@ def log_rework_end_time(employee_id, end_time, jobcard_name):
     """
     job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
     
-    # List of "Machine employees" to be able to run machines same time as other processes.
-    machines = {
-        'Machine Staining Hours': 'HR-MACH-ST-00052', 
-        'Sanding Machine Hours':'HR-MACH-SA-00053', 
-        'CNC Machine Time':'HR-MACH-CNC-00051',
-        'Planing Machine Time':'HR-MACH-PL-00054'}
-
-    if job_card.operation in machines.keys():
-        for key,machine_id in machines.items():
+    if job_card.operation in MACHINE_OPERATIONS.keys():
+        for key,machine_id in MACHINE_OPERATIONS.items():
             if key == job_card.operation:
                 employee_id = machine_id
                 break
@@ -570,7 +538,7 @@ def log_rework_end_time(employee_id, end_time, jobcard_name):
     # Find the last corrective time log for this employee
     employee_logs = []
     for log in job_card.time_logs:
-        if log.employee == employee_id and hasattr(log, 'is_corrective_job_card') and log.is_corrective_job_card:
+        if log.employee == employee_id and getattr(log, 'is_corrective_job_card', False):
             employee_logs.append(log)
 
     if not employee_logs:
