@@ -6,3 +6,4 @@ dist
 node_modules
 tags
 timeclock/docs/current
+package-lock.json

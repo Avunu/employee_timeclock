@@ -501,3 +501,91 @@ def submit_jobcard(jobCard, complete_time, employee_id):
     else:
         error_message = 'Log has unfinished times.'
         return {'status':'failed','error_message':error_message}
+
+@frappe.whitelist(allow_guest=True)
+def log_rework_start_time(employee_id, start_time, jobcard_name):
+    """
+    Log rework time as a corrective job card time log.
+    This creates a time log with is_corrective_job_card=True and for_job_card pointing to the original job card.
+    """
+    job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
+    new_time_log = frappe.new_doc('Job Card Time Log')
+
+    # List of "Machine employees" to be able to run machines same time as other processes.
+    machines = {
+        'Machine Staining Hours': 'HR-MACH-ST-00052', 
+        'Sanding Machine Hours':'HR-MACH-SA-00053', 
+        'CNC Machine Time':'HR-MACH-CNC-00051',
+        'Planing Machine Time':'HR-MACH-PL-00054'}
+
+    if job_card.operation in machines.keys():
+        for key,machine_id in machines.items():
+            if key == job_card.operation:
+                new_time_log.update({
+                    'from_time': start_time,
+                    'employee': machine_id,
+                    'is_corrective_job_card': True,
+                    'for_job_card': jobcard_name
+                })
+                break
+    else:
+        new_time_log.update({
+            'from_time': start_time,
+            'employee': employee_id,
+            'is_corrective_job_card': True,
+            'for_job_card': jobcard_name
+        })
+
+    try:
+        job_card.append('time_logs', new_time_log)
+        job_card.save(ignore_permissions=True)
+        updated_log = job_card.time_logs
+        return {"status": "success", "job_card": job_card, "updated_log": updated_log}
+
+    except Exception as e:
+        frappe.log_error('Error Saving Rework Log', e)
+        job_card.save(ignore_permissions=True)
+        return {"status": "failed", "job_card":job_card, "serverError": True, "error": str(e)}
+
+@frappe.whitelist(allow_guest=True)
+def log_rework_end_time(employee_id, end_time, jobcard_name):
+    """
+    Log end time for rework (corrective job card time log).
+    """
+    job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
+    
+    # List of "Machine employees" to be able to run machines same time as other processes.
+    machines = {
+        'Machine Staining Hours': 'HR-MACH-ST-00052', 
+        'Sanding Machine Hours':'HR-MACH-SA-00053', 
+        'CNC Machine Time':'HR-MACH-CNC-00051',
+        'Planing Machine Time':'HR-MACH-PL-00054'}
+
+    if job_card.operation in machines.keys():
+        for key,machine_id in machines.items():
+            if key == job_card.operation:
+                employee_id = machine_id
+                break
+
+    # Find the last corrective time log for this employee
+    employee_logs = []
+    for log in job_card.time_logs:
+        if log.employee == employee_id and hasattr(log, 'is_corrective_job_card') and log.is_corrective_job_card:
+            employee_logs.append(log)
+
+    if not employee_logs:
+        return {"status": "failed", "error": "No active rework time log found"}
+
+    last_time_log = employee_logs[-1]
+
+    last_time_log.update({
+        'to_time': end_time,
+    })
+
+    try:
+        job_card.save(ignore_permissions=True)
+        updated_log = job_card.time_logs
+        return {"status": "success", "updated_log": updated_log}
+    except Exception as e:
+        frappe.log_error('Error Ending Rework Log', e)
+        return {"status": "failed", "job_card":job_card, "error": str(e)}

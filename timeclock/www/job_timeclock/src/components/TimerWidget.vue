@@ -5,8 +5,10 @@
         <h4 class="font-bold text-xl">Task Timer</h4>
         <button class="bg-green-400 text-white font-normal lg:text-3xl focus:bg-green-200 rounded-md px-2 py-4 lg:px-8 lg:py-8" @click="startTask(jobCard)" v-if="taskStarted === false && completed_jobCard === false">Start Timer</button>
         <button class="bg-red-400 text-white font-normal lg:text-3xl focus:bg-red-200 rounded-md px-2 py-4 lg:px-8 lg:py-8" @click="stopTask(jobCard)" v-if="taskStarted  && completed_jobCard === false">Stop Timer</button>
-        <button class="bg-gray-800 text-white font-normal lg:text-3xl focus:bg-gray-200 rounded-md px-2 py-4 lg:px-8 lg:py-8" @click="complete_task(jobCard)" >Complete</button>
+        <button class="bg-orange-500 text-white font-normal lg:text-3xl focus:bg-orange-300 rounded-md px-2 py-4 lg:px-8 lg:py-8" @click="startRework(jobCard)" v-if="reworkStarted === false && completed_jobCard === false">Start Rework</button>
+        <button class="bg-orange-700 text-white font-normal lg:text-3xl focus:bg-orange-400 rounded-md px-2 py-4 lg:px-8 lg:py-8" @click="stopRework(jobCard)" v-if="reworkStarted && completed_jobCard === false">Stop Rework</button>
         <p class="text-gray-700 text-md font-family-sans" v-if="completed_jobCard === false">{{ elapsedTime }}</p>
+        <p class="text-orange-600 text-md font-family-sans font-bold" v-if="completed_jobCard === false && reworkStarted">Rework: {{ reworkElapsedTime }}</p>
     </div>
 </template>
 
@@ -29,6 +31,11 @@ export default defineComponent({
         interval: Object,
         completed_jobCard: Boolean,
         start_time_frappe: Date,
+        reworkStarted: Boolean,
+        reworkStartTime: Date,
+        reworkElapsedTime: String,
+        reworkInterval: Object,
+        rework_start_time_frappe: Date,
 
     } {
         return {
@@ -38,6 +45,11 @@ export default defineComponent({
             interval: null as any, // Adjust as necessary
             completed_jobCard: false,
             start_time_frappe: new Date(),
+            reworkStarted: false,
+            reworkStartTime: new Date(),
+            reworkElapsedTime: '00:00:00',
+            reworkInterval: null as any,
+            rework_start_time_frappe: new Date(),
         };
     },
 
@@ -145,28 +157,62 @@ export default defineComponent({
 
         },
 
-        async complete_task(jobCard){
-          if (this.completed_jobCard === false){
-            console.log(this.jobCard)
-            if(confirm('Are you sure you want to submit?')) {
-              // this.completed_jobCard = true
-              const now = new Date();
-              const complete_time = this.get_time_in_string(now)
-              const response = await FrappeCall('timeclock.www.job_timeclock.submit_jobcard',{jobCard:jobCard, complete_time:complete_time, employee_id:this.employee_id})
-              if (response?.status === 'success'){
-                this.completed_jobCard = true
-                console.log(response.job_card)
-              } else {
-                this.completed_jobCard = false
-                console.log(response.error_message)
-              }
-            } else {
-              this.completed_jobCard = false
-        }
-      } else {
-        console.log('aye')
-      }
-    },
+        async startRework(jobCard: JobCard) {
+          this.reworkStartTime = new Date();
+          this.rework_start_time_frappe = this.get_time_in_string(this.reworkStartTime);
+
+          const response = await FrappeCall('timeclock.www.job_timeclock.log_rework_start_time', {
+            employee_id: this.employee_id, 
+            start_time: this.rework_start_time_frappe, 
+            jobcard_name: jobCard.name 
+          });
+          
+          if (response?.status === 'success') {
+            this.reworkStarted = true
+            this.start_rework_timer(this.reworkStartTime)
+            toast.success(`Rework started for ${jobCard.operation}.`);
+          }
+          else {
+              toast.error(`${jobCard.operation} rework failed to start.`);
+              console.log('Rework start did not work.')
+          }
+        },
+
+        start_rework_timer(time){
+          this.reworkInterval = setInterval(() => {
+                const now = new Date();
+                const timeDiff = now.getTime() - time.getTime();
+
+                const hours = Math.floor(timeDiff / (1000 * 60 * 60));
+                const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+
+                this.reworkElapsedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            }, 1000);
+        },
+
+        async stopRework(jobCard: JobCard) {
+            this.endTime = new Date();
+            this.end_time_frappe = this.get_time_in_string(this.endTime);
+
+            const response = await FrappeCall('timeclock.www.job_timeclock.log_rework_end_time', {
+              employee_id: this.employee_id, 
+              end_time: this.end_time_frappe, 
+              jobcard_name: jobCard.name 
+            });
+            
+            if (response?.status === 'success') {
+                console.log('Rework End Time sent.')
+                clearInterval(this.reworkInterval);
+                this.reworkStarted = false;
+                toast.success(`Rework completed for ${jobCard.operation}.`);
+            }
+            else {
+                toast.error(`${jobCard.operation} rework failed to end.`);
+                console.log('End rework did not work.')
+            }
+        },
 
     initialize_ongoing_timer(){
       this.taskStarted = true
