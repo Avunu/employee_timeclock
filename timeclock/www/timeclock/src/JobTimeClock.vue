@@ -36,14 +36,7 @@
     <!-- <main v-else: class="bg-white fixed w-auto top-100 z-50 h-24"> -->
         <main v-else: class="w-full h-screen">
         <!-- When session is inactive -->
-        <!-- Use this when scanner is working. -->
         <AuthorizationMessage />
-        <!-- <StartScreen :employees="employees" @send_login="receive_login" @send_employee="get_token_from_employee"/> -->
-        
-        <!-- This is to log in without scanner -->
-        <!-- <h1 class="text-3xl font-bold top-50">Employee List</h1>
-        <p>Click who you are:</p>
-        <EmployeeList :employees="employees" @send_employee="get_token_from_employee"/> -->
     </main>
 </div>
 </template>
@@ -66,7 +59,6 @@ import JobCardList from './components/JobCardList.vue';
 import { JobCard } from './types/JobCard';
 import EmployeeList from './components/EmployeeList.vue';
 import { Employee } from './types/Employee';
-import StartScreen from './components/StartScreen.vue';
 import DropDownMenu from './components/DropDownMenu.vue';
 
 //  Toastification is a simple system to make toast notifications.
@@ -87,7 +79,6 @@ export default defineComponent({
         TimerWidget,
         WorkOrderList,
         EmployeeList,
-        StartScreen,
         DropDownMenu,
     },
     data(): {

@@ -22,7 +22,6 @@
         <main v-else: class="w-full h-screen">
         <!-- When session is inactive -->
         <AuthorizationMessage />
-        <!-- <StartScreen :employees="employees" @send_login="receive_login" @send_employee="get_token_from_employee"/> -->
 
     </main>
 </div>

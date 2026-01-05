@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "strict": true,
+    "jsx": "preserve",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowJs": true
+  },
+  "include": [
+    "timeclock/www/**/src/**/*.ts",
+    "timeclock/www/**/src/**/*.d.ts",
+    "timeclock/www/**/src/**/*.tsx",
+    "timeclock/www/**/src/**/*.vue",
+    "timeclock/www/**/src/**/*.js",
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
