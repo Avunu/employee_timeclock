@@ -91,7 +91,6 @@ export default defineComponent({
         workOrders: WorkOrder[],
         activeSession: Boolean,
         employeeLoggedIn: Boolean,
-        employees: Employee[],
         dropdown_value: string,
         active_dropdown: Boolean,
         workstation: string,
@@ -108,7 +107,6 @@ export default defineComponent({
             workOrders: [],
             activeSession: false,
             employeeLoggedIn: false,
-            employees: [],
             active_dropdown:false,
             workstation: '',
             
@@ -328,9 +326,7 @@ export default defineComponent({
             this.tokenExpiration= 0;
             this.workOrders= [];
             this.activeSession= false;
-            this.employeeLoggedIn= false;
-            this.employees= [];
-            
+            this.employeeLoggedIn= false;         
         },
         
         // This does not currently work. Comes from button that is cancelled out.
@@ -362,21 +358,11 @@ export default defineComponent({
                 this.workOrders = []
                 this.employeeId= ''
                 this.employeeName= ''
-                this.employees= []
-                
                 }
             else {
                 toast.error(`${this.employeeName} was not properly signed out.`);
                 console.log('Did not work. You are still logged in:', response.log)
             }
-        },
-        async get_employees(){
-            const response = await FrappeCall('timeclock.www.job_timeclock.get_employees');
-            if (response?.status === 'success'){
-                this.employees = response.employees
-                // console.log(this.employees)
-            }
-            
         },
 
         get_token_from_employee(employee: Employee){
@@ -415,9 +401,6 @@ export default defineComponent({
             this.getWorkOrders();
         }
         this.check_for_erp_log_in();
-
-        // This code is to hardwire employees logging in without scan.
-        this.employees = this.get_employees();
 
         // This is to be used with scan. 
         const scanner = onScan.attachTo(document, {

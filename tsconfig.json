@@ -1,23 +1,24 @@
 {
-  "compilerOptions": {
-    "target": "ESNext",
-    "useDefineForClassFields": true,
-    "module": "ESNext",
-    "moduleResolution": "Node",
-    "strict": true,
-    "jsx": "preserve",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "esModuleInterop": true,
-    "lib": [
-      "ESNext",
-      "DOM",
-      "DOM.Iterable"
-    ],
-    "skipLibCheck": true,
-    "noEmit": true,
-    "allowJs": true
-  },
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  // "compilerOptions": {
+  //   "target": "ESNext",
+  //   "useDefineForClassFields": true,
+  //   "module": "ESNext",
+  //   "moduleResolution": "Node",
+  //   "strict": true,
+  //   "jsx": "preserve",
+  //   "resolveJsonModule": true,
+  //   "isolatedModules": true,
+  //   "esModuleInterop": true,
+  //   "lib": [
+  //     "ESNext",
+  //     "DOM",
+  //     "DOM.Iterable"
+  //   ],
+  //   "skipLibCheck": true,
+  //   "noEmit": true,
+  //   "allowJs": true
+  // },
   "include": [
     "timeclock/www/**/src/**/*.ts",
     "timeclock/www/**/src/**/*.d.ts",
