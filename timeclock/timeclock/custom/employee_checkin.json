@@ -1,0 +1,64 @@
+{
+    "custom_fields": [
+        {
+            "dt": "Employee Checkin",
+            "fieldname": "manual_override",
+            "fieldtype": "Check",
+            "insert_after": "time",
+            "label": "Manual Override",
+            "module": "Timeclock"
+        },
+        {
+            "dt": "Employee Checkin",
+            "fieldname": "manual_override_date",
+            "fieldtype": "Date",
+            "insert_after": "manual_override",
+            "label": "Manual Override Date",
+            "module": "Timeclock"
+        },
+        {
+            "dt": "Employee Checkin",
+            "fieldname": "manual_override_time",
+            "fieldtype": "Time",
+            "insert_after": "manual_override_date",
+            "label": "Manual Override Time",
+            "module": "Timeclock"
+        },
+        {
+            "dt": "Employee Checkin",
+            "fieldname": "workday_override",
+            "fieldtype": "Check",
+            "insert_after": "manual_override_time",
+            "label": "Workday Override",
+            "module": "Timeclock"
+        },
+        {
+            "dt": "Employee Checkin",
+            "fieldname": "overridden_time",
+            "fieldtype": "Datetime",
+            "insert_after": "workday_override",
+            "label": "Overridden Time",
+            "module": "Timeclock"
+        },
+        {
+            "dt": "Employee Checkin",
+            "fieldname": "workday",
+            "fieldtype": "Link",
+            "options": "Workday",
+            "insert_after": "shift",
+            "label": "Workday",
+            "module": "Timeclock"
+        },
+        {
+            "dt": "Employee Checkin",
+            "fieldname": "workday_modified",
+            "fieldtype": "Datetime",
+            "insert_after": "workday",
+            "label": "Workday Modified",
+            "module": "Timeclock"
+        }
+    ],
+    "property_setters": [],
+    "sync_on_migrate": 1,
+    "doctype": "Employee Checkin"
+}
