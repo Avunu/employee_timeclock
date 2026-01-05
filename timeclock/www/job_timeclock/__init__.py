@@ -1,6 +1,7 @@
 import datetime
 import time
 from operator import attrgetter, itemgetter
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import frappe
 import getmac
@@ -19,7 +20,7 @@ from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
 SECRET_KEY = frappe.get_site_config().get("encryption_key")
 
 # List of "Machine employees" to be able to run machines same time as other processes.
-MACHINE_OPERATIONS = {
+MACHINE_OPERATIONS: Dict[str, str] = {
     'Machine Staining Hours': 'HR-MACH-ST-00052', 
     'Sanding Machine Hours':'HR-MACH-SA-00053', 
     'CNC Machine Time':'HR-MACH-CNC-00051',
@@ -28,7 +29,7 @@ MACHINE_OPERATIONS = {
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=1, seconds=1)
-def authenticate_employee(rfid):
+def authenticate_employee(rfid: str) -> Dict[str, Any]:
 	# mac_address = getmac.get_mac_address()
     # Validate the RFID against the database
     employee_id = frappe.get_value(
@@ -38,10 +39,10 @@ def authenticate_employee(rfid):
         return {"status": "error", "message": ("Invalid RFID")}
 
     # If valid, generate a JWT
-    token = refresh_token(employee_id)
+    token = refresh_token(str(employee_id))
 
     # get the last employee checkin to see if the employee is clocked in or out
-    last_checkin = frappe.get_list("Employee Checkin",
+    last_checkin: List[str] = frappe.get_list("Employee Checkin",
                                    filters={"employee": employee_id},
                                    order_by="modified desc",
                                    limit=1,
@@ -76,7 +77,7 @@ def authenticate_employee(rfid):
     #     "token": token}
 
 @frappe.whitelist(allow_guest=True)
-def log_in_employee(token, time):
+def log_in_employee(token: str, time: str) -> Dict[str, Any]:
     
     employee_id, token = extract_employee_from_token(token)
     
@@ -103,7 +104,7 @@ def log_in_employee(token, time):
 
 # Issue with logout. The log is made but _unsaved = True. so its not passing to workday management 
 @frappe.whitelist(allow_guest=True)  
-def log_out_employee(token, time):
+def log_out_employee(token: str, time: str) -> Dict[str, Any]:
     employee_id, token = extract_employee_from_token(token)
     
     new_log = EmployeeCheckin("Employee Checkin", {})
@@ -125,17 +126,17 @@ def log_out_employee(token, time):
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=1, seconds=1)
-def get_work_orders(token):
+def get_work_orders(token: str) -> Dict[str, Any]:
     frappe.publish_realtime('test','aye yooooo')
     
     try:
         employee_id, token = extract_employee_from_token(token)
     except Exception as e:
-        return e
+        return {"status": "error", "message": str(e)}
 
     # Get the employee's work orders
     # work order status can be Submitted, Not Started, or In Process
-    work_orders = frappe.get_list("Work Order",
+    work_orders: List[Dict[str, Any]] = frappe.get_list("Work Order",
                                   filters={"status": [
                                       "in", ["Submitted", "Not Started", "In Process"]]},
                                   fields=["name", "production_item", "status"], ignore_permissions=True)
@@ -144,15 +145,15 @@ def get_work_orders(token):
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=4, seconds=1)
-def get_job_cards(token, work_order):
+def get_job_cards(token: str, work_order: str) -> Dict[str, Any]:
     # authenticate the employee
     try:
         employee_id, token = extract_employee_from_token(token)
     except Exception as e:
-        return e
+        return {"status": "error", "message": str(e)}
 
     # Get the employee's job cards
-    job_cards = frappe.get_list("Job Card",
+    job_cards: List[Any] = frappe.get_list("Job Card",
                                 filters={"work_order": work_order},
                                 fields=["name", "operation", "status","sequence_id"], ignore_permissions=True)
     
@@ -161,38 +162,38 @@ def get_job_cards(token, work_order):
     else:
         job_cards, time_logs = update_job_cards_with_time_log(job_cards, employee_id)
         job_cards = sorted(job_cards, key=attrgetter('sequence_id'))
-        active_cards = check_jobcard_active(job_cards)
+        active_cards: List[bool] = check_jobcard_active(job_cards)
         return {"status": "success", "token": token, "job_cards": job_cards, "time_logs": time_logs, "active_cards":active_cards  }
 
 
-def update_job_cards_with_time_log(job_cards, employee_id):
-    new_job_cards = []
-    all_logs = []
+def update_job_cards_with_time_log(job_cards: List[Any], employee_id: str) -> Tuple[List[Any], List[Any]]:
+    new_job_cards: List[Any] = []
+    all_logs: List[Any] = []
     for card in job_cards:
-        full = JobCard("Job Card", card.name)
+        full: JobCard = JobCard("Job Card", card.name)
         
         #get all the time Logs
-        time_logs = full.time_logs
+        time_logs: List[JobCardTimeLog] = full.time_logs
         all_logs.append(time_logs)
 
         # filter for machine.
         if card.operation in MACHINE_OPERATIONS.keys():
             for key,machine_id in MACHINE_OPERATIONS.items():
                 if key == card.operation:
-                    employee_logs= []
+                    employee_logs: List[JobCardTimeLog] = []
                     for log in time_logs:
                         if log.employee == machine_id:
                             employee_logs.append(log)
                     break
         # filter by employee.
         else:
-            employee_logs= []
+            employee_logs: List[JobCardTimeLog] = []
             for log in time_logs:
                 if log.employee == employee_id:
                     employee_logs.append(log)
 
         if employee_logs != []:
-            latest_time_log = max(employee_logs, key=lambda log:log.from_time)
+            latest_time_log: JobCardTimeLog = max(employee_logs, key=lambda log:log.from_time)
             card.time_logs = latest_time_log
             new_job_cards.append(card)
         else:
@@ -203,11 +204,11 @@ def update_job_cards_with_time_log(job_cards, employee_id):
 
     return new_job_cards, all_logs
 
-def check_jobcard_active(employee_job_cards):
+def check_jobcard_active(employee_job_cards: List[Any]) -> List[bool]:
     # Job cards coming in are already filtered by the employee clocked into system.
 
-    active = 0
-    active_cards=[]
+    active: int = 0
+    active_cards: List[bool] = []
     for card in employee_job_cards:
         if card.time_logs:
             try:
@@ -233,8 +234,8 @@ def check_jobcard_active(employee_job_cards):
     return active_cards
 
 @frappe.whitelist(allow_guest=True)
-def sort_jobcard_by_workstation(jobCards, workstation):
-    operation_workstation = [{"workstation":"Planer", "operation":["Planing Machine Time","Pulling & Planing"]},
+def sort_jobcard_by_workstation(jobCards: List[Dict[str, Any]], workstation: str) -> Dict[str, Any]:
+    operation_workstation: List[Dict[str, Any]] = [{"workstation":"Planer", "operation":["Planing Machine Time","Pulling & Planing"]},
                              {"workstation":"CNC", "operation":["CNC Labor", "CNC Machine Time"]},
                              {"workstation":"Hand Sanding", "operation":["Hand Sanding"]},
                              {"workstation":"Sander/Stainer", "operation":["Sanding Machine Labor", "Sanding Machine Hours","Machine Staining Labor","Machine Staining Hours"]},
@@ -244,11 +245,11 @@ def sort_jobcard_by_workstation(jobCards, workstation):
 
     for entry in operation_workstation:
         if entry['workstation'] == workstation:
-            operations = entry["operation"]
+            operations: List[str] = entry["operation"]
     
-    top_index = []
-    new_jobCards=[]
-    waste=[]
+    top_index: List[Dict[str, Any]] = []
+    new_jobCards: List[Dict[str, Any]] = []
+    waste: List[Dict[str, Any]] = []
     for card in jobCards:
         for station_operation in operations:
             if card["operation"] == station_operation and card not in waste:
@@ -262,7 +263,7 @@ def sort_jobcard_by_workstation(jobCards, workstation):
         return {'status':'success', 'sorted_job_cards':jobCards}
     
 
-    i=0
+    i: int = 0
     for index in top_index:
         new_jobCards.insert(i,index)
         i+=1
@@ -270,56 +271,58 @@ def sort_jobcard_by_workstation(jobCards, workstation):
     return {'status':'success', 'sorted_job_cards':new_jobCards}
 
 
-def extract_employee_from_token(token):
+def extract_employee_from_token(token: str) -> Tuple[str, str]:
     try:
         # Decode the JWT using the same secret key
-        payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-        employee_id = payload.get("employee_id")
-
-        # refresh the token
-        token = refresh_token(employee_id)
+        payload: Dict[str, Any] = jwt.decode(token, SECRET_KEY or "", algorithms=['HS256'])
+        employee_id: Optional[str] = payload.get("employee_id")
 
         if not employee_id:
             raise jwt.InvalidTokenError
 
-        return employee_id, token
+        # refresh the token
+        refreshed_token: str = refresh_token(employee_id)
+
+        return employee_id, refreshed_token
 
     except jwt.ExpiredSignatureError:
         # The token has expired
         frappe.throw(_("Token has expired. Please re-authenticate."),
                      exc=frappe.AuthenticationError)
+        raise  # This line will never be reached but satisfies type checker
 
     except jwt.InvalidTokenError:
         # The token is invalid for some other reason
         frappe.throw(_("Invalid token. Please re-authenticate."),
                      exc=frappe.AuthenticationError)
+        raise  # This line will never be reached but satisfies type checker
 
 
-def refresh_token(employee_id):
+def refresh_token(employee_id: str) -> str:
     employee_name = frappe.get_value(
         "Employee", {"employee": employee_id}, "employee_name")
     # If valid, generate a JWT
-    expires = (datetime.datetime.now() +
+    expires: float = (datetime.datetime.now() +
                datetime.timedelta(minutes=30)).timestamp()
-    token = jwt.encode(
+    token: str = jwt.encode(
         payload={"employee_id": employee_id,
                  "employee_name": employee_name, "exp": expires},
-        key=SECRET_KEY,
+        key=SECRET_KEY or "",
         algorithm='HS256')
 
     return token
 
 @frappe.whitelist(allow_guest=True)
-def log_start_time_of_jobcard(employee_id, start_time, jobcard_name):
+def log_start_time_of_jobcard(employee_id: str, start_time: str, jobcard_name: str) -> Dict[str, Any]:
 
-    job_card = JobCard("Job Card", jobcard_name, ignore_permissions=True)
-    new_time_log = JobCardTimeLog('Job Card Time Log', {})
+    job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
+    new_time_log: JobCardTimeLog = JobCardTimeLog('Job Card Time Log', {})
 
     if job_card.operation in MACHINE_OPERATIONS.keys():
         for key,machine_id in MACHINE_OPERATIONS.items():
             if key == job_card.operation:
                 # log out other machine times.
-                card_logged_out = check_all_job_cards(machine_id, start_time)
+                card_logged_out: Union[str, List[Any]] = check_all_job_cards(machine_id, start_time)
                 new_time_log.update({
                     'from_time': start_time,
                     'employee': machine_id
@@ -353,9 +356,9 @@ def log_start_time_of_jobcard(employee_id, start_time, jobcard_name):
         return {"status": "failed", "job_card":job_card, "serverError": True}
 
 @frappe.whitelist(allow_guest=True)
-def log_end_time_of_jobcard(employee_id, end_time, jobcard_name):
+def log_end_time_of_jobcard(employee_id: str, end_time: str, jobcard_name: str) -> Dict[str, Any]:
 
-    job_card = JobCard("Job Card", jobcard_name, ignore_permissions=True)
+    job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
     
     if job_card.operation in MACHINE_OPERATIONS.keys():
         for key,machine_id in MACHINE_OPERATIONS.items():
@@ -363,13 +366,13 @@ def log_end_time_of_jobcard(employee_id, end_time, jobcard_name):
                 employee_id = machine_id
                 break
 
-    employee_logs = []
+    employee_logs: List[JobCardTimeLog] = []
     for log in job_card.time_logs:
         if log.employee == employee_id:
             employee_logs.append(log)
 
     # last_time_log = job_card.time_logs[-1]
-    last_time_log = employee_logs[-1]
+    last_time_log: JobCardTimeLog = employee_logs[-1]
 
     last_time_log.update({
         'to_time': end_time,
@@ -378,26 +381,26 @@ def log_end_time_of_jobcard(employee_id, end_time, jobcard_name):
     try:
         job_card.append('time_logs', last_time_log)
         job_card.save(ignore_permissions=True)
-        updated_log = job_card.time_logs
+        updated_log: List[JobCardTimeLog] = job_card.time_logs
         return {"status": "success", "updated_log": updated_log, }
     except:
         return {"status": "failed", "job_card":job_card}
 
 # Function to check out employee of a job card, when they start a new one. 
 @frappe.whitelist(allow_guest=True)
-def check_all_job_cards(employee_id, time):
+def check_all_job_cards(employee_id: str, time: str) -> Union[str, List[Any]]:
     # work_orders = frappe.db.get_list('Work Order', filters=[{
     #     'status':'Not Started'}, {'status':'In Process'}], pluck='name')
-    work_orders = frappe.db.get_list('Work Order', or_filters=[{
+    work_orders: List[Dict[str, Any]] = frappe.db.get_list('Work Order', or_filters=[{
         'status':'Not Started'},{'status':'In Process'}], fields=["name","status"], ignore_permissions=True)
 
     # Get all job cards and check for employee id
-    job_cards_list = []
+    job_cards_list: List[Any] = []
     for work_order in work_orders:
         
         #get job cards by work
-        job_cards = frappe.db.get_list("Job Card", 
-                                       filters={"work_order":work_order.name}, 
+        job_cards: List[Any] = frappe.db.get_list("Job Card", 
+                                       filters={"work_order":work_order["name"]}, 
                                        fields=["name"], 
                                        ignore_permissions=True)
         
@@ -405,7 +408,7 @@ def check_all_job_cards(employee_id, time):
             pass
         else:
             for job_card in job_cards:
-                full_job_card = JobCard("Job Card", job_card.name, ignore_permissions=True)
+                full_job_card: JobCard = JobCard("Job Card", job_card.name, ignore_permissions=True)
                 job_card.time_logs = full_job_card.time_logs
 
                 duplicate = []
@@ -418,12 +421,12 @@ def check_all_job_cards(employee_id, time):
         return 'no cards logged out'
     
     # Go through job cards for employee
-    card_logged_out = []
+    card_logged_out: List[Any] = []
     for card in job_cards_list:
         # job_card = frappe.get_doc('Job Card', card.name, ignore_permissions = True)
         for log in card.time_logs:
             if not log.to_time and card and (card.operation not in MACHINE_OPERATIONS.keys()) and log.employee == employee_id:
-                response = log_end_time_of_jobcard(employee_id, time, card.name)
+                response: Dict[str, Any] = log_end_time_of_jobcard(employee_id, time, card.name)
                 card_logged_out.append(log)
             else:
                 pass
@@ -434,8 +437,8 @@ def check_all_job_cards(employee_id, time):
     return card_logged_out
 
 @frappe.whitelist(allow_guest=True)
-def get_employees():
-    employees = [
+def get_employees() -> Dict[str, Any]:
+    employees: List[Dict[str, Any]] = [
         {'id':1, 'name':'Nick Alzamora', 'sCode':'1234512345' },
         {'id':2, 'name':'Sammy Glick', 'sCode':'2013620484'},
         {'id':3, 'name':'Alan Mendoza','sCode':'3234512345'},
@@ -453,20 +456,20 @@ def get_employees():
 
 
 @frappe.whitelist(allow_guest=True)
-def check_for_erp_log_in():
+def check_for_erp_log_in() -> Dict[str, Any]:
     if frappe.session.user != 'Guest':
         return {'user_id': frappe.session.user}
     else:
         return {'user_id': frappe.session.user}
 
 @frappe.whitelist(allow_guest=True)
-def submit_jobcard(jobCard, complete_time, employee_id):
-    completed_qty = 1
-    status = 'Submitted'
-    doc = JobCard("Job Card", jobCard["name"], ignore_permissions=True)
+def submit_jobcard(jobCard: Dict[str, Any], complete_time: str, employee_id: str) -> Dict[str, Any]:
+    completed_qty: int = 1
+    status: str = 'Submitted'
+    doc: JobCard = JobCard("Job Card", jobCard["name"], ignore_permissions=True)
     
     if doc.time_logs and len(doc.time_logs) > 0:
-        last_row = doc.time_logs[-1]
+        last_row: JobCardTimeLog = doc.time_logs[-1]
     
     if last_row and complete_time:
 
@@ -486,17 +489,17 @@ def submit_jobcard(jobCard, complete_time, employee_id):
         return {'status':'success', 'job_card':doc}
        
     else:
-        error_message = 'Log has unfinished times.'
+        error_message: str = 'Log has unfinished times.'
         return {'status':'failed','error_message':error_message}
 
 @frappe.whitelist(allow_guest=True)
-def log_rework_start_time(employee_id, start_time, jobcard_name):
+def log_rework_start_time(employee_id: str, start_time: str, jobcard_name: str) -> Dict[str, Any]:
     """
     Log rework time as a corrective job card time log.
     This creates a time log with is_corrective_job_card=True and for_job_card pointing to the original job card.
     """
-    job_card = JobCard("Job Card", jobcard_name, ignore_permissions=True)
-    new_time_log = JobCardTimeLog('Job Card Time Log', {})
+    job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
+    new_time_log: JobCardTimeLog = JobCardTimeLog('Job Card Time Log', {})
 
     if job_card.operation in MACHINE_OPERATIONS.keys():
         for key,machine_id in MACHINE_OPERATIONS.items():
@@ -519,7 +522,7 @@ def log_rework_start_time(employee_id, start_time, jobcard_name):
     try:
         job_card.append('time_logs', new_time_log)
         job_card.save(ignore_permissions=True)
-        updated_log = job_card.time_logs
+        updated_log: List[JobCardTimeLog] = job_card.time_logs
         return {"status": "success", "job_card": job_card, "updated_log": updated_log}
 
     except Exception as e:
@@ -528,11 +531,11 @@ def log_rework_start_time(employee_id, start_time, jobcard_name):
         return {"status": "failed", "job_card":job_card, "serverError": True, "error": str(e)}
 
 @frappe.whitelist(allow_guest=True)
-def log_rework_end_time(employee_id, end_time, jobcard_name):
+def log_rework_end_time(employee_id: str, end_time: str, jobcard_name: str) -> Dict[str, Any]:
     """
     Log end time for rework (corrective job card time log).
     """
-    job_card = JobCard("Job Card", jobcard_name, ignore_permissions=True)
+    job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
     
     if job_card.operation in MACHINE_OPERATIONS.keys():
         for key,machine_id in MACHINE_OPERATIONS.items():
@@ -541,7 +544,7 @@ def log_rework_end_time(employee_id, end_time, jobcard_name):
                 break
 
     # Find the last corrective time log for this employee
-    employee_logs = []
+    employee_logs: List[JobCardTimeLog] = []
     for log in job_card.time_logs:
         if log.employee == employee_id and getattr(log, 'is_corrective_job_card', False):
             employee_logs.append(log)
@@ -549,7 +552,7 @@ def log_rework_end_time(employee_id, end_time, jobcard_name):
     if not employee_logs:
         return {"status": "failed", "error": "No active rework time log found"}
 
-    last_time_log = employee_logs[-1]
+    last_time_log: JobCardTimeLog = employee_logs[-1]
 
     last_time_log.update({
         'to_time': end_time,
@@ -557,7 +560,7 @@ def log_rework_end_time(employee_id, end_time, jobcard_name):
 
     try:
         job_card.save(ignore_permissions=True)
-        updated_log = job_card.time_logs
+        updated_log: List[JobCardTimeLog] = job_card.time_logs
         return {"status": "success", "updated_log": updated_log}
     except Exception as e:
         frappe.log_error('Error Ending Rework Log', e)
