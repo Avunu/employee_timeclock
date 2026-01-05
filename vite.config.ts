@@ -2,13 +2,24 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import Icons from 'unplugin-icons/vite'
 import fs from 'fs'
-import { resolve } from 'path'
+import { resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
+import type { Plugin } from 'vite'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 // Get the app name from environment variable (defaults to 'timeclock')
 const appName = process.env.VITE_APP || 'timeclock'
 
+interface AppConfig {
+	entry: string
+	outDir: string
+	srcDir: string
+}
+
 // Map of app configurations
-const appConfigs = {
+const appConfigs: Record<string, AppConfig> = {
 	timeclock: {
 		entry: 'timeclock.js',
 		outDir: 'timeclock/www/timeclock',
@@ -24,13 +35,13 @@ const appConfigs = {
 const config = appConfigs[appName]
 
 // Custom plugin to delete index.js and index.css before each build
-const deleteFilePlugin = {
+const deleteFilePlugin: Plugin = {
 	name: 'delete-file',
 	buildStart() {
 		const files = ['index.js', 'index.css']
 		files.forEach(file => {
 			const filePath = resolve(__dirname, config.outDir, file)
-			fs.unlink(filePath, (err) => {
+			fs.unlink(filePath, (err: NodeJS.ErrnoException | null) => {
 				if (err && err.code === 'ENOENT') {
 					console.log(`${file} doesn't exist, won't remove it.`)
 				} else if (err) {
