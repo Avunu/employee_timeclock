@@ -1,14 +1,19 @@
-import getmac
-
-import jwt
 import datetime
 import time
+from operator import attrgetter, itemgetter
 
 import frappe
+import getmac
+import hrms
+import jwt
+from erpnext.manufacturing.doctype.job_card.job_card import JobCard
+from erpnext.manufacturing.doctype.job_card_time_log.job_card_time_log import \
+    JobCardTimeLog
+from frappe import _
 from frappe.query_builder import DocType
 from frappe.rate_limiter import rate_limit
-from frappe.utils.data import now_datetime, format_datetime, get_datetime
-from operator import itemgetter, attrgetter
+from frappe.utils.data import format_datetime, get_datetime, now_datetime
+from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
 
 # import secret key from site_config.json
 SECRET_KEY = frappe.get_site_config().get("encryption_key")
@@ -75,7 +80,7 @@ def log_in_employee(token, time):
     
     employee_id, token = extract_employee_from_token(token)
     
-    new_log = frappe.new_doc("Employee Checkin")
+    new_log = EmployeeCheckin("Employee Checkin", {})
     new_log.employee = employee_id
     new_log.time= time
     new_log.log_type = "IN"
@@ -101,7 +106,7 @@ def log_in_employee(token, time):
 def log_out_employee(token, time):
     employee_id, token = extract_employee_from_token(token)
     
-    new_log = frappe.new_doc("Employee Checkin")
+    new_log = EmployeeCheckin("Employee Checkin", {})
     new_log.employee = employee_id
     new_log.time= time
     new_log.log_type = "OUT"
@@ -164,7 +169,7 @@ def update_job_cards_with_time_log(job_cards, employee_id):
     new_job_cards = []
     all_logs = []
     for card in job_cards:
-        full = frappe.get_doc("Job Card", card.name)
+        full = JobCard("Job Card", card.name)
         
         #get all the time Logs
         time_logs = full.time_logs
@@ -307,8 +312,8 @@ def refresh_token(employee_id):
 @frappe.whitelist(allow_guest=True)
 def log_start_time_of_jobcard(employee_id, start_time, jobcard_name):
 
-    job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
-    new_time_log = frappe.new_doc('Job Card Time Log')
+    job_card = JobCard("Job Card", jobcard_name, ignore_permissions=True)
+    new_time_log = JobCardTimeLog('Job Card Time Log', {})
 
     if job_card.operation in MACHINE_OPERATIONS.keys():
         for key,machine_id in MACHINE_OPERATIONS.items():
@@ -350,7 +355,7 @@ def log_start_time_of_jobcard(employee_id, start_time, jobcard_name):
 @frappe.whitelist(allow_guest=True)
 def log_end_time_of_jobcard(employee_id, end_time, jobcard_name):
 
-    job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
+    job_card = JobCard("Job Card", jobcard_name, ignore_permissions=True)
     
     if job_card.operation in MACHINE_OPERATIONS.keys():
         for key,machine_id in MACHINE_OPERATIONS.items():
@@ -400,7 +405,7 @@ def check_all_job_cards(employee_id, time):
             pass
         else:
             for job_card in job_cards:
-                full_job_card = frappe.get_doc("Job Card", job_card.name, ignore_permissions=True)
+                full_job_card = JobCard("Job Card", job_card.name, ignore_permissions=True)
                 job_card.time_logs = full_job_card.time_logs
 
                 duplicate = []
@@ -458,7 +463,7 @@ def check_for_erp_log_in():
 def submit_jobcard(jobCard, complete_time, employee_id):
     completed_qty = 1
     status = 'Submitted'
-    doc = frappe.get_doc("Job Card", jobCard["name"], ignore_permissions=True)
+    doc = JobCard("Job Card", jobCard["name"], ignore_permissions=True)
     
     if doc.time_logs and len(doc.time_logs) > 0:
         last_row = doc.time_logs[-1]
@@ -490,8 +495,8 @@ def log_rework_start_time(employee_id, start_time, jobcard_name):
     Log rework time as a corrective job card time log.
     This creates a time log with is_corrective_job_card=True and for_job_card pointing to the original job card.
     """
-    job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
-    new_time_log = frappe.new_doc('Job Card Time Log')
+    job_card = JobCard("Job Card", jobcard_name, ignore_permissions=True)
+    new_time_log = JobCardTimeLog('Job Card Time Log', {})
 
     if job_card.operation in MACHINE_OPERATIONS.keys():
         for key,machine_id in MACHINE_OPERATIONS.items():
@@ -527,7 +532,7 @@ def log_rework_end_time(employee_id, end_time, jobcard_name):
     """
     Log end time for rework (corrective job card time log).
     """
-    job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
+    job_card = JobCard("Job Card", jobcard_name, ignore_permissions=True)
     
     if job_card.operation in MACHINE_OPERATIONS.keys():
         for key,machine_id in MACHINE_OPERATIONS.items():

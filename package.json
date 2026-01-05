@@ -35,10 +35,8 @@
   "scripts": {
     "build": "VITE_APP=timeclock vite build && VITE_APP=job_timeclock vite build",
     "build:job_timeclock": "VITE_APP=job_timeclock vite build",
-    "build:project_list": "vite build --config=./timeclock/www/project_list/vite.config.js",
     "build:timeclock": "VITE_APP=timeclock vite build",
     "dev:job_timeclock": "VITE_APP=job_timeclock vite build --watch",
-    "dev:project_list": "vite build --watch --config=./timeclock/www/project_list/vite.config.js",
     "dev:timeclock": "VITE_APP=timeclock vite build --watch",
     "npx:upgrade": "npx npm-check-updates -u && yarn install"
   },
