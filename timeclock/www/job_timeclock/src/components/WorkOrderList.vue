@@ -26,14 +26,16 @@ export default defineComponent({
             type: Array as PropType<WorkOrder[]>,
             default: () => [],
         },
-        selectedWorkOrder: Object as PropType<WorkOrder>,
+        selectedWorkOrder: {
+            type: Object as PropType<WorkOrder | null>,
+            default: null,
+        },
     },
     methods: {
-        selectWorkOrder(workOrder: WorkOrder) {
+        selectWorkOrder(workOrder: WorkOrder): void {
             if (this.selectedWorkOrder && this.selectedWorkOrder.name === workOrder.name) {
                 // Deselect the current work order if clicked again
                 this.$emit('select', null);
-                this.isSelected = false;
             } else {
                 // Otherwise, select the new work order
                 this.$emit('select', workOrder);

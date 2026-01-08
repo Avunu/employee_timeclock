@@ -31,32 +31,30 @@ export default defineComponent({
             default: false,
         },
     },
-    data():{
-        selected: Boolean,
-    }{
+    data(): {
+        selected: boolean,
+    } {
         return {
             selected: false,
         };
     },
 
-    methods:{
-      click(workOrder){
-        if (this.selected === true){
-            this.selected = false;
-        } else {
-        this.$emit('click', workOrder);
-        this.selected = true;
-        }
-      },
-      
-      
-
-    mounted() {
-        this.selected = false;
-
-},
+    methods: {
+        click(workOrder: WorkOrder): void {
+            if (this.selected === true) {
+                this.selected = false;
+            } else {
+                this.$emit('click', workOrder);
+                this.selected = true;
+            }
+        },
     },
-    unmounted(){
+
+    mounted(): void {
+        this.selected = false;
+    },
+    
+    unmounted(): void {
         this.selected = false;
     }
     

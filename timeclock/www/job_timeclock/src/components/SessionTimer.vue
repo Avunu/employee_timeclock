@@ -6,7 +6,7 @@
     </div>
   </div>
 </template>
-  
+
 <script>
 import { ref, computed, watchEffect, onUnmounted } from 'vue';
 
@@ -22,14 +22,14 @@ export default {
       required: true,
     },
   },
-  
+
   setup(props) {
     let intervalId = null;
     const timeLeft = ref(0); // this will store the actual remaining time
     const timeLeftDisplay = computed(() => {
       const minutes = Math.floor(timeLeft.value / 60);
       const seconds = timeLeft.value % 60;
-      if (timeLeft.value >0){
+      if (timeLeft.value > 0) {
         return `Timeout in ${minutes}m ${seconds}s`;
       } else {
         return `Session Timed Out.`;
@@ -42,7 +42,7 @@ export default {
 
     };
 
-    
+
     watchEffect(() => {
       clearInterval(intervalId);
       if (props.tokenExpiration && props.tokenExpiration > Date.now()) {
@@ -50,7 +50,7 @@ export default {
         updateRemainingTime(); // immediately update
       } else {
         // console.log()
-        }
+      }
     });
 
     onUnmounted(() => {
@@ -64,4 +64,3 @@ export default {
   }
 }
 </script>
-
