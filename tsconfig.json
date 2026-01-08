@@ -17,18 +17,22 @@
     ],
     "skipLibCheck": true,
     "noEmit": true,
-    "allowJs": true
+    "allowJs": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["timeclock/public/js/*"],
+      "@job_timeclock/*": ["timeclock/public/js/job_timeclock/*"],
+      "@timeclock/*": ["timeclock/public/js/timeclock/*"]
+    }
   },
   "include": [
-    "timeclock/www/**/src/**/*.ts",
-    "timeclock/www/**/src/**/*.d.ts",
-    "timeclock/www/**/src/**/*.tsx",
-    "timeclock/www/**/src/**/*.vue",
-    "timeclock/www/**/src/**/*.js",
-    "timeclock/www/**/src/env.d.ts"
+    "timeclock/public/js/**/*.ts",
+    "timeclock/public/js/**/*.d.ts",
+    "timeclock/public/js/**/*.vue"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "timeclock/public/dist"
   ]
 }

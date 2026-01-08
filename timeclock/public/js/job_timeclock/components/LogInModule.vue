@@ -16,7 +16,8 @@
 import { defineComponent } from 'vue';
 import Card from './Card.vue';
 import Button from 'frappe-ui/src/components/Button/Button.vue';
-import { FrappeCall } from '../../../FrappeCall';
+import { frappeCall } from '../../FrappeCall';
+import type { VerifyLoginResponse } from '../types/api';
 
 export default defineComponent({
     name: 'LogInModule',
@@ -47,8 +48,8 @@ export default defineComponent({
         async submit_login(email: string, password: string) {
 
             // Needs to be built out and fully verified.
-            const response = await FrappeCall('timeclock.www.job_timeclock.verify_login', { email, password });
-            if (response?.status === 'success') {
+            const response = await frappeCall<VerifyLoginResponse>('timeclock.www.job_timeclock.verify_login', { email, password });
+            if (response.status === 'success') {
                 this.verified = true
                 this.authenticated = true;
                 this.$emit('submit_login', this.authenticated);

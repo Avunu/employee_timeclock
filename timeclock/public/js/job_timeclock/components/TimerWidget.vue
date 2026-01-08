@@ -24,10 +24,10 @@
 import { defineComponent, PropType, watch } from 'vue';
 import { JobCard } from '../types/JobCard';
 import { FrappeDateTimeString, dateToFrappeDateTimeString } from '../types/FrappeDateTime';
-import { START_LOCATION } from 'vue-router';
-import { useThrottledRefHistory, useStorage } from '@vueuse/core';
-import { FrappeCall } from '../../../FrappeCall.js';
+import { useStorage } from '@vueuse/core';
+import { frappeCall } from '../../FrappeCall';
 import { useToast } from 'vue-toastification';
+import type { LogStartTimeResponse, LogEndTimeResponse, LogReworkStartResponse, LogReworkEndResponse } from '../types/api';
 const toast = useToast()
 
 export default defineComponent({
@@ -95,9 +95,9 @@ export default defineComponent({
       // Server call to test time. 
       // console.log('start_time',this.startTimeFrappe);
       // console.log(this.employee_id)
-      const response = await FrappeCall('timeclock.www.job_timeclock.log_start_time_of_jobcard', { employee_id: this.employee_id, start_time: this.startTimeFrappe, jobcard_name: jobCard.name });
+      const response = await frappeCall<LogStartTimeResponse>('timeclock.www.job_timeclock.log_start_time_of_jobcard', { employee_id: this.employee_id, start_time: this.startTimeFrappe, jobcard_name: jobCard.name });
 
-      if (response?.status === 'success') {
+      if (response.status === 'success') {
         // console.log('Start Time sent.')
         // console.log('Started Time: ', response.card_logged_out)
         this.taskStarted = true
@@ -145,9 +145,9 @@ export default defineComponent({
       // console.log('frappe end time', this.end_time_frappe)
       // this.$emit('send_end_time', this.end_time_frappe, jobCard.name);
 
-      const response = await FrappeCall('timeclock.www.job_timeclock.log_end_time_of_jobcard', { employee_id: this.employee_id, end_time: this.end_time_frappe, jobcard_name: jobCard.name });
+      const response = await frappeCall<LogEndTimeResponse>('timeclock.www.job_timeclock.log_end_time_of_jobcard', { employee_id: this.employee_id, end_time: this.end_time_frappe, jobcard_name: jobCard.name });
 
-      if (response?.status === 'success') {
+      if (response.status === 'success') {
         console.log('End Time sent.')
         if (this.interval !== null) {
           clearInterval(this.interval);
@@ -170,13 +170,13 @@ export default defineComponent({
       this.reworkStartTime = new Date();
       this.reworkStartTimeFrappe = this.getTimeInString(this.reworkStartTime);
 
-      const response = await FrappeCall('timeclock.www.job_timeclock.log_rework_start_time', {
+      const response = await frappeCall<LogReworkStartResponse>('timeclock.www.job_timeclock.log_rework_start_time', {
         employee_id: this.employee_id,
         start_time: this.reworkStartTimeFrappe,
         jobcard_name: jobCard.name
       });
 
-      if (response?.status === 'success') {
+      if (response.status === 'success') {
         this.reworkStarted = true
         this.start_rework_timer(this.reworkStartTime)
         toast.success(`Rework started for ${jobCard.operation}.`);
@@ -197,13 +197,13 @@ export default defineComponent({
       this.endTime = new Date();
       this.end_time_frappe = this.getTimeInString(this.endTime);
 
-      const response = await FrappeCall('timeclock.www.job_timeclock.log_rework_end_time', {
+      const response = await frappeCall<LogReworkEndResponse>('timeclock.www.job_timeclock.log_rework_end_time', {
         employee_id: this.employee_id,
         end_time: this.end_time_frappe,
         jobcard_name: jobCard.name
       });
 
-      if (response?.status === 'success') {
+      if (response.status === 'success') {
         console.log('Rework End Time sent.')
         if (this.reworkInterval !== null) {
           clearInterval(this.reworkInterval);
@@ -220,7 +220,8 @@ export default defineComponent({
 
     initialize_ongoing_timer(): void {
       this.taskStarted = true
-      const time_from = this.jobCard.time_logs.from_time
+      const time_from = this.jobCard.time_logs?.from_time
+      if (!time_from) return;
       this.startTime = new Date(time_from)
       this.start_timer(this.startTime)
 

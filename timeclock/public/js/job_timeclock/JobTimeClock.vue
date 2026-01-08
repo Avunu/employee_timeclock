@@ -5,7 +5,7 @@
 
                 <!-- Job Timeclock Header -->
                 <button class="text-4xl font-bold tracking-tight text-gray-900" @click="refresh_page">{{ header
-                    }}</button>
+                }}</button>
 
                 <!-- Clock out -->
                 <!--<button class="bg-teal-300 hover:bg-teal-400 text-white font-normal lg:text-3xl py-4 px-8 rounded ring-2 ring-offset-1 ring-gray-100" -->
@@ -49,7 +49,7 @@ import { defineComponent, provide, watch, computed } from 'vue';
 import { useStorage } from '@vueuse/core';
 import { jwtDecode } from 'jwt-decode';
 import onScan from 'onscan.js';
-import { FrappeCall } from '../../FrappeCall.js';
+import { frappeCall } from '../FrappeCall';
 
 // Extend Window interface for TypeScript
 declare global {
@@ -72,7 +72,14 @@ import DropDownMenu from './components/DropDownMenu.vue';
 
 //  Toastification is a simple system to make toast notifications.
 import { useToast } from 'vue-toastification';
-import { un } from 'vue-router/dist/router-CWoNjPRp.mjs';
+import type {
+    AuthenticateEmployeeResponse,
+    CheckErpLoginResponse,
+    EmployeeCheckinResponse,
+    GetJobCardsResponse,
+    GetWorkOrdersResponse,
+    SortJobCardsResponse,
+} from './types/api';
 // Trying to use realtime to track when employees clock out for the day
 // then shutting off their time when they do. 
 // import { FrappeUI, initSocket } from 'frappe-ui';
@@ -139,7 +146,7 @@ export default defineComponent({
 
     methods: {
         async check_for_erp_log_in() {
-            const response = await FrappeCall('timeclock.www.job_timeclock.check_for_erp_log_in', {});
+            const response = await frappeCall<CheckErpLoginResponse>('timeclock.www.job_timeclock.check_for_erp_log_in', {});
             if (response.user_id === 'Guest') {
                 console.log(response.user_id);
             } else {
@@ -163,9 +170,9 @@ export default defineComponent({
             this.employeeName = '';
             this.workstation = this.workstation;
 
-            const response = await FrappeCall('timeclock.www.job_timeclock.authenticate_employee', { rfid: sCode });
+            const response = await frappeCall<AuthenticateEmployeeResponse>('timeclock.www.job_timeclock.authenticate_employee', { rfid: sCode });
 
-            if (response?.status === 'success') {
+            if (response.status === 'success' && response.token) {
                 this.token = response.token;
                 this.activeSession = true;
                 // This was commented out because of errors for Allen during night shift.
@@ -207,9 +214,9 @@ export default defineComponent({
         },
 
         async getWorkOrders() {
-            const response = await FrappeCall('timeclock.www.job_timeclock.get_work_orders', { token: this.token });
+            const response = await frappeCall<GetWorkOrdersResponse>('timeclock.www.job_timeclock.get_work_orders', { token: this.token });
 
-            if (response?.status === 'success') {
+            if (response.status === 'success' && response.work_orders && response.token) {
                 this.token = response.token;
                 this.workOrders = response.work_orders;
                 // console.log(this.workOrders);
@@ -226,8 +233,8 @@ export default defineComponent({
         },
 
         async getJobCards(workOrderName: string) {
-            const response = await FrappeCall('timeclock.www.job_timeclock.get_job_cards', { token: this.token, work_order: workOrderName });
-            if (response?.status === 'success') {
+            const response = await frappeCall<GetJobCardsResponse>('timeclock.www.job_timeclock.get_job_cards', { token: this.token, work_order: workOrderName });
+            if (response.status === 'success' && response.job_cards && response.token && response.active_cards) {
                 this.token = response.token
                 this.jobCards = response.job_cards
                 // console.log(response.active_cards)
@@ -238,8 +245,8 @@ export default defineComponent({
 
                 // Check for workstation
                 if (this.workstation !== '') {
-                    const response2 = await FrappeCall('timeclock.www.job_timeclock.sort_jobcard_by_workstation', { jobCards: this.jobCards, workstation: this.workstation });
-                    if (response2?.status === 'success') {
+                    const response2 = await frappeCall<SortJobCardsResponse>('timeclock.www.job_timeclock.sort_jobcard_by_workstation', { jobCards: this.jobCards, workstation: this.workstation });
+                    if (response2.status === 'success') {
                         this.jobCards = response2.sorted_job_cards
                         // console.log(response2.sorted_job_cards)
                     } else {
@@ -301,9 +308,9 @@ export default defineComponent({
             // console.log(current_time);
 
             // Log Call
-            const response = await FrappeCall('timeclock.www.job_timeclock.log_in_employee', { token: token, time: current_time });
+            const response = await frappeCall<EmployeeCheckinResponse>('timeclock.www.job_timeclock.log_in_employee', { token: token, time: current_time });
 
-            if (response?.status === 'success') {
+            if (response.status === 'success') {
                 console.log('You are now logged in.')
             }
             else {
@@ -355,9 +362,9 @@ export default defineComponent({
             // console.log(current_time);
 
             // Log Call
-            const response = await FrappeCall('timeclock.www.job_timeclock.log_out_employee', { token: token, time: current_time });
+            const response = await frappeCall<EmployeeCheckinResponse>('timeclock.www.job_timeclock.log_out_employee', { token: token, time: current_time });
 
-            if (response?.status === 'success') {
+            if (response.status === 'success') {
                 toast.success(`${this.employeeName} has punched out.`);
                 console.log('You are now logged out.', response.log)
                 this.activeSession = false

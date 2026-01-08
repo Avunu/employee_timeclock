@@ -1,6 +1,5 @@
 import datetime
 import time
-from operator import attrgetter, itemgetter
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import frappe
@@ -13,6 +12,8 @@ from erpnext.manufacturing.doctype.job_card_time_log.job_card_time_log import (
 )
 from frappe import _
 from frappe.query_builder import DocType
+from frappe.query_builder.functions import Max, Coalesce
+from frappe.query_builder.custom import ConstantColumn
 from frappe.rate_limiter import rate_limit
 from frappe.utils.data import format_datetime, get_datetime, now_datetime
 from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
@@ -228,11 +229,12 @@ def get_work_orders(token: str) -> Dict[str, Any]:
 @rate_limit(limit=4, seconds=1)
 def get_job_cards(token: str, work_order: str) -> Dict[str, Any]:
     """
-    Retrieve all job cards for a specific work order.
+    Retrieve all job cards for a specific work order with time log information.
 
-    Fetches job cards filtered by work order, enriches them with time log information,
-    and determines which cards are currently active for the authenticated employee.
-    Handles both regular employee operations and machine operations.
+    Uses Query Builder to efficiently fetch job cards with their latest time log
+    for the authenticated employee in a single query. Determines which cards are
+    currently active (have a running timer). Handles both regular employee
+    operations and machine operations entirely in SQL.
 
     Args:
         token: JWT authentication token for the employee
@@ -242,150 +244,123 @@ def get_job_cards(token: str, work_order: str) -> Dict[str, Any]:
         Dict containing:
             - status: "success" or error message
             - token: Refreshed JWT token
-            - job_cards: List of job cards sorted by sequence_id with time log info
-            - time_logs: All time logs for the job cards
+            - job_cards: List of job card dicts sorted by sequence_id with time log info
             - active_cards: List of booleans indicating which cards are active
 
     Raises:
         None: Returns error dict on exception
     """
-    # authenticate the employee
+    from pypika.terms import Case
+
+    # Authenticate the employee
     try:
         employee_id, token = extract_employee_from_token(token)
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-    # Get the employee's job cards
-    job_cards: List[Any] = frappe.get_list(
-        "Job Card",
-        filters={"work_order": work_order},
-        fields=["name", "operation", "status", "sequence_id"],
-        ignore_permissions=True,
+    # Define DocTypes
+    JobCards = DocType("Job Card")
+    TimeLogs = DocType("Job Card Time Log")
+
+    # Build CASE expression: map operation -> expected employee
+    # For machine operations use machine employee, otherwise use authenticated employee
+    employee_case = Case()
+    for operation, machine_id in MACHINE_OPERATIONS.items():
+        employee_case = employee_case.when(JobCards.operation == operation, machine_id)
+    employee_case = employee_case.else_(employee_id)
+
+    # Subquery: Get the latest from_time per job card for the expected employee
+    latest_log_subquery = (
+        frappe.qb.from_(TimeLogs)
+        .inner_join(JobCards)
+        .on(TimeLogs.parent == JobCards.name)
+        .select(
+            TimeLogs.parent.as_("job_card_name"),
+            Max(TimeLogs.from_time).as_("max_from_time"),
+        )
+        .where(JobCards.work_order == work_order)
+        .where(TimeLogs.employee == employee_case)
+        .groupby(TimeLogs.parent)
+    )
+    LatestLog = latest_log_subquery.as_("latest_log")
+
+    # Rebuild CASE for main query (needs fresh reference to JobCards)
+    employee_case_main = Case()
+    for operation, machine_id in MACHINE_OPERATIONS.items():
+        employee_case_main = employee_case_main.when(
+            JobCards.operation == operation, machine_id
+        )
+    employee_case_main = employee_case_main.else_(employee_id)
+
+    # is_active: true when time_in_mins == 0 (timer running, no end time)
+    is_active_case = Case().when(TimeLogs.time_in_mins == 0, 1).else_(0)
+
+    # Main query: Get job cards with their latest time log info
+    query = (
+        frappe.qb.from_(JobCards)
+        .left_join(LatestLog)
+        .on(LatestLog.job_card_name == JobCards.name)
+        .left_join(TimeLogs)
+        .on(
+            (TimeLogs.parent == JobCards.name)
+            & (TimeLogs.from_time == LatestLog.max_from_time)
+            & (TimeLogs.employee == employee_case_main)
+        )
+        .select(
+            JobCards.name,
+            JobCards.operation,
+            JobCards.status,
+            JobCards.sequence_id,
+            TimeLogs.name.as_("time_log_name"),
+            TimeLogs.from_time,
+            TimeLogs.to_time,
+            TimeLogs.time_in_mins,
+            TimeLogs.employee.as_("time_log_employee"),
+            is_active_case.as_("is_active"),
+        )
+        .where(JobCards.work_order == work_order)
+        .orderby(JobCards.sequence_id)
     )
 
-    if job_cards == []:
+    results: List[Dict[str, Any]] = query.run(as_dict=True)
+
+    if not results:
         return {
             "status": "success",
             "token": token,
-            "job_cards": job_cards,
-            "time_logs": "",
-        }
-    else:
-        job_cards, time_logs = update_job_cards_with_time_log(job_cards, employee_id)
-        job_cards = sorted(job_cards, key=attrgetter("sequence_id"))
-        active_cards: List[bool] = check_jobcard_active(job_cards)
-        return {
-            "status": "success",
-            "token": token,
-            "job_cards": job_cards,
-            "time_logs": time_logs,
-            "active_cards": active_cards,
+            "job_cards": [],
+            "active_cards": [],
         }
 
+    # Minimal transformation: structure time_logs and extract active_cards
+    job_cards: List[Dict[str, Any]] = [
+        {
+            "name": row["name"],
+            "operation": row["operation"],
+            "status": row["status"],
+            "sequence_id": row["sequence_id"],
+            "time_logs": (
+                {
+                    "name": row["time_log_name"],
+                    "from_time": row["from_time"],
+                    "to_time": row["to_time"],
+                    "time_in_mins": row["time_in_mins"],
+                    "employee": row["time_log_employee"],
+                }
+                if row.get("time_log_name")
+                else None
+            ),
+        }
+        for row in results
+    ]
+    active_cards: List[bool] = [bool(row.get("is_active")) for row in results]
 
-def update_job_cards_with_time_log(
-    job_cards: List[Any], employee_id: str
-) -> Tuple[List[Any], List[Any]]:
-    """
-    Enrich job cards with their latest time log information for a specific employee.
-
-    For each job card, fetches all time logs and filters them by employee ID.
-    For machine operations, filters by machine employee ID instead.
-    Attaches the most recent time log to each job card object.
-
-    Args:
-        job_cards: List of job card objects to enrich
-        employee_id: The employee ID to filter time logs for
-
-    Returns:
-        Tuple containing:
-            - new_job_cards: List of job cards with latest time_logs attached
-            - all_logs: List of all time logs from all job cards
-
-    Raises:
-        None
-    """
-    new_job_cards: List[Any] = []
-    all_logs: List[Any] = []
-    for card in job_cards:
-        full: JobCard = JobCard("Job Card", card.name)
-
-        # get all the time Logs
-        time_logs: List[JobCardTimeLog] = full.time_logs
-        all_logs.append(time_logs)
-
-        # filter for machine.
-        if card.operation in MACHINE_OPERATIONS.keys():
-            for key, machine_id in MACHINE_OPERATIONS.items():
-                if key == card.operation:
-                    employee_logs: List[JobCardTimeLog] = []
-                    for log in time_logs:
-                        if log.employee == machine_id:
-                            employee_logs.append(log)
-                    break
-        # filter by employee.
-        else:
-            employee_logs: List[JobCardTimeLog] = []
-            for log in time_logs:
-                if log.employee == employee_id:
-                    employee_logs.append(log)
-
-        if employee_logs != []:
-            latest_time_log: JobCardTimeLog = max(
-                employee_logs, key=lambda log: log.from_time or datetime.datetime.min
-            )
-            card.time_logs = latest_time_log
-            new_job_cards.append(card)
-        else:
-            card.time_logs = time_logs
-            new_job_cards.append(card)
-
-    return new_job_cards, all_logs
-
-
-def check_jobcard_active(employee_job_cards: List[Any]) -> List[bool]:
-    """
-    Determine which job cards have active (running) timers.
-
-    A job card is considered active if it has a time log with time_in_mins equal to 0,
-    indicating the timer is still running (no end time set).
-
-    Args:
-        employee_job_cards: List of job card objects already filtered by employee
-
-    Returns:
-        List of booleans corresponding to each job card indicating if it's active
-
-    Raises:
-        None
-    """
-    # Job cards coming in are already filtered by the employee clocked into system.
-
-    active: int = 0
-    active_cards: List[bool] = []
-    for card in employee_job_cards:
-        if card.time_logs:
-            try:
-                if card.time_logs.time_in_mins == 0:
-                    active += 1
-                else:
-                    pass
-            except:
-                pass
-            if active > 0:
-                # card["is_active"] = True
-                active_cards.append(True)
-            else:
-                # card["is_active"] = False
-                active_cards.append(False)
-            active = 0
-        else:
-            active_cards.append(False)
-
-    # if len(active_cards) != len(employee_job_cards):
-    #     return
-
-    return active_cards
+    return {
+        "status": "success",
+        "token": token,
+        "job_cards": job_cards,
+        "active_cards": active_cards,
+    }
 
 
 @frappe.whitelist(allow_guest=True)
@@ -655,30 +630,32 @@ def log_end_time_of_jobcard(
                 employee_id = machine_id
                 break
 
-    employee_logs: List[JobCardTimeLog] = []
-    for log in job_card.time_logs:
-        if log.employee == employee_id:
-            employee_logs.append(log)
+    # Find the last time log for this employee (with no to_time)
+    employee_logs: List[JobCardTimeLog] = [
+        log
+        for log in job_card.time_logs
+        if log.employee == employee_id and not log.to_time
+    ]
 
-    # last_time_log = job_card.time_logs[-1]
-    last_time_log: JobCardTimeLog = employee_logs[-1]
-
-    last_time_log.update(
-        {
-            "to_time": end_time,
+    if not employee_logs:
+        return {
+            "status": "failed",
+            "error": "No active time log found for this employee",
         }
-    )
+
+    last_time_log: JobCardTimeLog = employee_logs[-1]
+    last_time_log.to_time = end_time
 
     try:
-        job_card.append("time_logs", last_time_log)
         job_card.save(ignore_permissions=True)
         updated_log: List[JobCardTimeLog] = job_card.time_logs
         return {
             "status": "success",
             "updated_log": updated_log,
         }
-    except:
-        return {"status": "failed", "job_card": job_card}
+    except Exception as e:
+        frappe.log_error("Error Ending Time Log", e)
+        return {"status": "failed", "job_card": job_card, "error": str(e)}
 
 
 # Function to check out employee of a job card, when they start a new one.
