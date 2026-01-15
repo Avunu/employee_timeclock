@@ -44,6 +44,9 @@ export default defineConfig({
 			autoInstall: true,
 		}),
 	],
+	define: {
+		'process.env.NODE_ENV': JSON.stringify('production'),
+	},
 	build: {
 		outDir: resolve(__dirname, config.outDir),
 		emptyOutDir: true,
