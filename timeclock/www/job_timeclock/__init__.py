@@ -549,13 +549,14 @@ def log_start_time_of_jobcard(
     """
 
     job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
-    new_time_log: JobCardTimeLog = JobCardTimeLog("Job Card Time Log", {})
+    new_time_log: JobCardTimeLog = frappe.new_doc("Job Card Time Log")
+    card_logged_out: Union[str, List[Any]] = "no cards logged out"
 
     if job_card.operation in MACHINE_OPERATIONS.keys():
         for key, machine_id in MACHINE_OPERATIONS.items():
             if key == job_card.operation:
                 # log out other machine times.
-                card_logged_out: Union[str, List[Any]] = check_all_job_cards(
+                card_logged_out = check_all_job_cards(
                     machine_id, start_time
                 )
                 new_time_log.update({"from_time": start_time, "employee": machine_id})
@@ -580,6 +581,8 @@ def log_start_time_of_jobcard(
             )
 
     try:
+        # Reload job card in case check_all_job_cards modified it
+        job_card.reload()
         job_card.append("time_logs", new_time_log)
         job_card.save(ignore_permissions=True)
         updated_log = job_card.time_logs
@@ -592,8 +595,6 @@ def log_start_time_of_jobcard(
 
     except Exception as e:
         frappe.log_error("Error Saving Log", e)
-        # job_card = 'log_start_time_failed.'
-        job_card.save(ignore_permissions=True)
         return {"status": "failed", "job_card": job_card, "serverError": True}
 
 
@@ -795,24 +796,27 @@ def submit_jobcard(
     status: str = "Submitted"
     doc: JobCard = JobCard("Job Card", jobCard["name"], ignore_permissions=True)
 
+    last_row: JobCardTimeLog | None = None
     if doc.time_logs and len(doc.time_logs) > 0:
-        last_row: JobCardTimeLog = doc.time_logs[-1]
+        last_row = doc.time_logs[-1]
 
     if last_row and complete_time:
 
         for row in doc.time_logs:
-            # return {'status':'success', 'job_card':row}
+            # Close any open time logs
             if not row.to_time:
                 row.update(
                     {
                         "to_time": get_datetime(complete_time),
                         "operation": jobCard["operation"],
-                        "completed_qty": 1.0,
                     }
                 )
 
-        doc.status = "Completed"
-        doc.save(ignore_permission=True)
+        # Set completed_qty on the last time log to satisfy submission validation
+        last_row.completed_qty = 1.0
+
+        doc.save(ignore_permissions=True)
+        doc.submit()
         return {"status": "success", "job_card": doc}
 
     else:
