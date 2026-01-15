@@ -15,7 +15,7 @@ import { defineComponent, PropType, watch } from 'vue';
 import { JobCard } from '../types/JobCard';
 import { START_LOCATION } from 'vue-router';
 import { useThrottledRefHistory, useStorage } from '@vueuse/core';
-import { FrappeCall } from '../../../FrappeCall.js';
+import { FrappeCall } from '../../FrappeCall';
 import { useToast } from 'vue-toastification';
 const toast = useToast()
 

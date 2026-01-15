@@ -11,8 +11,9 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType } from 'vue';
-import { WorkOrder } from '../types/WorkOrder';
+import { defineComponent } from 'vue';
+import type { PropType } from 'vue';
+import type { WorkOrder } from '../types/WorkOrder';
 
 import Card from './Card.vue';
 

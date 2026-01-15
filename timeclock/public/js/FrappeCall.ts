@@ -1,6 +1,6 @@
 declare global {
     interface Window {
-        csrf_token: string;
+        csrf_token?: string;
     }
 }
 
@@ -16,7 +16,7 @@ export async function frappeCall<T = unknown>(
     const response = await fetch(`/api/method/${method}`, {
         method: 'POST',
         headers: {
-            'X-Frappe-CSRF-Token': window.csrf_token,
+            'X-Frappe-CSRF-Token': window.csrf_token || '',
             'Accept': 'application/json',
             'Content-Type': 'application/json',
         },

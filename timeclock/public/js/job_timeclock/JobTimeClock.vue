@@ -64,10 +64,10 @@ import AuthorizationMessage from './components/AuthorizationMessage.vue';
 import SessionTimer from './components/SessionTimer.vue';
 import TimerWidget from './components/TimerWidget.vue';
 import WorkOrderList from './components/WorkOrderList.vue';
-import { WorkOrder } from './types/WorkOrder';
+import type { WorkOrder } from './types/WorkOrder';
 import JobCardList from './components/JobCardList.vue';
-import { JobCard } from './types/JobCard';
-import { Employee } from './types/Employee';
+import type { JobCard } from './types/JobCard';
+import type { Employee } from './types/Employee';
 import DropDownMenu from './components/DropDownMenu.vue';
 
 //  Toastification is a simple system to make toast notifications.

@@ -8,10 +8,11 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType, ref } from 'vue';
+import { defineComponent, ref } from 'vue';
+import type { PropType } from 'vue';
 import Button from './Button.vue';
 import Card from './Card.vue';
-import { JobCard } from '../types/JobCard';
+import type { JobCard } from '../types/JobCard';
 import TimerWidget from './TimerWidget.vue';
 
 export default defineComponent({

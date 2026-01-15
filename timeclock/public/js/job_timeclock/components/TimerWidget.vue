@@ -21,9 +21,11 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType, watch } from 'vue';
-import { JobCard } from '../types/JobCard';
-import { FrappeDateTimeString, dateToFrappeDateTimeString } from '../types/FrappeDateTime';
+import { defineComponent, watch } from 'vue';
+import type { PropType } from 'vue';
+import type { JobCard } from '../types/JobCard';
+import type { FrappeDateTimeString } from '../types/FrappeDateTime';
+import { dateToFrappeDateTimeString } from '../types/FrappeDateTime';
 import { useStorage } from '@vueuse/core';
 import { frappeCall } from '../../FrappeCall';
 import { useToast } from 'vue-toastification';

@@ -8,11 +8,12 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType, ref, watch } from 'vue';
+import { defineComponent, ref, watch } from 'vue';
+import type { PropType } from 'vue';
 
 import Column from './Column.vue';
 import JobCardWidget from './JobCardWidget.vue';
-import { JobCard } from '../types/JobCard';
+import type { JobCard } from '../types/JobCard';
 
 export default defineComponent({
     name: 'JobCards',

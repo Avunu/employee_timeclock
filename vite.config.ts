@@ -25,13 +25,16 @@ const appConfigs: Record<string, AppConfig> = {
 		srcDir: 'timeclock/public/js/timeclock'
 	},
 	job_timeclock: {
-		entry: 'job_timeclock.js',
+		entry: 'job_timeclock.ts',
 		outDir: 'timeclock/public/dist/js/job_timeclock',
 		srcDir: 'timeclock/public/js/job_timeclock'
 	}
 }
 
 const config = appConfigs[appName]
+if (!config) {
+	throw new Error(`Unknown app: ${appName}. Valid apps: ${Object.keys(appConfigs).join(', ')}`)
+}
 
 export default defineConfig({
 	plugins: [

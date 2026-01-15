@@ -9,7 +9,7 @@
 
 <script lang="ts">
 import { defineComponent } from 'vue';
-import Spinner from 'frappe-ui/src/components/LoadingIndicator.vue';
+import { LoadingIndicator as Spinner } from 'frappe-ui';
 
 export default defineComponent({
     name: 'AuthorizationMessage',

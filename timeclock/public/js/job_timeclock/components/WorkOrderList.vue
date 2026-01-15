@@ -10,9 +10,10 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType } from 'vue';
+import { defineComponent } from 'vue';
+import type { PropType } from 'vue';
 import WorkOrderWidget from './WorkOrderWidget.vue';
-import { WorkOrder } from '../types/WorkOrder';
+import type { WorkOrder } from '../types/WorkOrder';
 import Column from './Column.vue';
 
 export default defineComponent({

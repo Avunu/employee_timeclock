@@ -46,7 +46,7 @@ import { defineComponent, provide, watch } from 'vue';
 import { useStorage } from '@vueuse/core';
 import { jwtDecode } from 'jwt-decode';
 import onScan from 'onscan.js';
-import { FrappeCall } from '../../FrappeCall.js';
+import { FrappeCall } from '../FrappeCall';
 
 
 // import sub components
