@@ -1,0 +1,31 @@
+{
+	"custom_fields": [],
+	"custom_perms": [],
+	"doctype": "Job Card",
+	"links": [],
+	"property_setters": [
+		{
+			"doc_type": "Job Card",
+			"doctype_or_field": "DocField",
+			"field_name": "is_corrective_job_card",
+			"is_system_generated": 1,
+			"module": "Timeclock",
+			"name": "Job Card-is_corrective_job_card-in_list_view",
+			"property": "in_list_view",
+			"property_type": "Check",
+			"value": "1"
+		},
+		{
+			"doc_type": "Job Card",
+			"doctype_or_field": "DocField",
+			"field_name": "is_corrective_job_card",
+			"is_system_generated": 1,
+			"module": "Timeclock",
+			"name": "Job Card-is_corrective_job_card-label",
+			"property": "label",
+			"property_type": "Data",
+			"value": "Rework"
+		}
+	],
+	"sync_on_migrate": 1
+}

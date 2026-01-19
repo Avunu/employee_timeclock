@@ -4,7 +4,7 @@
             <h3 class="text-xl xl:text-4xl">{{ workOrder.production_item }}</h3>
             <span class="text-lg" v-if="selected === false">{{ workOrder.name }}</span>
         </div>
-        <span v-if="selected === false" class="px-2 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+		<span v-if="selected === false" class="px-2 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 text-green-800 whitespace-nowrap">
             {{ workOrder.status }}
         </span>
     </Card>

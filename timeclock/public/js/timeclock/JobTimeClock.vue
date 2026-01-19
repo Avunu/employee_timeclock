@@ -426,13 +426,14 @@ export default defineComponent({
         // This is to be used with scan. 
         const scanner = onScan.attachTo(document, {
             onScan: this.authenticateEmployee,
-            ignoreIfFocusOn: '.frappe-input',
-            
+            // ignoreIfFocusOn: '.frappe-input', 
         });
 
         this.scanner = scanner;
         // this.scanner.simulate(document, '1234512345');
         // const socket = initSocket[]
+		// @ts-ignore - Development only: attaching scanner to window for debugging
+		window.scanner = scanner;
 
         watch(() => this.token, (newToken) => {
             // If you don't do this, it will refresh every time you switch work orders.

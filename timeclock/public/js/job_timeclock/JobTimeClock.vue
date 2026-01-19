@@ -55,6 +55,7 @@ import { frappeCall } from '../FrappeCall';
 declare global {
     interface Window {
         onScanAttached?: boolean;
+        onScan?: typeof onScan;
     }
 }
 
@@ -422,8 +423,8 @@ export default defineComponent({
 
         // Track that onScan is attached (useful for cleanup)
         window.onScanAttached = true;
-        // this.scanner.simulate(document, '1234512345');
-        // const socket = initSocket[]
+        // Attach onScan to window for global access (useful for debugging)
+        window.onScan = onScan;
 
         watch(() => this.token, (newToken) => {
             // If you don't do this, it will refresh every time you switch work orders.

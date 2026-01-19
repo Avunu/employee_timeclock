@@ -4,7 +4,7 @@
     <div>
       <MenuButton
         class="bg-teal-500 hover:bg-teal-700 text-white font-normal lg:text-3xl py-4 px-8 rounded ring-2 ring-offset-1 ring-gray-100">
-        {{ selected }}
+        {{ selected ? selected : 'Select Workstation' }}
       </MenuButton>
     </div>
 

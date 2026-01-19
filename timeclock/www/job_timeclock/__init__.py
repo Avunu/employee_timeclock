@@ -1,6 +1,6 @@
 import datetime
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import frappe
 import getmac
@@ -549,16 +549,16 @@ def log_start_time_of_jobcard(
     """
 
     job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
-    new_time_log: JobCardTimeLog = frappe.new_doc("Job Card Time Log")
+    new_time_log: JobCardTimeLog = cast(
+        JobCardTimeLog, frappe.new_doc("Job Card Time Log")
+    )
     card_logged_out: Union[str, List[Any]] = "no cards logged out"
 
     if job_card.operation in MACHINE_OPERATIONS.keys():
         for key, machine_id in MACHINE_OPERATIONS.items():
             if key == job_card.operation:
                 # log out other machine times.
-                card_logged_out = check_all_job_cards(
-                    machine_id, start_time
-                )
+                card_logged_out = check_all_job_cards(machine_id, start_time)
                 new_time_log.update({"from_time": start_time, "employee": machine_id})
                 break
 
@@ -829,21 +829,21 @@ def log_rework_start_time(
     employee_id: str, start_time: str, jobcard_name: str
 ) -> Dict[str, Any]:
     """
-    Start a rework timer on a job card for corrective work.
+    Start a rework timer on a corrective job card.
 
-    Creates a Job Card Time Log entry marked as corrective (is_corrective_job_card=True)
-    to track rework time separately from normal production time. This is used when
-    quality issues require additional work on a previously completed job.
+    Finds or creates a corrective Job Card linked to the original job card,
+    then adds a time log entry. Corrective job cards track rework time separately
+    from normal production time.
 
     Args:
         employee_id: The employee performing the rework
         start_time: Timestamp string for when rework begins
-        jobcard_name: Name/ID of the job card requiring rework
+        jobcard_name: Name/ID of the original job card requiring rework
 
     Returns:
         Dict containing:
             - status: "success" or "failed"
-            - job_card: The updated JobCard object
+            - job_card: The corrective JobCard object
             - updated_log: The complete list of time logs
             - serverError: True if an exception occurred
             - error: Error message string if exception occurred
@@ -851,43 +851,61 @@ def log_rework_start_time(
     Raises:
         None: Catches and logs exceptions
     """
-    job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
-    new_time_log: JobCardTimeLog = JobCardTimeLog("Job Card Time Log", {})
+    original_job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
 
-    if job_card.operation in MACHINE_OPERATIONS.keys():
+    # Determine the employee for the time log
+    log_employee = employee_id
+    if original_job_card.operation in MACHINE_OPERATIONS.keys():
         for key, machine_id in MACHINE_OPERATIONS.items():
-            if key == job_card.operation:
-                new_time_log.update(
-                    {
-                        "from_time": start_time,
-                        "employee": machine_id,
-                        "is_corrective_job_card": True,
-                        "for_job_card": jobcard_name,
-                    }
-                )
+            if key == original_job_card.operation:
+                log_employee = machine_id
                 break
-    else:
-        new_time_log.update(
-            {
-                "from_time": start_time,
-                "employee": employee_id,
-                "is_corrective_job_card": True,
-                "for_job_card": jobcard_name,
-            }
-        )
 
     try:
-        job_card.append("time_logs", new_time_log)
-        job_card.save(ignore_permissions=True)
-        updated_log: List[JobCardTimeLog] = job_card.time_logs
-        return {"status": "success", "job_card": job_card, "updated_log": updated_log}
+        # Check if a corrective job card already exists for this job card
+        existing_corrective = frappe.db.get_value(
+            "Job Card",
+            {"for_job_card": jobcard_name, "is_corrective_job_card": 1},
+            "name"
+        )
+
+        if existing_corrective:
+            # Use existing corrective job card
+            corrective_job_card: JobCard = JobCard("Job Card", existing_corrective, ignore_permissions=True)
+            corrective_job_card.reload()
+        else:
+            # Create a new corrective job card
+            corrective_job_card = cast(JobCard, frappe.new_doc("Job Card"))
+            corrective_job_card.update({
+                "work_order": original_job_card.work_order,
+                "bom_no": original_job_card.bom_no,
+                "production_item": original_job_card.production_item,
+                "operation": original_job_card.operation,
+                "workstation": original_job_card.workstation,
+                "for_quantity": 0,
+                "wip_warehouse": original_job_card.wip_warehouse,
+                "is_corrective_job_card": 1,
+                "for_job_card": jobcard_name,
+                "hour_rate": original_job_card.hour_rate,
+                "project": original_job_card.project,
+                "company": original_job_card.company,
+                "sequence_id": original_job_card.sequence_id,
+                "operation_id": original_job_card.operation_id,
+            })
+
+        # Append time log to the corrective job card
+        corrective_job_card.append("time_logs", {
+            "from_time": start_time,
+            "employee": log_employee,
+        })
+        corrective_job_card.save(ignore_permissions=True)
+        updated_log: List[JobCardTimeLog] = corrective_job_card.time_logs
+        return {"status": "success", "job_card": corrective_job_card, "updated_log": updated_log}
 
     except Exception as e:
         frappe.log_error("Error Saving Rework Log", e)
-        job_card.save(ignore_permissions=True)
         return {
             "status": "failed",
-            "job_card": job_card,
             "serverError": True,
             "error": str(e),
         }
@@ -898,16 +916,15 @@ def log_rework_end_time(
     employee_id: str, end_time: str, jobcard_name: str
 ) -> Dict[str, Any]:
     """
-    Stop a rework timer on a job card by logging the end time.
+    Stop a rework timer on a corrective job card.
 
-    Updates the most recent corrective Job Card Time Log entry for the employee
-    by setting the end time. Only affects logs marked with is_corrective_job_card=True.
-    For machine operations, uses the machine employee ID.
+    Finds the corrective Job Card linked to the original job card and updates
+    the most recent time log entry with the end time.
 
     Args:
         employee_id: The employee stopping the rework
         end_time: Timestamp string for when rework ends
-        jobcard_name: Name/ID of the job card to stop rework on
+        jobcard_name: Name/ID of the original job card
 
     Returns:
         Dict containing:
@@ -919,37 +936,46 @@ def log_rework_end_time(
     Raises:
         None: Catches and logs exceptions, returns error in dict
     """
-    job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
+    original_job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
 
-    if job_card.operation in MACHINE_OPERATIONS.keys():
+    # Determine the employee for the time log
+    log_employee = employee_id
+    if original_job_card.operation in MACHINE_OPERATIONS.keys():
         for key, machine_id in MACHINE_OPERATIONS.items():
-            if key == job_card.operation:
-                employee_id = machine_id
+            if key == original_job_card.operation:
+                log_employee = machine_id
                 break
 
-    # Find the last corrective time log for this employee
-    employee_logs: List[JobCardTimeLog] = []
-    for log in job_card.time_logs:
-        if log.employee == employee_id and getattr(
-            log, "is_corrective_job_card", False
-        ):
-            employee_logs.append(log)
+    # Find the corrective job card
+    corrective_name = frappe.db.get_value(
+        "Job Card",
+        {"for_job_card": jobcard_name, "is_corrective_job_card": 1},
+        "name"
+    )
+
+    if not corrective_name:
+        return {"status": "failed", "error": "No corrective job card found for this job card"}
+
+    corrective_job_card: JobCard = JobCard("Job Card", corrective_name, ignore_permissions=True)
+    corrective_job_card.reload()
+
+    # Find the last time log for this employee (with no to_time)
+    employee_logs: List[JobCardTimeLog] = [
+        log
+        for log in corrective_job_card.time_logs
+        if log.employee == log_employee and not log.to_time
+    ]
 
     if not employee_logs:
         return {"status": "failed", "error": "No active rework time log found"}
 
     last_time_log: JobCardTimeLog = employee_logs[-1]
-
-    last_time_log.update(
-        {
-            "to_time": end_time,
-        }
-    )
+    last_time_log.to_time = end_time
 
     try:
-        job_card.save(ignore_permissions=True)
-        updated_log: List[JobCardTimeLog] = job_card.time_logs
+        corrective_job_card.save(ignore_permissions=True)
+        updated_log: List[JobCardTimeLog] = corrective_job_card.time_logs
         return {"status": "success", "updated_log": updated_log}
     except Exception as e:
         frappe.log_error("Error Ending Rework Log", e)
-        return {"status": "failed", "job_card": job_card, "error": str(e)}
+        return {"status": "failed", "job_card": corrective_job_card, "error": str(e)}

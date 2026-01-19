@@ -2,21 +2,27 @@
 
   <!-- <div v-if="taskStarted" class="fixed bottom-4 right-4 p-4 bg-gray-200 rounded-lg shadow-md"> -->
   <div>
-    <h4 class="font-bold text-xl">Task Timer</h4>
-    <button
-      class="bg-green-400 text-white font-normal lg:text-3xl focus:bg-green-200 rounded-md px-2 py-4 lg:px-8 lg:py-8"
-      @click="startTask(jobCard)" v-if="taskStarted === false && completedJobCard === false">Start Timer</button>
-    <button class="bg-red-400 text-white font-normal lg:text-3xl focus:bg-red-200 rounded-md px-2 py-4 lg:px-8 lg:py-8"
-      @click="stopTask(jobCard)" v-if="taskStarted && completedJobCard === false">Stop Timer</button>
-    <button
-      class="bg-orange-500 text-white font-normal lg:text-3xl focus:bg-orange-300 rounded-md px-2 py-4 lg:px-8 lg:py-8"
-      @click="startRework(jobCard)" v-if="reworkStarted === false && completedJobCard === false">Start Rework</button>
-    <button
-      class="bg-orange-700 text-white font-normal lg:text-3xl focus:bg-orange-400 rounded-md px-2 py-4 lg:px-8 lg:py-8"
-      @click="stopRework(jobCard)" v-if="reworkStarted && completedJobCard === false">Stop Rework</button>
-    <p class="text-gray-700 text-md font-family-sans" v-if="completedJobCard === false">{{ elapsedTime }}</p>
-    <p class="text-orange-600 text-md font-family-sans font-bold" v-if="completedJobCard === false && reworkStarted">
-      Rework: {{ reworkElapsedTime }}</p>
+    <div class="flex gap-4 justify-end">
+      <!-- Regular Timer Section -->
+      <div class="flex flex-col items-center border border-gray-300 rounded-lg p-3 bg-gray-50">
+        <button
+          class="bg-green-400 text-white font-normal text-lg lg:text-xl focus:bg-green-200 rounded-md px-4 py-3 lg:px-6 lg:py-4"
+          @click="startTask(jobCard)" v-if="taskStarted === false && completedJobCard === false">Start Timer</button>
+        <button class="bg-red-400 text-white font-normal text-lg lg:text-xl focus:bg-red-200 rounded-md px-4 py-3 lg:px-6 lg:py-4"
+          @click="stopTask(jobCard)" v-if="taskStarted && completedJobCard === false">Stop Timer</button>
+        <p class="text-gray-700 text-md font-family-sans mt-2" v-if="completedJobCard === false">{{ elapsedTime }}</p>
+      </div>
+      <!-- Rework Timer Section -->
+      <div class="flex flex-col items-center border border-orange-300 rounded-lg p-3 bg-orange-50">
+        <button
+          class="bg-orange-500 text-white font-normal text-lg lg:text-xl focus:bg-orange-300 rounded-md px-4 py-3 lg:px-6 lg:py-4"
+          @click="startRework(jobCard)" v-if="reworkStarted === false && completedJobCard === false">Start Rework</button>
+        <button
+          class="bg-orange-700 text-white font-normal text-lg lg:text-xl focus:bg-orange-400 rounded-md px-4 py-3 lg:px-6 lg:py-4"
+          @click="stopRework(jobCard)" v-if="reworkStarted && completedJobCard === false">Stop Rework</button>
+        <p class="text-orange-600 text-md font-family-sans font-bold mt-2" v-if="completedJobCard === false">{{ reworkElapsedTime }}</p>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -90,6 +96,11 @@ export default defineComponent({
     },
 
     async startTask(jobCard: JobCard) {
+      // Stop rework timer if it's running (mutually exclusive)
+      if (this.reworkStarted) {
+        await this.stopRework(jobCard);
+      }
+
       this.startTime = new Date();
       this.startTimeFrappe = this.getTimeInString(this.startTime);
       // this.$emit('send_start_time', this.startTimeFrappe, jobCard.name);
@@ -169,6 +180,11 @@ export default defineComponent({
     },
 
     async startRework(jobCard: JobCard) {
+      // Stop regular timer if it's running (mutually exclusive)
+      if (this.taskStarted) {
+        await this.stopTask(jobCard);
+      }
+
       this.reworkStartTime = new Date();
       this.reworkStartTimeFrappe = this.getTimeInString(this.reworkStartTime);
 
