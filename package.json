@@ -5,6 +5,7 @@
     "@heroicons/vue": "^2.2.0",
     "@popperjs/core": "^2.11.8",
     "@vueuse/core": "^14.1.0",
+    "canvas": "^3.2.1",
     "frappe-ui": "^0.1.250",
     "getmac": "^6.6.0",
     "jwt-decode": "^4.0.0",
