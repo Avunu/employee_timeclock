@@ -81,12 +81,6 @@ export default defineComponent({
       default: () => { },
     },
     employee_id: String,
-
-    // watch: {
-    //   jobCard(new_card, old_card){
-
-    //   }
-    // },
   },
   methods: {
 
