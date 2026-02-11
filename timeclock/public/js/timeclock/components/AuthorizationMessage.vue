@@ -3,7 +3,7 @@
     <div
       class="block max-w-sm p-6 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100"
     >
-      <Spinner class="w-8 mb-4 mx-auto" />
+      <VueSpinner size="20" color="red"  />
       <p class="text-center text-3xl font-bold text-red-300">
         Please scan your employee ID to continue.
       </p>
@@ -13,12 +13,14 @@
 
 <script lang="ts">
 import { defineComponent } from "vue";
-import { Spinner } from "frappe-ui";
+import {
+  VueSpinner,
+} from 'vue3-spinners';
 
 export default defineComponent({
   name: "AuthorizationMessage",
   components: {
-    Spinner,
+    VueSpinner,
   },
 });
 </script>

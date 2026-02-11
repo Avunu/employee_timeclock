@@ -17,7 +17,8 @@
     "simplebar-vue": "^2.4.2",
     "vue": "3.5.28",
     "vue-router": "^5.0.2",
-    "vue-toastification": "^2.0.0-rc.5"
+    "vue-toastification": "^2.0.0-rc.5",
+    "vue3-spinners": "^1.3.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
