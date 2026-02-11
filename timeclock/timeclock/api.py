@@ -1,11 +1,15 @@
 import calendar
 import datetime
 import json
-import math
 import re
-import time
+from typing import cast
 
 import frappe
+from frappe.utils import get_first_day_of_week, now, now_datetime, today
+
+from timeclock.timeclock.custom.employee import Employee
+from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
+from timeclock.timeclock.doctype.workday.workday import Workday
 
 # set invalid values for the time fields
 invalid_values = ["", 0, "00:00", "undefined", None, "None", "null", "NULL"]
@@ -15,10 +19,10 @@ check_range = range(1, 13)
 
 @frappe.whitelist(allow_guest=True)
 def get_weekly_hours(employee):
-    employee_doc = frappe.get_doc("Employee", employee)
+    employee_doc = cast(Employee, frappe.get_doc("Employee", employee))
     employee_name = employee_doc.get_title()
     # get the start and end dates of the week
-    week_start = frappe.utils.get_first_day_of_week(frappe.utils.today())
+    week_start = get_first_day_of_week(today())
     week_end = week_start + datetime.timedelta(days=6)
     # get the total hours for the week
     total_hours = frappe.get_all(
@@ -45,7 +49,7 @@ def determine_next_log_type(employee, data):
     # Get the checkins and checkouts of the employee for the current day
     response = frappe.get_all(
         "Employee Checkin",
-        filters={"employee": employee, "time": [">", frappe.utils.today()]},
+        filters={"employee": employee, "time": [">", today()]},
         order_by="time asc",
         fields=["time", "log_type"],
     )
@@ -112,7 +116,7 @@ def update_workday_from_checkin(checkin, method=None):
     if workday_modified:
         if not isinstance(workday_modified, datetime.datetime):
             workday_modified = datetime.datetime.strptime(workday_modified.split(".")[0], "%Y-%m-%d %H:%M:%S")
-        if (frappe.utils.now_datetime() - workday_modified).seconds < 60:
+        if (now_datetime() - workday_modified).seconds < 60:
             return checkin
     # get the date from the checkin
     checkin_time = checkin.time
@@ -139,22 +143,22 @@ def update_workday_from_checkin(checkin, method=None):
 
     if workday:
         # get the workday
-        workday = frappe.get_doc("Workday", workday)
+        workday = cast(Workday, frappe.get_doc("Workday", workday))
         # if the workday was modified in the last minute then don't do anything
         if workday.last_modified:
-            if (frappe.utils.now_datetime() - workday.last_modified).seconds < 60:
+            if (now_datetime() - workday.last_modified).seconds < 60:
                 return checkin
     else:
         # if the workday does not exist then create it
-        workday = frappe.new_doc("Workday")
+        workday = cast(Workday, frappe.new_doc("Workday"))
         workday.employee = checkin.employee
 
         # get employee name from employee
-        employee_name = frappe.get_value("Employee", checkin.employee, "employee_name")
+        employee_name = cast(str, frappe.get_value("Employee", checkin.employee, "employee_name"))
         workday.employee_name = employee_name
         workday.date = checkin_time.date()
         workday.day_of_week = calendar.day_name[checkin_time.weekday()]
-        workday.last_modified = frappe.utils.now()
+        workday.last_modified = now()
         workday.db_insert(ignore_if_duplicate=True)
 
     # debug
@@ -184,7 +188,7 @@ def update_workday_from_checkin(checkin, method=None):
 
     # connect the workday to the checkin
     # checkin.workday = workday.name
-    # checkin.workday_modified = frappe.utils.now_datetime()
+    # checkin.workday_modified = now_datetime()
     # checkin.save(ignore_permissions=True)
     frappe.db.set_value("Employee Checkin", checkin.name, "workday", workday.name)
     # workday.save(ignore_permissions=True)
@@ -211,14 +215,14 @@ def submit_checkin(web_form, data):
         order_by="time desc",
     )
     if checkin_exists:
-        checkin = frappe.get_doc("Employee Checkin", checkin_exists[0]["name"])
+        checkin = cast(EmployeeCheckin, frappe.get_doc("Employee Checkin", checkin_exists[0]["name"]))
         # update the checkin
         checkin.time = checkin_time
         checkin.save(ignore_permissions=True)
         frappe.db.commit()
     else:
         # create the checkin
-        checkin = frappe.new_doc("Employee Checkin")
+        checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
         checkin.employee = data.employee
         checkin.time = checkin_time
         checkin.log_type = data.log_type
@@ -240,7 +244,7 @@ def enqueue_update_workday_from_checkin(checkin, method=None):
 
 @frappe.whitelist(allow_guest=True)
 def workday_update_total_hours(workday, method=None):
-    workday.last_modified = frappe.utils.now()
+    workday.last_modified = now()
     date = workday.date
     if isinstance(date, datetime.datetime):
         date = date.strftime("%Y-%m-%d")
@@ -279,10 +283,10 @@ def clear_workday_punch_on_checkin_trash(checkin, method=None):
     # check to see if a workday is linked to the checkin
     if checkin.workday:
         # get workday based on checkin.
-        workday = frappe.get_doc("Workday", checkin.workday)
+        workday = cast(Workday, frappe.get_doc("Workday", checkin.workday))
         # if the workday was modified in the last minute then don't do anything
         if workday.last_modified:
-            if (frappe.utils.now_datetime() - workday.last_modified).seconds < 60:
+            if (now_datetime() - workday.last_modified).seconds < 60:
                 return
         # find the workday checking field that matches the checkin time
         for i in check_range:
@@ -326,7 +330,7 @@ def update_checkins_from_workday(workday, method=None):
             if check_in_out_time:
                 if len(existing_checkins) >= i:
                     # update the checkin
-                    checkin = frappe.get_doc("Employee Checkin", existing_checkins[i - 1]["name"])
+                    checkin = cast(EmployeeCheckin, frappe.get_doc("Employee Checkin", existing_checkins[i - 1]["name"]))
                     checkin.workday = workday.name
                     # check to see if the checkin needs to be updated by comparing the times
                     if checkin.time != check_in_out_time:
@@ -334,22 +338,22 @@ def update_checkins_from_workday(workday, method=None):
                             checkin.workday_override = 1
                             checkin.overridden_time = checkin.time
                         checkin.time = check_in_out_time
-                        checkin.workday_modified = frappe.utils.now()
+                        checkin.workday_modified = now()
                         checkin.db_update()
                         frappe.db.commit()
                 else:
                     # create a new checkin
-                    checkin = frappe.new_doc("Employee Checkin")
+                    checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
                     checkin.employee = employee
                     checkin.time = check_in_out_time
                     checkin.log_type = log_type.upper()
                     checkin.device_id = "Workday Management"
                     checkin.workday = workday.name
-                    checkin.workday_modified = frappe.utils.now()
+                    checkin.workday_modified = now()
                     checkin.db_insert(ignore_if_duplicate=True)
             else:
                 # if the check in time is blank delete the corresponding check in
-                if len(existing_checkins) >= i and check_in_out_time == None:
+                if len(existing_checkins) >= i and check_in_out_time is None:
                     checkin = frappe.get_doc("Employee Checkin", existing_checkins[i - 1]["name"])
                     checkin.delete(ignore_permissions=True)
                     frappe.db.commit()
@@ -375,14 +379,14 @@ def submit_checkin2(data):
     )
     if checkin_exists:
         # DO WE NEED THIS? THE EMPLOYEE AND TIME ARE ALREADY IN...
-        checkin = frappe.get_doc("Employee Checkin", checkin_exists[0]["name"])
+        checkin = cast(EmployeeCheckin, frappe.get_doc("Employee Checkin", checkin_exists[0]["name"]))
         # update the checkin
         checkin.time = checkin_time
         checkin.save(ignore_permissions=True)
         frappe.db.commit()
     else:
         # create the checkin
-        checkin = frappe.new_doc("Employee Checkin")
+        checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
         checkin.employee = data.employee
         checkin.time = checkin_time
         checkin.log_type = data.log_type

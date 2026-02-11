@@ -5,7 +5,6 @@ import datetime
 import json
 
 import frappe
-from frappe import publish_realtime, session
 from frappe.model.document import Document
 from frappe.utils import random_string
 
