@@ -35,13 +35,13 @@ def refresh_token(employee_id: str) -> str:
 	Used to maintain authentication sessions and extend login time.
 
 	Args:
-	    employee_id: The employee's unique identifier
+		employee_id: The employee's unique identifier
 
 	Returns:
-	    Encoded JWT token string valid for 30 minutes
+		Encoded JWT token string valid for 30 minutes
 
 	Raises:
-	    None
+		None
 	"""
 	employee_name = frappe.get_value("Employee", {"employee": employee_id}, "employee_name")
 	# If valid, generate a JWT
@@ -69,17 +69,17 @@ def authenticate_employee(rfid: str) -> dict[str, Any]:
 	Also retrieves the last check-in status to determine if the employee is clocked in or out.
 
 	Args:
-	    rfid: The RFID identifier from the employee's badge
+		rfid: The RFID identifier from the employee's badge
 
 	Returns:
-	    Dict containing:
-	        - status: "success" or "error"
-	        - message: Error message if authentication failed
-	        - last_checkin: The last check-in type ("IN" or "OUT") if successful
-	        - token: JWT authentication token if successful
+		Dict containing:
+			- status: "success" or "error"
+			- message: Error message if authentication failed
+			- last_checkin: The last check-in type ("IN" or "OUT") if successful
+			- token: JWT authentication token if successful
 
 	Raises:
-	    None: Returns error dict instead of raising exceptions
+		None: Returns error dict instead of raising exceptions
 	"""
 	# mac_address = getmac.get_mac_address()
 	# Validate the RFID against the database
@@ -131,15 +131,15 @@ def extract_employee_from_token(token: str) -> tuple[str, str]:
 	and generates a refreshed token with extended expiration time.
 
 	Args:
-	    token: JWT token string to decode
+		token: JWT token string to decode
 
 	Returns:
-	    Tuple containing:
-	        - employee_id: The authenticated employee's ID
-	        - refreshed_token: New JWT token with extended expiration
+		Tuple containing:
+			- employee_id: The authenticated employee's ID
+			- refreshed_token: New JWT token with extended expiration
 
 	Raises:
-	    frappe.AuthenticationError: If token is expired or invalid
+		frappe.AuthenticationError: If token is expired or invalid
 	"""
 	try:
 		# Decode the JWT using the same secret key
@@ -183,16 +183,16 @@ def log_in_employee(token: str, time: str) -> dict[str, Any]:
 	The checkin is created from the Job Timeclock Scanner device.
 
 	Args:
-	    token: JWT authentication token for the employee
-	    time: Timestamp string for the check-in time
+		token: JWT authentication token for the employee
+		time: Timestamp string for the check-in time
 
 	Returns:
-	    Dict containing:
-	        - status: "success" or "unsuccessful"
-	        - log: The created EmployeeCheckin object
+		Dict containing:
+			- status: "success" or "unsuccessful"
+			- log: The created EmployeeCheckin object
 
 	Raises:
-	    None: Catches exceptions and returns unsuccessful status
+		None: Catches exceptions and returns unsuccessful status
 	"""
 
 	employee_id, token = extract_employee_from_token(token)
@@ -229,16 +229,16 @@ def log_out_employee(token: str, time: str) -> dict[str, Any]:
 	The checkin is created from the Job Timeclock Scanner device.
 
 	Args:
-	    token: JWT authentication token for the employee
-	    time: Timestamp string for the check-out time
+		token: JWT authentication token for the employee
+		time: Timestamp string for the check-out time
 
 	Returns:
-	    Dict containing:
-	        - status: "success" or "unsuccessful"
-	        - log: The created EmployeeCheckin object
+		Dict containing:
+			- status: "success" or "unsuccessful"
+			- log: The created EmployeeCheckin object
 
 	Raises:
-	    None: Catches exceptions and returns unsuccessful status
+		None: Catches exceptions and returns unsuccessful status
 	"""
 	employee_id, token = extract_employee_from_token(token)
 
@@ -269,17 +269,17 @@ def get_work_orders(token: str) -> dict[str, Any]:
 	Authenticates the employee via JWT token before retrieving work orders.
 
 	Args:
-	    token: JWT authentication token for the employee
+		token: JWT authentication token for the employee
 
 	Returns:
-	    Dict containing:
-	        - status: "success" or "error"
-	        - token: Refreshed JWT token
-	        - work_orders: List of work order dicts with name, production_item, and status
-	        - message: Error message if authentication failed
+		Dict containing:
+			- status: "success" or "error"
+			- token: Refreshed JWT token
+			- work_orders: List of work order dicts with name, production_item, and status
+			- message: Error message if authentication failed
 
 	Raises:
-	    None: Returns error dict on exception
+		None: Returns error dict on exception
 	"""
 	frappe.publish_realtime("test", "aye yooooo")
 
@@ -311,18 +311,18 @@ def get_job_cards(token: str, work_order: str) -> dict[str, Any]:
 	operations and machine operations entirely in SQL.
 
 	Args:
-	    token: JWT authentication token for the employee
-	    work_order: Name/ID of the work order to fetch job cards for
+		token: JWT authentication token for the employee
+		work_order: Name/ID of the work order to fetch job cards for
 
 	Returns:
-	    Dict containing:
-	        - status: "success" or error message
-	        - token: Refreshed JWT token
-	        - job_cards: List of job card dicts sorted by sequence_id with time log info
-	        - active_cards: List of booleans indicating which cards are active
+		Dict containing:
+			- status: "success" or error message
+			- token: Refreshed JWT token
+			- job_cards: List of job card dicts sorted by sequence_id with time log info
+			- active_cards: List of booleans indicating which cards are active
 
 	Raises:
-	    None: Returns error dict on exception
+		None: Returns error dict on exception
 	"""
 	from pypika.terms import Case
 
@@ -444,16 +444,16 @@ def sort_jobcard_by_workstation(jobCards: list[dict[str, Any]], workstation: str
 	making it easier for employees to find relevant work at their current workstation.
 
 	Args:
-	    jobCards: List of job card dictionaries to sort
-	    workstation: Name of the workstation (e.g., "Planer", "CNC", "Hand Sanding")
+		jobCards: List of job card dictionaries to sort
+		workstation: Name of the workstation (e.g., "Planer", "CNC", "Hand Sanding")
 
 	Returns:
-	    Dict containing:
-	        - status: "success"
-	        - sorted_job_cards: Reordered list with relevant operations at the top
+		Dict containing:
+			- status: "success"
+			- sorted_job_cards: Reordered list with relevant operations at the top
 
 	Raises:
-	    None
+		None
 	"""
 	operation_workstation: list[dict[str, Any]] = [
 		{
@@ -514,18 +514,18 @@ def log_end_time_of_jobcard(employee_id: str, end_time: str, jobcard_name: str) 
 	For machine operations, uses the machine employee ID to find the correct time log.
 
 	Args:
-	    employee_id: The employee stopping work on the job card
-	    end_time: Timestamp string for when work ends
-	    jobcard_name: Name/ID of the job card to stop
+		employee_id: The employee stopping work on the job card
+		end_time: Timestamp string for when work ends
+		jobcard_name: Name/ID of the job card to stop
 
 	Returns:
-	    Dict containing:
-	        - status: "success" or "failed"
-	        - updated_log: The complete list of time logs
-	        - job_card: The JobCard object if failed
+		Dict containing:
+			- status: "success" or "failed"
+			- updated_log: The complete list of time logs
+			- job_card: The JobCard object if failed
 
 	Raises:
-	    None: Returns failed status on exception
+		None: Returns failed status on exception
 	"""
 
 	job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
@@ -573,16 +573,16 @@ def check_all_job_cards(employee_id: str, time: str) -> str | list[Any]:
 	closes all such time logs with the provided time. Excludes machine operations.
 
 	Args:
-	    employee_id: The employee to clock out from active job cards
-	    time: Timestamp string to use as the end time for open logs
+		employee_id: The employee to clock out from active job cards
+		time: Timestamp string to use as the end time for open logs
 
 	Returns:
-	    Union of:
-	        - String: "no cards logged out" if no active cards found
-	        - List: List of time log objects that were closed
+		Union of:
+			- String: "no cards logged out" if no active cards found
+			- List: List of time log objects that were closed
 
 	Raises:
-	    None
+		None
 	"""
 	# work_orders = frappe.db.get_list('Work Order', filters=[{
 	#     'status':'Not Started'}, {'status':'In Process'}], pluck='name')
@@ -652,20 +652,20 @@ def log_start_time_of_jobcard(employee_id: str, start_time: str, jobcard_name: s
 	Automatically clocks out the employee from any other active job cards.
 
 	Args:
-	    employee_id: The employee starting work on the job card
-	    start_time: Timestamp string for when work begins
-	    jobcard_name: Name/ID of the job card to start
+		employee_id: The employee starting work on the job card
+		start_time: Timestamp string for when work begins
+		jobcard_name: Name/ID of the job card to start
 
 	Returns:
-	    Dict containing:
-	        - status: "success" or "failed"
-	        - job_card: The updated JobCard object
-	        - updated_log: The complete list of time logs
-	        - card_logged_out: List of cards the employee was logged out from
-	        - serverError: True if an exception occurred
+		Dict containing:
+			- status: "success" or "failed"
+			- job_card: The updated JobCard object
+			- updated_log: The complete list of time logs
+			- card_logged_out: List of cards the employee was logged out from
+			- serverError: True if an exception occurred
 
 	Raises:
-	    None: Catches and logs exceptions
+		None: Catches and logs exceptions
 	"""
 
 	job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
@@ -725,14 +725,14 @@ def check_for_erp_log_in() -> dict[str, Any]:
 	or a guest visitor by examining the frappe session.
 
 	Args:
-	    None
+		None
 
 	Returns:
-	    Dict containing:
-	        - user_id: The current user's ID or "Guest" if not logged in
+		Dict containing:
+			- user_id: The current user's ID or "Guest" if not logged in
 
 	Raises:
-	    None
+		None
 	"""
 	if frappe.session.user != "Guest":
 		return {"user_id": frappe.session.user}
@@ -749,18 +749,18 @@ def submit_jobcard(jobCard: dict[str, Any], complete_time: str, employee_id: str
 	marks them as completed, and updates the job card status to "Completed".
 
 	Args:
-	    jobCard: Dictionary containing job card data including name and operation
-	    complete_time: Timestamp string for when the job was completed
-	    employee_id: The employee completing the job card
+		jobCard: Dictionary containing job card data including name and operation
+		complete_time: Timestamp string for when the job was completed
+		employee_id: The employee completing the job card
 
 	Returns:
-	    Dict containing:
-	        - status: "success" or "failed"
-	        - job_card: The completed JobCard object if successful
-	        - error_message: Description of the error if failed
+		Dict containing:
+			- status: "success" or "failed"
+			- job_card: The completed JobCard object if successful
+			- error_message: Description of the error if failed
 
 	Raises:
-	    None: Returns failed status with error message
+		None: Returns failed status with error message
 	"""
 	completed_qty: int = 1
 	doc: JobCard = JobCard("Job Card", jobCard["name"], ignore_permissions=True)
@@ -802,20 +802,20 @@ def log_rework_start_time(employee_id: str, start_time: str, jobcard_name: str) 
 	from normal production time.
 
 	Args:
-	    employee_id: The employee performing the rework
-	    start_time: Timestamp string for when rework begins
-	    jobcard_name: Name/ID of the original job card requiring rework
+		employee_id: The employee performing the rework
+		start_time: Timestamp string for when rework begins
+		jobcard_name: Name/ID of the original job card requiring rework
 
 	Returns:
-	    Dict containing:
-	        - status: "success" or "failed"
-	        - job_card: The corrective JobCard object
-	        - updated_log: The complete list of time logs
-	        - serverError: True if an exception occurred
-	        - error: Error message string if exception occurred
+		Dict containing:
+			- status: "success" or "failed"
+			- job_card: The corrective JobCard object
+			- updated_log: The complete list of time logs
+			- serverError: True if an exception occurred
+			- error: Error message string if exception occurred
 
 	Raises:
-	    None: Catches and logs exceptions
+		None: Catches and logs exceptions
 	"""
 	original_job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
 
@@ -889,19 +889,19 @@ def log_rework_end_time(employee_id: str, end_time: str, jobcard_name: str) -> d
 	the most recent time log entry with the end time.
 
 	Args:
-	    employee_id: The employee stopping the rework
-	    end_time: Timestamp string for when rework ends
-	    jobcard_name: Name/ID of the original job card
+		employee_id: The employee stopping the rework
+		end_time: Timestamp string for when rework ends
+		jobcard_name: Name/ID of the original job card
 
 	Returns:
-	    Dict containing:
-	        - status: "success" or "failed"
-	        - updated_log: The complete list of time logs if successful
-	        - error: Error message string if failed
-	        - job_card: The JobCard object if failed
+		Dict containing:
+			- status: "success" or "failed"
+			- updated_log: The complete list of time logs if successful
+			- error: Error message string if failed
+			- job_card: The JobCard object if failed
 
 	Raises:
-	    None: Catches and logs exceptions, returns error in dict
+		None: Catches and logs exceptions, returns error in dict
 	"""
 	original_job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
 

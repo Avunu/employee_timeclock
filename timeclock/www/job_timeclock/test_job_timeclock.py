@@ -41,14 +41,14 @@ class TestTimeclock(FrappeTestCase):
 	functionality including authentication, logging, and job card management.
 
 	Attributes:
-	        _test_employee: The test Employee document used across tests.
-	        _test_device_id: The test Attendance Device ID for RFID authentication.
-	        _test_work_order: The test Work Order document.
-	        _test_job_cards: List of test Job Card documents.
-	        _test_item: The test Item document for manufacturing.
-	        _test_bom: The test BOM document.
-	        _test_workstation: The test Workstation document.
-	        _test_operation: The test Operation document.
+			_test_employee: The test Employee document used across tests.
+			_test_device_id: The test Attendance Device ID for RFID authentication.
+			_test_work_order: The test Work Order document.
+			_test_job_cards: List of test Job Card documents.
+			_test_item: The test Item document for manufacturing.
+			_test_bom: The test BOM document.
+			_test_workstation: The test Workstation document.
+			_test_operation: The test Operation document.
 	"""
 
 	_test_employee: Employee | None = None
