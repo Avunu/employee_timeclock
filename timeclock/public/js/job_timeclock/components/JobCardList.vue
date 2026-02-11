@@ -12,6 +12,7 @@
         :jobCard="jobCard"
         :employee_id="employee_id"
         @emit_logged_out_card="emit_logged_out_card"
+        @emit_deactivate_others="emit_deactivate_others"
       />
     </div>
   </Column>
@@ -61,6 +62,13 @@ export default defineComponent({
         }
       });
       // console.log('After: ', this.jobCards);
+    },
+    emit_deactivate_others(activeCardName: string): void {
+      this.jobCards.forEach((jobCard) => {
+        if (jobCard.name !== activeCardName) {
+          jobCard.is_active = false;
+        }
+      });
     },
   },
 

@@ -10,6 +10,7 @@
       :employee_id="employee_id"
       @emit_timer="emit_timer"
       @emit_logged_out_card="emit_logged_out_card"
+      @emit_deactivate_others="emit_deactivate_others"
     />
   </Card>
 </template>
@@ -58,6 +59,9 @@ export default defineComponent({
     emit_logged_out_card(logged_cards: any): void {
       // console.log('logged out card to job card widget')
       this.$emit("emit_logged_out_card", logged_cards);
+    },
+    emit_deactivate_others(activeCardName: string): void {
+      this.$emit("emit_deactivate_others", activeCardName);
     },
   },
   mounted(): void {},

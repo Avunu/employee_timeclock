@@ -152,6 +152,7 @@ export default defineComponent({
         this.timerStarted = true;
         this.$emit("emit_timer", this.timerStarted);
         this.jobCard.is_active = true;
+        this.$emit("emit_deactivate_others", this.jobCard.name);
         if (response.card_logged_out !== "no cards logged out") {
           // Make Sure the new card's is_active value is updated as well.
           console.log(response.card_logged_out);
@@ -239,6 +240,8 @@ export default defineComponent({
       if (response.status === "success") {
         this.reworkStarted = true;
         this.start_rework_timer(this.reworkStartTime);
+        this.jobCard.is_active = true;
+        this.$emit("emit_deactivate_others", this.jobCard.name);
         toast.success(`Rework started for ${jobCard.operation}.`);
       } else {
         toast.error(`${jobCard.operation} rework failed to start.`);
@@ -272,6 +275,7 @@ export default defineComponent({
           this.reworkInterval = null;
         }
         this.reworkStarted = false;
+        this.jobCard.is_active = false;
         toast.success(`Rework completed for ${jobCard.operation}.`);
       } else {
         toast.error(`${jobCard.operation} rework failed to end.`);
@@ -313,7 +317,12 @@ export default defineComponent({
           }
           this.timerStarted = false;
           this.$emit("emit_timer", this.timerStarted);
-          // console.log('end_time',this.end_time_frappe)
+          // Also stop rework timer
+          this.reworkStarted = false;
+          if (this.reworkInterval !== null) {
+            clearInterval(this.reworkInterval);
+            this.reworkInterval = null;
+          }
         }
       },
       { immediate: true },
