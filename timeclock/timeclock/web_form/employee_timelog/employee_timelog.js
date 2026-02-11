@@ -32,9 +32,9 @@ function save_form(form_entry) {
   else if (
     Date.parse(form_entry.time) > Date.parse(frappe.datetime.now_datetime())
   ) {
-    time_travel_gif =
+    const time_travel_gif =
       "https://media4.giphy.com/media/3ov9jU4ycPvfrPTsly/giphy.gif";
-    alert_message =
+    const alert_message =
       '<b>Time Traveler!</b><br>It looks like you are trying to clock in the future. Please check your time and try again.<br><img src="' +
       time_travel_gif +
       '" style="width: 100%; max-width: 10rem; margin-top: 1rem;">';
@@ -60,8 +60,8 @@ function save_form(form_entry) {
         data: frappe.web_form.doc,
       },
       callback: function (response) {
-        employee = form_entry.employee;
-        log_type = response.message;
+        const employee = form_entry.employee;
+        const log_type = response.message;
         reset_form(form_entry);
         frappe.call({
           method: "timeclock.timeclock.api.get_weekly_hours",
@@ -69,9 +69,9 @@ function save_form(form_entry) {
             employee: employee,
           },
           callback: function (response) {
-            employee_name = response.message[0];
-            weekly_hours = response.message[1];
-            alert_message =
+            const employee_name = response.message[0];
+            const weekly_hours = response.message[1];
+            const alert_message =
               "<h3>Clocked " +
               log_type.toLowerCase() +
               "!</h3><large>" +
@@ -80,6 +80,7 @@ function save_form(form_entry) {
               weekly_hours +
               " hours this week.</large>";
             // set the alert color based on the log type
+            let alert_color;
             if (log_type == "IN") {
               alert_color = "green";
             } else {
@@ -108,6 +109,7 @@ frappe.init_client_script = () => {
     var firstOpen = true;
     var time;
 
+    // eslint-disable-next-line no-undef
     const manual_override_time = new tempusDominus.TempusDominus(
       document.querySelector("[data-fieldname='manual_override_time']"),
       {
@@ -139,7 +141,7 @@ frappe.init_client_script = () => {
 
     // create "clock in" and "clock out" buttons from the "log_type" select/dropdown
     jQuery("select[data-fieldname='log_type'] option").each(function (i, e) {
-      select_option = jQuery(this).val();
+      const select_option = jQuery(this).val();
       jQuery("<input type='radio' name='r' style='display:none;' />")
         .attr("value", select_option)
         .attr("id", select_option)
@@ -152,7 +154,7 @@ frappe.init_client_script = () => {
             "<label class='btn btn-light btn-lg mr-4' for='" +
               select_option +
               "'>Clock " +
-              this.textContent.toLowerCase() +
+              e.textContent.toLowerCase() +
               "</label>",
           ),
         )
@@ -166,6 +168,7 @@ frappe.init_client_script = () => {
     // calculate and set form values, save the form after employee selection
     frappe.web_form.on("employee", (field, value) => {
       let form_entry = frappe.web_form.get_values();
+      let employee;
       if ("employee" in form_entry) {
         employee = form_entry.employee;
       } else {
@@ -203,7 +206,7 @@ frappe.init_client_script = () => {
             data: form_entry,
           },
           callback: function (response) {
-            log_type = response.message;
+            const log_type = response.message;
             update_form_value(form_entry, "log_type", log_type);
             save_form(form_entry);
           },

@@ -79,7 +79,8 @@ async function request_nfc_permission() {
     indicator: "green",
   });
   try {
-    reader = new NDEFReader();
+    // eslint-disable-next-line no-undef
+    const reader = new NDEFReader();
     await reader.scan();
     frappe.show_alert({
       message: "NFC permission granted",
@@ -104,6 +105,7 @@ async function select_employee() {
     // } else {
     // 	frappe.show_alert({ message: 'NFC is not supported', indicator: 'orange' });
     // }
+    // eslint-disable-next-line no-undef
     const reader = new NDEFReader();
     await reader.scan();
     reader.onreadingerror = () => {
@@ -116,7 +118,7 @@ async function select_employee() {
       const records = event.message.records;
       const employee_tag_id = new TextDecoder().decode(records[0].data);
       // find the employee whose attendance device id matches the employee tag id
-      employee_list = await frappe.db.get_list("Employee", {
+      const employee_list = await frappe.db.get_list("Employee", {
         fields: ["employee_name", "name"],
         filters: { attendance_device_id: employee_tag_id },
       });
@@ -157,7 +159,7 @@ async function manual_employee_selection() {
 
 async function get_employee_by_name(employee_name) {
   // filter to just get employee_name and name fields. we don't want all the employee data being accessed here.
-  employee_list = await frappe.db.get_list("Employee", {
+  const employee_list = await frappe.db.get_list("Employee", {
     fields: ["employee_name", "name"],
     filters: { name: employee_name },
   });
@@ -180,7 +182,7 @@ async function log_time() {
       data: null,
     },
     callback: function (response) {
-      log_type = response.message;
+      const log_type = response.message;
       // set the subtitle
       // timelog_form.fields_dict.subtitle.$wrapper.html(`<h3>Clock ${log_type.toLowerCase()}</h3>`);
       // set the log type
@@ -195,9 +197,9 @@ async function log_time() {
 
 async function save_form() {
   if (Date.parse(locals.time) > Date.parse(frappe.datetime.now_datetime())) {
-    time_travel_gif =
+    const time_travel_gif =
       "https://media4.giphy.com/media/3ov9jU4ycPvfrPTsly/giphy.gif";
-    alert_message =
+    const alert_message =
       '<b>Time Traveler!</b><br>It looks like you are trying to log time in the future. Please check your time and try again.<br><img src="' +
       time_travel_gif +
       '" style="width: 100%; max-width: 10rem; margin-top: 1rem;">';
@@ -235,8 +237,9 @@ async function save_form() {
     },
   });
   // show an alert
-  alert_message = `<h3>Clocked ${locals.log_type.toLowerCase()}!</h3><large>${locals.employee.employee_name}, you have logged ${weekly_hours.message[1]} hours this week.</large>`;
+  const alert_message = `<h3>Clocked ${locals.log_type.toLowerCase()}!</h3><large>${locals.employee.employee_name}, you have logged ${weekly_hours.message[1]} hours this week.</large>`;
   // set the alert color based on the log type
+  let alert_color;
   if (locals.log_type == "IN") {
     alert_color = "green";
   } else {

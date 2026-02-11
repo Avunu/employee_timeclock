@@ -340,13 +340,14 @@ async function complete_task(task) {
 async function select_employee() {
   // use the web nfc api to get the employee id from the nfc tag
   try {
+    // eslint-disable-next-line no-undef
     const reader = new NDEFReader();
     await reader.scan();
     reader.onreading = async (event) => {
       const records = event.message.records;
       const employee_tag_id = new TextDecoder().decode(records[0].data);
       // find the employee whose attendance device id matches the employee tag id
-      employee_list = await frappe.db.get_list("Employee", {
+      const employee_list = await frappe.db.get_list("Employee", {
         fields: ["employee_name", "name"],
         filters: { attendance_device_id: employee_tag_id },
       });
@@ -377,7 +378,7 @@ async function manual_employee_selection() {
     "awesomplete-selectcomplete",
     async function () {
       // filter to just get employee_name and name fields. we don't want all the employee data being accessed here.
-      employee_list = await frappe.db.get_list("Employee", {
+      const employee_list = await frappe.db.get_list("Employee", {
         fields: ["employee_name", "name"],
         filters: { name: d.get_value("employee") },
       });

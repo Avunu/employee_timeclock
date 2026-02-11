@@ -84,6 +84,7 @@ export default defineConfig([
         md5: true,
         moment: true,
         msg_dialog: true,
+        NDEFReader: true,
         open_url_post: true,
         open_web_template_values_editor: true,
         PhotoSwipe: true,
