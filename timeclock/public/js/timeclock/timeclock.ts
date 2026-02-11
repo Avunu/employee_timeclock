@@ -3,6 +3,7 @@ import "./timeclock.css";
 
 // import vue
 import { createApp } from "vue";
+import type { App } from "vue";
 
 // create vue app
 import TimeClock from "./TimeClock.vue";
@@ -14,7 +15,7 @@ import "vue-toastification/dist/index.css";
 //  Import frappe
 import { FrappeUI } from "frappe-ui";
 
-let app = createApp(TimeClock);
+const app: App = createApp(TimeClock);
 app.use(Toast);
 app.use(FrappeUI);
 app.mount("#app");

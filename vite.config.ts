@@ -20,7 +20,7 @@ interface AppConfig {
 // Source: public/js/<app>  |  Output: public/dist/js/<app>
 const appConfigs: Record<string, AppConfig> = {
 	timeclock: {
-		entry: 'timeclock.js',
+		entry: 'timeclock.ts',
 		outDir: 'timeclock/public/dist/js/timeclock',
 		srcDir: 'timeclock/public/js/timeclock'
 	},

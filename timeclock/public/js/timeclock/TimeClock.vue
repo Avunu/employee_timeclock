@@ -32,15 +32,28 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, provide, watch } from "vue";
+import { defineComponent, watch } from "vue";
 import { useStorage } from "@vueuse/core";
 import { jwtDecode } from "jwt-decode";
 import onScan from "onscan.js";
 import { frappeCall } from "../FrappeCall";
+import { dateToFrappeDateTimeString } from "../job_timeclock/types/FrappeDateTime";
 
 // import sub components
 import AuthorizationMessage from "./components/AuthorizationMessage.vue";
-import { Employee } from "./types/Employee.js";
+import type { Employee } from "./types/Employee";
+import type {
+  AuthenticateEmployeeResponse,
+  EmployeeCheckinResponse,
+} from "./types/api";
+
+// Extend Window interface for TypeScript
+declare global {
+  interface Window {
+    onScanAttached?: boolean;
+    onScan?: typeof onScan;
+  }
+}
 
 //  Toastification is a simple system to make toast notifications.
 import { useToast } from "vue-toastification";
@@ -48,41 +61,43 @@ import { useToast } from "vue-toastification";
 const toast = useToast();
 
 export default defineComponent({
-  name: "JobTimeClock",
+  name: "TimeClock",
   components: {
     AuthorizationMessage,
   },
   data(): {
+    activeSession: boolean;
     employeeId: string;
     employeeName: string;
     header: string;
     token: string | null;
     tokenExpiration: number;
-    employeeLoggedIn: Boolean;
-    employees: Employee[];
+    timeoutId: number | undefined;
   } {
     return {
+      activeSession: false,
       employeeId: "",
       employeeName: "",
       header: "Clock In",
-      token: useStorage<string | null>("token", null)!,
+      token: useStorage<string | null>("token", null).value,
       tokenExpiration: 0,
+      timeoutId: undefined,
     };
   },
 
   methods: {
-    async authenticateEmployee(sCode: string) {
+    async authenticateEmployee(sCode: string): Promise<void> {
       this.token = null;
       this.tokenExpiration = 0;
       this.employeeId = "";
       this.employeeName = "";
 
-      const response = await FrappeCall(
-        "timeclock.www.job_timeclock.authenticate_employee",
+      const response = await frappeCall<AuthenticateEmployeeResponse>(
+        "timeclock.www.timeclock.authenticate_employee",
         { rfid: sCode },
       );
 
-      if (response?.status === "success") {
+      if (response.status === "success" && response.token) {
         this.token = response.token;
         if (response.last_checkin === "OUT") {
           this.log_employee_in(this.token);
@@ -94,122 +109,83 @@ export default defineComponent({
         }
       } else {
         console.log("Sorry! You are not authenticated.");
-        // console.log(response.message)
         this.token = null;
         this.tokenExpiration = 0;
       }
     },
 
     // This is triggered by a watch command. Anytime Token changes, this function is run.
-    async decodeToken() {
-      const tokenData: any = jwtDecode(this.token);
+    decodeToken(): void {
+      const tokenData: any = jwtDecode(String(this.token));
       this.tokenExpiration = tokenData.exp * 1000;
       this.employeeId = tokenData.employee_id;
       this.employeeName = tokenData.employee_name;
-      // console.log("Hurrah! You are authenticated as ", tokenData.employee_name);
-
-      // Every time Token is refreshed, timer restarts.
-      // const currentTime = Date.now();
-      // const timeout = (this.tokenExpiration - currentTime);
-      // this.resetTimer(timeout);
     },
 
-    startTimer(timeout: number) {
-      const timeoutId = setTimeout(this.endTimer, timeout);
+    startTimer(timeout: number): void {
+      this.timeoutId = setTimeout(this.endTimer, timeout) as unknown as number;
     },
 
-    endTimer() {
+    endTimer(): void {
       this.token = null;
       this.tokenExpiration = 0;
       this.employeeId = "";
       this.employeeName = "";
     },
 
-    resetTimer(timeout: number) {
+    resetTimer(timeout: number): void {
       clearTimeout(this.timeoutId);
       this.startTimer(timeout);
     },
 
-    async log_employee_in(token: string) {
-      // Calculate current time to log in.
-      this.date = new Date();
-      const year = this.date.getUTCFullYear();
-      const month = this.date.getUTCMonth() + 1; // Months are zero-based
-      const day = this.date.getUTCDate();
-      const hour = this.date.getUTCHours();
-      const minute = this.date.getUTCMinutes();
-      const second = this.date.getUTCSeconds();
-      const pad = (num: number) => (num < 10 ? "0" + num : num);
-      const current_time = `${year}-${pad(month)}-${pad(day)} ${pad(hour - 5)}:${pad(minute)}`;
-      // console.log(current_time);
+    async log_employee_in(token: string): Promise<void> {
+      const current_time: string = dateToFrappeDateTimeString(new Date(), 5);
 
-      // Log Call
-      const response = await FrappeCall(
-        "timeclock.www.job_timeclock.log_in_employee",
+      const response = await frappeCall<EmployeeCheckinResponse>(
+        "timeclock.www.timeclock.log_in_employee",
         { token: token, time: current_time },
       );
 
-      if (response?.status === "success") {
+      if (response.status === "success") {
         console.log("You are now logged in.");
         toast.success(`${this.employeeName} has punched in.`);
-        this.token = null;
-        this.tokenExpiration = 0;
-        this.employeeId = "";
-        this.employeeName = "";
       } else {
         console.log("did not work. You are still logged out:");
         toast.error(`${this.employeeName} was unsuccessfully logged in.`);
-        this.token = null;
-        this.tokenExpiration = 0;
-        this.employeeId = "";
-        this.employeeName = "";
-        // console.log(response.log)
       }
+      this.token = null;
+      this.tokenExpiration = 0;
+      this.employeeId = "";
+      this.employeeName = "";
     },
 
-    async log_employee_out(token) {
-      // Calculate current time to log in.
-      const date = new Date();
-      const year = date.getUTCFullYear();
-      const month = date.getUTCMonth() + 1; // Months are zero-based
-      const day = date.getUTCDate();
-      const hour = date.getUTCHours();
-      const minute = date.getUTCMinutes();
-      const second = date.getUTCSeconds();
-      const pad = (num: number) => (num < 10 ? "0" + num : num);
-      const current_time = `${year}-${pad(month)}-${pad(day)} ${pad(hour - 5)}:${pad(minute)}`;
-      // console.log(current_time);
+    async log_employee_out(token: string): Promise<void> {
+      const current_time: string = dateToFrappeDateTimeString(new Date(), 5);
 
-      // Log Call
-      const response = await FrappeCall(
-        "timeclock.www.job_timeclock.log_out_employee",
+      const response = await frappeCall<EmployeeCheckinResponse>(
+        "timeclock.www.timeclock.log_out_employee",
         { token: token, time: current_time },
       );
 
-      if (response?.status === "success") {
+      if (response.status === "success") {
         toast.success(`${this.employeeName} has punched out.`);
         console.log("You are now logged out.", response.log);
-        this.token = null;
-        this.tokenExpiration = 0;
-        this.employeeId = "";
-        this.employeeName = "";
       } else {
         toast.error(`${this.employeeName} was not properly signed out.`);
         console.log("Did not work. You are still logged in:", response.log);
-        this.token = null;
-        this.tokenExpiration = 0;
-        this.employeeId = "";
-        this.employeeName = "";
       }
+      this.token = null;
+      this.tokenExpiration = 0;
+      this.employeeId = "";
+      this.employeeName = "";
     },
 
-    get_token_from_employee(employee: Employee) {
-      // console.log(employee)
+    get_token_from_employee(employee: Employee): void {
       this.authenticateEmployee(employee.sCode);
     },
 
-    // For 'Job Timeclock' refresh button on click.
-    refresh_page() {
+    // For 'Clock In' refresh button on click.
+    refresh_page(): void {
       window.location.reload();
       console.log("Page reloaded.");
     },
@@ -218,29 +194,36 @@ export default defineComponent({
   mounted() {
     // This is to be used with scan.
     console.log("timeclock initialized.");
-    const scanner = onScan.attachTo(document, {
+
+    // Attach onScan to document for barcode scanning
+    onScan.attachTo(document, {
       onScan: this.authenticateEmployee,
       ignoreIfFocusOn: ".frappe-input",
     });
 
-    this.scanner = scanner;
-    // this.scanner.simulate(document, '1234512345');
+    // Track that onScan is attached (useful for cleanup)
+    window.onScanAttached = true;
+    window.onScan = onScan;
 
     watch(
       () => this.token,
       (newToken) => {
-        // If you don't do this, it will refresh every time you switch work orders.
-        // console.log('watching.')
         if (newToken !== this.token) {
           this.decodeToken();
         } else if (newToken) {
           this.decodeToken();
-        } else {
-          // console.log('Token is the same.')
         }
       },
       { immediate: true },
     );
+  },
+
+  beforeUnmount() {
+    // Clean up onScan listener when component is destroyed
+    if (window.onScanAttached) {
+      onScan.detachFrom(document);
+      window.onScanAttached = false;
+    }
   },
 });
 </script>
