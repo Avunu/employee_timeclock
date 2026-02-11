@@ -4,8 +4,17 @@
     <!-- Include CSS stylesheets and other necessary libraries -->
     <!-- ... -->
 
-    <!-- Include Tempus Dominus Bootstrap 4 CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tempusdominus-bootstrap-4/5.39.0/css/tempusdominus-bootstrap-4.min.css">
+    <!-- Include Tempus Dominus CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@eonasdan/tempus-dominus/dist/css/tempus-dominus.min.css">
+    
+    <!-- Import map for ES modules -->
+    <script type="importmap">
+        {
+            "imports": {
+                "@eonasdan/tempus-dominus": "https://esm.run/@eonasdan/tempus-dominus"
+            }
+        }
+    </script>
 </head>
 <body>
     <div class="tempus-dominus-container">
@@ -18,17 +27,12 @@
         </div>
     </div>
 
-    <!-- Include Moment.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
-    <!-- Include Popper.js -->
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
-    <!-- Include Tempus Dominus Bootstrap 4 JavaScript -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tempusdominus-bootstrap-4/5.39.0/js/tempusdominus-bootstrap-4.min.js" integrity="sha256-3wGK8Wgpxozrpl8JvMwvz9vSmxboHt1DC7FPTZ37BiQ=" crossorigin="anonymous"></script>
-
     <!-- Your own custom JavaScript code -->
-    <script>
+    <script type="module">
+        import { TempusDominus } from '@eonasdan/tempus-dominus';
+
         // Add your JavaScript code here
-        const manualTimePicker = new tempusDominus.TempusDominus(
+        const manualTimePicker = new TempusDominus(
             document.querySelector(".manual-time-picker"),
             {
                 display: {
@@ -51,7 +55,7 @@
             }
         );
         // Set the default time to now
-        manualTimePicker.setDate(new Date());
+        manualTimePicker.dates.setValue(new TempusDominus.DateTime());
     </script>
 </body>
 </html>
