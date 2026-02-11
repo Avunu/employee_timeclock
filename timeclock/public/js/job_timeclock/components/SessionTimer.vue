@@ -8,10 +8,10 @@
 </template>
 
 <script>
-import { ref, computed, watchEffect, onUnmounted } from 'vue';
+import { ref, computed, watchEffect, onUnmounted } from "vue";
 
 export default {
-  name: 'SessionTimer',
+  name: "SessionTimer",
   props: {
     employeeName: {
       type: String,
@@ -39,9 +39,7 @@ export default {
     const updateRemainingTime = () => {
       const now = Date.now();
       timeLeft.value = Math.floor((props.tokenExpiration - now) / 1000);
-
     };
-
 
     watchEffect(() => {
       clearInterval(intervalId);
@@ -55,12 +53,11 @@ export default {
 
     onUnmounted(() => {
       clearInterval(intervalId);
-
     });
 
     return {
       timeLeftDisplay,
     };
-  }
-}
+  },
+};
 </script>

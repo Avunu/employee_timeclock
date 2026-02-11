@@ -1,12 +1,13 @@
 # Copyright (c) 2022, Avunu LLC and contributors
 # For license information, please see license.txt
 
-import json
-import frappe
 import datetime
+import json
+
+import frappe
 from frappe import publish_realtime, session
-from frappe.utils import random_string
 from frappe.model.document import Document
+from frappe.utils import random_string
 
 
 class Workday(Document):
@@ -77,9 +78,7 @@ class Workday(Document):
 
 
 @frappe.whitelist()
-def bulk_add_punches(
-    date: str | datetime.datetime, employees: str | list, punches: str | list
-) -> str:
+def bulk_add_punches(date: str | datetime.datetime, employees: str | list, punches: str | list) -> str:
     if isinstance(date, str):
         date = datetime.datetime.strptime(date, "%Y-%m-%d")
     day_of_week = date.strftime("%A")

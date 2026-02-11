@@ -1,13 +1,11 @@
 <template>
   <button class="btn" @click="starttimer">Start</button>
   <button class="btn" @click="stoptimer">Stop</button>
-
 </template>
 
 <script>
-
 export default {
-  name: 'Button',
+  name: "Button",
   props: {
     text: String,
     label: String,
@@ -16,33 +14,25 @@ export default {
   methods: {
     updatelabel(label) {
       console.log(label);
-      if (label === 'Work In Progress') {
-        console.log('Good so far');
-
-      }
-      else if (label === 'Completed') {
-        console.log('Good so far 2');
-
+      if (label === "Work In Progress") {
+        console.log("Good so far");
+      } else if (label === "Completed") {
+        console.log("Good so far 2");
       }
     },
     starttimer() {
-      console.log('aye yo')
+      console.log("aye yo");
     },
 
     stoptimer() {
-      console.log('aye yo yo')
-    }
-  }
-
+      console.log("aye yo yo");
+    },
+  },
 };
-
-
 </script>
 
-
-
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400&display=swap");
 
 * {
   box-sizing: border-box;
@@ -51,7 +41,7 @@ export default {
 }
 
 body {
-  font-family: 'Poppins', sans-serif;
+  font-family: "Poppins", sans-serif;
 }
 
 .container {

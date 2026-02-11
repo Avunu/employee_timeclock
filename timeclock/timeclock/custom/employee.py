@@ -12,4 +12,3 @@ class Employee(BaseEmployee):
 
     # Custom fields from bom.json
     attendance_device_ids: DF.Table[AttendanceDeviceID]
-

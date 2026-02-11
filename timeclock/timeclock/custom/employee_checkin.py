@@ -1,5 +1,5 @@
-from hrms.hr.doctype.employee_checkin.employee_checkin import EmployeeCheckin as BaseEmployeeCheckin
 from frappe.types import DF
+from hrms.hr.doctype.employee_checkin.employee_checkin import EmployeeCheckin as BaseEmployeeCheckin
 
 
 class EmployeeCheckin(BaseEmployeeCheckin):

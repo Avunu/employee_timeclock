@@ -6,5 +6,5 @@ export interface JobCard {
     elapsedTime: String,
     interval: Object,
     completed: Boolean,
-    
+
     }

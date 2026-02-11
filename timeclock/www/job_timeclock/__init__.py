@@ -12,10 +12,11 @@ from erpnext.manufacturing.doctype.job_card_time_log.job_card_time_log import (
 )
 from frappe import _
 from frappe.query_builder import DocType
-from frappe.query_builder.functions import Max, Coalesce
 from frappe.query_builder.custom import ConstantColumn
+from frappe.query_builder.functions import Coalesce, Max
 from frappe.rate_limiter import rate_limit
 from frappe.utils.data import format_datetime, get_datetime, now_datetime
+
 from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
 
 # import secret key from site_config.json
@@ -28,6 +29,38 @@ MACHINE_OPERATIONS: Dict[str, str] = {
     "CNC Machine Time": "HR-MACH-CNC-00051",
     "Planing Machine Time": "HR-MACH-PL-00054",
 }
+
+
+def refresh_token(employee_id: str) -> str:
+    """
+    Generate a new JWT token for an employee with 30-minute expiration.
+
+    Creates a fresh JWT token containing the employee ID, name, and expiration timestamp.
+    Used to maintain authentication sessions and extend login time.
+
+    Args:
+        employee_id: The employee's unique identifier
+
+    Returns:
+        Encoded JWT token string valid for 30 minutes
+
+    Raises:
+        None
+    """
+    employee_name = frappe.get_value("Employee", {"employee": employee_id}, "employee_name")
+    # If valid, generate a JWT
+    expires: float = (datetime.datetime.now() + datetime.timedelta(minutes=30)).timestamp()
+    token: str = jwt.encode(
+        payload={
+            "employee_id": employee_id,
+            "employee_name": employee_name,
+            "exp": expires,
+        },
+        key=SECRET_KEY or "",
+        algorithm="HS256",
+    )
+
+    return token
 
 
 @frappe.whitelist(allow_guest=True)
@@ -92,6 +125,51 @@ def authenticate_employee(rfid: str) -> Dict[str, Any]:
         "last_checkin": last_checkin[0] if last_checkin else None,
         "token": token,
     }
+
+
+def extract_employee_from_token(token: str) -> Tuple[str, str]:
+    """
+    Extract and validate employee ID from JWT token.
+
+    Decodes the JWT token using the secret key, validates the employee ID,
+    and generates a refreshed token with extended expiration time.
+
+    Args:
+        token: JWT token string to decode
+
+    Returns:
+        Tuple containing:
+            - employee_id: The authenticated employee's ID
+            - refreshed_token: New JWT token with extended expiration
+
+    Raises:
+        frappe.AuthenticationError: If token is expired or invalid
+    """
+    try:
+        # Decode the JWT using the same secret key
+        payload: Dict[str, Any] = jwt.decode(token, SECRET_KEY or "", algorithms=["HS256"])
+        employee_id: Optional[str] = payload.get("employee_id")
+
+        if not employee_id:
+            raise jwt.InvalidTokenError
+
+        # refresh the token
+        refreshed_token: str = refresh_token(employee_id)
+
+        return employee_id, refreshed_token
+
+    except jwt.ExpiredSignatureError:
+        # The token has expired
+        frappe.throw(
+            _("Token has expired. Please re-authenticate."),
+            exc=frappe.AuthenticationError,
+        )
+        raise  # This line will never be reached but satisfies type checker
+
+    except jwt.InvalidTokenError:
+        # The token is invalid for some other reason
+        frappe.throw(_("Invalid token. Please re-authenticate."), exc=frappe.AuthenticationError)
+        raise  # This line will never be reached but satisfies type checker
 
     # return {
     #     "status": "success",
@@ -287,9 +365,7 @@ def get_job_cards(token: str, work_order: str) -> Dict[str, Any]:
     # Rebuild CASE for main query (needs fresh reference to JobCards)
     employee_case_main = Case()
     for operation, machine_id in MACHINE_OPERATIONS.items():
-        employee_case_main = employee_case_main.when(
-            JobCards.operation == operation, machine_id
-        )
+        employee_case_main = employee_case_main.when(JobCards.operation == operation, machine_id)
     employee_case_main = employee_case_main.else_(employee_id)
 
     # is_active: true when time_in_mins == 0 (timer running, no end time)
@@ -364,9 +440,7 @@ def get_job_cards(token: str, work_order: str) -> Dict[str, Any]:
 
 
 @frappe.whitelist(allow_guest=True)
-def sort_jobcard_by_workstation(
-    jobCards: List[Dict[str, Any]], workstation: str
-) -> Dict[str, Any]:
+def sort_jobcard_by_workstation(jobCards: List[Dict[str, Any]], workstation: str) -> Dict[str, Any]:
     """
     Sort job cards to prioritize operations relevant to a specific workstation.
 
@@ -435,173 +509,8 @@ def sort_jobcard_by_workstation(
     return {"status": "success", "sorted_job_cards": new_jobCards}
 
 
-def extract_employee_from_token(token: str) -> Tuple[str, str]:
-    """
-    Extract and validate employee ID from JWT token.
-
-    Decodes the JWT token using the secret key, validates the employee ID,
-    and generates a refreshed token with extended expiration time.
-
-    Args:
-        token: JWT token string to decode
-
-    Returns:
-        Tuple containing:
-            - employee_id: The authenticated employee's ID
-            - refreshed_token: New JWT token with extended expiration
-
-    Raises:
-        frappe.AuthenticationError: If token is expired or invalid
-    """
-    try:
-        # Decode the JWT using the same secret key
-        payload: Dict[str, Any] = jwt.decode(
-            token, SECRET_KEY or "", algorithms=["HS256"]
-        )
-        employee_id: Optional[str] = payload.get("employee_id")
-
-        if not employee_id:
-            raise jwt.InvalidTokenError
-
-        # refresh the token
-        refreshed_token: str = refresh_token(employee_id)
-
-        return employee_id, refreshed_token
-
-    except jwt.ExpiredSignatureError:
-        # The token has expired
-        frappe.throw(
-            _("Token has expired. Please re-authenticate."),
-            exc=frappe.AuthenticationError,
-        )
-        raise  # This line will never be reached but satisfies type checker
-
-    except jwt.InvalidTokenError:
-        # The token is invalid for some other reason
-        frappe.throw(
-            _("Invalid token. Please re-authenticate."), exc=frappe.AuthenticationError
-        )
-        raise  # This line will never be reached but satisfies type checker
-
-
-def refresh_token(employee_id: str) -> str:
-    """
-    Generate a new JWT token for an employee with 30-minute expiration.
-
-    Creates a fresh JWT token containing the employee ID, name, and expiration timestamp.
-    Used to maintain authentication sessions and extend login time.
-
-    Args:
-        employee_id: The employee's unique identifier
-
-    Returns:
-        Encoded JWT token string valid for 30 minutes
-
-    Raises:
-        None
-    """
-    employee_name = frappe.get_value(
-        "Employee", {"employee": employee_id}, "employee_name"
-    )
-    # If valid, generate a JWT
-    expires: float = (
-        datetime.datetime.now() + datetime.timedelta(minutes=30)
-    ).timestamp()
-    token: str = jwt.encode(
-        payload={
-            "employee_id": employee_id,
-            "employee_name": employee_name,
-            "exp": expires,
-        },
-        key=SECRET_KEY or "",
-        algorithm="HS256",
-    )
-
-    return token
-
-
 @frappe.whitelist(allow_guest=True)
-def log_start_time_of_jobcard(
-    employee_id: str, start_time: str, jobcard_name: str
-) -> Dict[str, Any]:
-    """
-    Start a timer on a job card by logging the start time.
-
-    Creates a new Job Card Time Log entry with the start time for the employee.
-    For machine operations, uses the machine employee ID instead of the regular employee.
-    Automatically clocks out the employee from any other active job cards.
-
-    Args:
-        employee_id: The employee starting work on the job card
-        start_time: Timestamp string for when work begins
-        jobcard_name: Name/ID of the job card to start
-
-    Returns:
-        Dict containing:
-            - status: "success" or "failed"
-            - job_card: The updated JobCard object
-            - updated_log: The complete list of time logs
-            - card_logged_out: List of cards the employee was logged out from
-            - serverError: True if an exception occurred
-
-    Raises:
-        None: Catches and logs exceptions
-    """
-
-    job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
-    new_time_log: JobCardTimeLog = cast(
-        JobCardTimeLog, frappe.new_doc("Job Card Time Log")
-    )
-    card_logged_out: Union[str, List[Any]] = "no cards logged out"
-
-    if job_card.operation in MACHINE_OPERATIONS.keys():
-        for key, machine_id in MACHINE_OPERATIONS.items():
-            if key == job_card.operation:
-                # log out other machine times.
-                card_logged_out = check_all_job_cards(machine_id, start_time)
-                new_time_log.update({"from_time": start_time, "employee": machine_id})
-                break
-
-    else:
-        # here so that machine time won't log employee out
-        try:
-            card_logged_out = check_all_job_cards(employee_id, start_time)
-            new_time_log.update(
-                {
-                    "from_time": start_time,
-                    "employee": employee_id,
-                }
-            )
-        except:
-            new_time_log.update(
-                {
-                    "from_time": start_time,
-                    "employee": employee_id,
-                }
-            )
-
-    try:
-        # Reload job card in case check_all_job_cards modified it
-        job_card.reload()
-        job_card.append("time_logs", new_time_log)
-        job_card.save(ignore_permissions=True)
-        updated_log = job_card.time_logs
-        return {
-            "status": "success",
-            "job_card": job_card,
-            "updated_log": updated_log,
-            "card_logged_out": card_logged_out,
-        }
-
-    except Exception as e:
-        frappe.log_error("Error Saving Log", e)
-        return {"status": "failed", "job_card": job_card, "serverError": True}
-
-
-@frappe.whitelist(allow_guest=True)
-def log_end_time_of_jobcard(
-    employee_id: str, end_time: str, jobcard_name: str
-) -> Dict[str, Any]:
+def log_end_time_of_jobcard(employee_id: str, end_time: str, jobcard_name: str) -> Dict[str, Any]:
     """
     Stop a timer on a job card by logging the end time.
 
@@ -633,9 +542,7 @@ def log_end_time_of_jobcard(
 
     # Find the last time log for this employee (with no to_time)
     employee_logs: List[JobCardTimeLog] = [
-        log
-        for log in job_card.time_logs
-        if log.employee == employee_id and not log.to_time
+        log for log in job_card.time_logs if log.employee == employee_id and not log.to_time
     ]
 
     if not employee_logs:
@@ -693,7 +600,6 @@ def check_all_job_cards(employee_id: str, time: str) -> Union[str, List[Any]]:
     # Get all job cards and check for employee id
     job_cards_list: List[Any] = []
     for work_order in work_orders:
-
         # get job cards by work
         job_cards: List[Any] = frappe.db.get_list(
             "Job Card",
@@ -706,9 +612,7 @@ def check_all_job_cards(employee_id: str, time: str) -> Union[str, List[Any]]:
             pass
         else:
             for job_card in job_cards:
-                full_job_card: JobCard = JobCard(
-                    "Job Card", job_card.name, ignore_permissions=True
-                )
+                full_job_card: JobCard = JobCard("Job Card", job_card.name, ignore_permissions=True)
                 job_card.time_logs = full_job_card.time_logs
 
                 duplicate = []
@@ -731,9 +635,7 @@ def check_all_job_cards(employee_id: str, time: str) -> Union[str, List[Any]]:
                 and (card.operation not in MACHINE_OPERATIONS.keys())
                 and log.employee == employee_id
             ):
-                response: Dict[str, Any] = log_end_time_of_jobcard(
-                    employee_id, time, card.name
-                )
+                response: Dict[str, Any] = log_end_time_of_jobcard(employee_id, time, card.name)
                 card_logged_out.append(log)
             else:
                 pass
@@ -742,6 +644,80 @@ def check_all_job_cards(employee_id: str, time: str) -> Union[str, List[Any]]:
         return "no cards logged out"
     # return {'card_logged_out':card_logged_out, 'employee':employee_id}
     return card_logged_out
+
+
+@frappe.whitelist(allow_guest=True)
+def log_start_time_of_jobcard(employee_id: str, start_time: str, jobcard_name: str) -> Dict[str, Any]:
+    """
+    Start a timer on a job card by logging the start time.
+
+    Creates a new Job Card Time Log entry with the start time for the employee.
+    For machine operations, uses the machine employee ID instead of the regular employee.
+    Automatically clocks out the employee from any other active job cards.
+
+    Args:
+        employee_id: The employee starting work on the job card
+        start_time: Timestamp string for when work begins
+        jobcard_name: Name/ID of the job card to start
+
+    Returns:
+        Dict containing:
+            - status: "success" or "failed"
+            - job_card: The updated JobCard object
+            - updated_log: The complete list of time logs
+            - card_logged_out: List of cards the employee was logged out from
+            - serverError: True if an exception occurred
+
+    Raises:
+        None: Catches and logs exceptions
+    """
+
+    job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
+    new_time_log: JobCardTimeLog = cast(JobCardTimeLog, frappe.new_doc("Job Card Time Log"))
+    card_logged_out: Union[str, List[Any]] = "no cards logged out"
+
+    if job_card.operation in MACHINE_OPERATIONS.keys():
+        for key, machine_id in MACHINE_OPERATIONS.items():
+            if key == job_card.operation:
+                # log out other machine times.
+                card_logged_out = check_all_job_cards(machine_id, start_time)
+                new_time_log.update({"from_time": start_time, "employee": machine_id})
+                break
+
+    else:
+        # here so that machine time won't log employee out
+        try:
+            card_logged_out = check_all_job_cards(employee_id, start_time)
+            new_time_log.update(
+                {
+                    "from_time": start_time,
+                    "employee": employee_id,
+                }
+            )
+        except:
+            new_time_log.update(
+                {
+                    "from_time": start_time,
+                    "employee": employee_id,
+                }
+            )
+
+    try:
+        # Reload job card in case check_all_job_cards modified it
+        job_card.reload()
+        job_card.append("time_logs", new_time_log)
+        job_card.save(ignore_permissions=True)
+        updated_log = job_card.time_logs
+        return {
+            "status": "success",
+            "job_card": job_card,
+            "updated_log": updated_log,
+            "card_logged_out": card_logged_out,
+        }
+
+    except Exception as e:
+        frappe.log_error("Error Saving Log", e)
+        return {"status": "failed", "job_card": job_card, "serverError": True}
 
 
 @frappe.whitelist(allow_guest=True)
@@ -769,9 +745,7 @@ def check_for_erp_log_in() -> Dict[str, Any]:
 
 
 @frappe.whitelist(allow_guest=True)
-def submit_jobcard(
-    jobCard: Dict[str, Any], complete_time: str, employee_id: str
-) -> Dict[str, Any]:
+def submit_jobcard(jobCard: Dict[str, Any], complete_time: str, employee_id: str) -> Dict[str, Any]:
     """
     Complete and submit a job card by closing all open time logs.
 
@@ -801,7 +775,6 @@ def submit_jobcard(
         last_row = doc.time_logs[-1]
 
     if last_row and complete_time:
-
         for row in doc.time_logs:
             # Close any open time logs
             if not row.to_time:
@@ -825,9 +798,7 @@ def submit_jobcard(
 
 
 @frappe.whitelist(allow_guest=True)
-def log_rework_start_time(
-    employee_id: str, start_time: str, jobcard_name: str
-) -> Dict[str, Any]:
+def log_rework_start_time(employee_id: str, start_time: str, jobcard_name: str) -> Dict[str, Any]:
     """
     Start a rework timer on a corrective job card.
 
@@ -864,9 +835,7 @@ def log_rework_start_time(
     try:
         # Check if a corrective job card already exists for this job card
         existing_corrective = frappe.db.get_value(
-            "Job Card",
-            {"for_job_card": jobcard_name, "is_corrective_job_card": 1},
-            "name"
+            "Job Card", {"for_job_card": jobcard_name, "is_corrective_job_card": 1}, "name"
         )
 
         if existing_corrective:
@@ -876,28 +845,33 @@ def log_rework_start_time(
         else:
             # Create a new corrective job card
             corrective_job_card = cast(JobCard, frappe.new_doc("Job Card"))
-            corrective_job_card.update({
-                "work_order": original_job_card.work_order,
-                "bom_no": original_job_card.bom_no,
-                "production_item": original_job_card.production_item,
-                "operation": original_job_card.operation,
-                "workstation": original_job_card.workstation,
-                "for_quantity": 0,
-                "wip_warehouse": original_job_card.wip_warehouse,
-                "is_corrective_job_card": 1,
-                "for_job_card": jobcard_name,
-                "hour_rate": original_job_card.hour_rate,
-                "project": original_job_card.project,
-                "company": original_job_card.company,
-                "sequence_id": original_job_card.sequence_id,
-                "operation_id": original_job_card.operation_id,
-            })
+            corrective_job_card.update(
+                {
+                    "work_order": original_job_card.work_order,
+                    "bom_no": original_job_card.bom_no,
+                    "production_item": original_job_card.production_item,
+                    "operation": original_job_card.operation,
+                    "workstation": original_job_card.workstation,
+                    "for_quantity": 0,
+                    "wip_warehouse": original_job_card.wip_warehouse,
+                    "is_corrective_job_card": 1,
+                    "for_job_card": jobcard_name,
+                    "hour_rate": original_job_card.hour_rate,
+                    "project": original_job_card.project,
+                    "company": original_job_card.company,
+                    "sequence_id": original_job_card.sequence_id,
+                    "operation_id": original_job_card.operation_id,
+                }
+            )
 
         # Append time log to the corrective job card
-        corrective_job_card.append("time_logs", {
-            "from_time": start_time,
-            "employee": log_employee,
-        })
+        corrective_job_card.append(
+            "time_logs",
+            {
+                "from_time": start_time,
+                "employee": log_employee,
+            },
+        )
         corrective_job_card.save(ignore_permissions=True)
         updated_log: List[JobCardTimeLog] = corrective_job_card.time_logs
         return {"status": "success", "job_card": corrective_job_card, "updated_log": updated_log}
@@ -912,9 +886,7 @@ def log_rework_start_time(
 
 
 @frappe.whitelist(allow_guest=True)
-def log_rework_end_time(
-    employee_id: str, end_time: str, jobcard_name: str
-) -> Dict[str, Any]:
+def log_rework_end_time(employee_id: str, end_time: str, jobcard_name: str) -> Dict[str, Any]:
     """
     Stop a rework timer on a corrective job card.
 
@@ -948,9 +920,7 @@ def log_rework_end_time(
 
     # Find the corrective job card
     corrective_name = frappe.db.get_value(
-        "Job Card",
-        {"for_job_card": jobcard_name, "is_corrective_job_card": 1},
-        "name"
+        "Job Card", {"for_job_card": jobcard_name, "is_corrective_job_card": 1}, "name"
     )
 
     if not corrective_name:
@@ -961,9 +931,7 @@ def log_rework_end_time(
 
     # Find the last time log for this employee (with no to_time)
     employee_logs: List[JobCardTimeLog] = [
-        log
-        for log in corrective_job_card.time_logs
-        if log.employee == log_employee and not log.to_time
+        log for log in corrective_job_card.time_logs if log.employee == log_employee and not log.to_time
     ]
 
     if not employee_logs:
