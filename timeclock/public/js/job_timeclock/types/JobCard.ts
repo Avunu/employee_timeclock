@@ -1,12 +1,12 @@
 /**
- * The currently running time log for the authenticated employee, if any.
- * Only one card can be active per employee at any given time.
+ * The currently running timer for the authenticated employee, if any.
+ * Tracked at the root level — identified by work order + operation.
  */
-export interface ActiveLog {
+export interface ActiveTimer {
+    work_order: string;
     operation: string;
-    time_log_name: string;
     from_time: string;
-    is_rework: boolean;
+    is_corrective: boolean;
 }
 
 /**
@@ -22,16 +22,16 @@ export interface JobCardTimeLog {
 }
 
 /**
- * Operation-anchored job card data from the Frappe backend API.
- * Represents a single operation within a work order, with time totals
- * split across regular and rework (corrective) job cards.
+ * An operation within a work order, anchored on the Work Order Operation child table.
+ * Time totals are split across regular and corrective (rework) job cards.
  */
-export interface JobCard {
+export interface Operation {
+    name: string;
     operation: string;
-    status: 'Open' | 'Work In Progress' | 'Completed' | 'On Hold';
-    sequence_id: number;
-    all_regular_mins: number;
-    all_rework_mins: number;
-    employee_regular_mins: number;
-    employee_rework_mins: number;
+    workstation: string;
+    planned_time_mins: number;
+    actual_time_mins: number;
+    employee_time_mins: number;
+    corrective_total_time_mins: number;
+    corrective_employee_time_mins: number;
 }

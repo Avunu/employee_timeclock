@@ -56,12 +56,13 @@
         <JobCardList
           class="z-0"
           name="job_cards_comp"
-          :jobCards="jobCards"
-          :activeLog="activeLog"
+          :operations="operations"
+          :activeTimer="activeTimer"
           v-if="selectedWorkOrder"
           :employee_id="employeeId"
           :workOrder="selectedWorkOrder!.name"
-          @update:activeLog="activeLog = $event"
+          @update:activeTimer="activeTimer = $event"
+          @time_logged="getOperations(selectedWorkOrder!.name)"
         />
       </transition>
     </main>
@@ -96,7 +97,7 @@ import TimerWidget from "./components/TimerWidget.vue";
 import WorkOrderList from "./components/WorkOrderList.vue";
 import type { WorkOrder } from "./types/WorkOrder";
 import JobCardList from "./components/JobCardList.vue";
-import type { JobCard, ActiveLog } from "./types/JobCard";
+import type { Operation, ActiveTimer } from "./types/JobCard";
 import type { Employee } from "./types/Employee";
 import DropDownMenu from "./components/DropDownMenu.vue";
 
@@ -106,7 +107,8 @@ import type {
   AuthenticateEmployeeResponse,
   CheckErpLoginResponse,
   EmployeeCheckinResponse,
-  GetJobCardsResponse,
+  GetOperationsResponse,
+  GetActiveTimerResponse,
   GetWorkOrdersResponse,
   SortJobCardsResponse,
 } from "./types/api";
@@ -127,13 +129,13 @@ export default defineComponent({
     DropDownMenu,
   },
   data(): {
-    activeLog: ActiveLog | null;
+    activeTimer: ActiveTimer | null;
     activeSession: boolean;
     employeeId: string;
     employeeLoggedIn: boolean;
     employeeName: string;
     header: string;
-    jobCards: JobCard[];
+    operations: Operation[];
     selectedWorkOrder: WorkOrder | null;
     showAuthMessage: boolean;
     timeoutId: number | undefined;
@@ -143,13 +145,13 @@ export default defineComponent({
     workstation: string;
   } {
     return {
-      activeLog: null,
+      activeTimer: null,
       activeSession: false,
       employeeId: "",
       employeeLoggedIn: false,
       employeeName: "",
       header: "Job Timeclock",
-      jobCards: [],
+      operations: [],
       selectedWorkOrder: null,
       showAuthMessage: false,
       timeoutId: undefined,
@@ -196,8 +198,8 @@ export default defineComponent({
     async authenticateEmployee(sCode: string) {
       this.token = null;
       this.tokenExpiration = 0;
-      this.activeLog = null;
-      this.jobCards = [];
+      this.activeTimer = null;
+      this.operations = [];
       this.selectedWorkOrder = null;
       this.workOrders = [];
       this.employeeId = "";
@@ -229,7 +231,7 @@ export default defineComponent({
         this.setSessionFalse;
         this.token = null;
         this.tokenExpiration = 0;
-        this.jobCards = [];
+        this.operations = [];
         this.selectedWorkOrder = null;
         this.workOrders = [];
         this.employeeId = "";
@@ -272,32 +274,30 @@ export default defineComponent({
 
     selectWorkOrder(workOrder: WorkOrder) {
       this.selectedWorkOrder = workOrder;
-      this.getJobCards(workOrder.name);
+      this.getOperations(workOrder.name);
     },
 
-    async getJobCards(workOrderName: string) {
-      const response = await frappeCall<GetJobCardsResponse>(
-        "timeclock.www.job_timeclock.get_job_cards",
+    async getOperations(workOrderName: string) {
+      const response = await frappeCall<GetOperationsResponse>(
+        "timeclock.www.job_timeclock.get_operations",
         { token: this.token, work_order: workOrderName },
       );
       if (
         response.status === "success" &&
-        response.job_cards &&
+        response.operations &&
         response.token
       ) {
         this.token = response.token;
-        this.jobCards = response.job_cards;
-        this.activeLog = response.active_log ?? null;
+        this.operations = response.operations;
 
         // Check for workstation
         if (this.workstation !== "") {
           const response2 = await frappeCall<SortJobCardsResponse>(
             "timeclock.www.job_timeclock.sort_jobcard_by_workstation",
-            { jobCards: this.jobCards, workstation: this.workstation },
+            { jobCards: this.operations, workstation: this.workstation },
           );
           if (response2.status === "success") {
-            this.jobCards = response2.sorted_job_cards;
-            // console.log(response2.sorted_job_cards)
+            this.operations = response2.sorted_job_cards;
           } else {
             console.log("sort failed.");
           }
@@ -305,9 +305,19 @@ export default defineComponent({
           console.log("Workstation: default");
         }
       } else {
-        this.jobCards = [];
-        // console.log('getJobCards: Token no longer active.')
+        this.operations = [];
         this.activeSession = false;
+      }
+    },
+
+    async getActiveTimer() {
+      const response = await frappeCall<GetActiveTimerResponse>(
+        "timeclock.www.job_timeclock.get_active_timer",
+        { token: this.token },
+      );
+      if (response.status === "success" && response.token) {
+        this.token = response.token;
+        this.activeTimer = response.active_timer ?? null;
       }
     },
 
@@ -324,10 +334,10 @@ export default defineComponent({
     endTimer() {
       this.setSessionFalse;
       this.activeSession = false;
-      this.activeLog = null;
+      this.activeTimer = null;
       this.token = null;
       this.tokenExpiration = 0;
-      this.jobCards = [];
+      this.operations = [];
       this.selectedWorkOrder = null;
       this.workOrders = [];
       this.employeeId = "";
@@ -373,10 +383,10 @@ export default defineComponent({
       toast.success(`${this.employeeName} switched user.`);
 
       this.activeSession = false;
-      this.activeLog = null;
+      this.activeTimer = null;
       this.token = null;
       this.tokenExpiration = 0;
-      this.jobCards = [];
+      this.operations = [];
       this.selectedWorkOrder = null;
       this.workOrders = [];
       this.employeeId = "";
@@ -411,7 +421,7 @@ export default defineComponent({
         this.activeSession = false;
         this.token = null;
         this.tokenExpiration = 0;
-        this.jobCards = [];
+        this.operations = [];
         this.selectedWorkOrder = null;
         this.workOrders = [];
         this.employeeId = "";
@@ -450,6 +460,7 @@ export default defineComponent({
     if (this.token) {
       // Initialize getting token and then work orders.
       this.getWorkOrders();
+      this.getActiveTimer();
     }
     this.check_for_erp_log_in();
 

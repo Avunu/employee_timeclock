@@ -7,13 +7,14 @@
     <div id="JobCards">
       <JobCardWidget
         name="job_card_widget"
-        v-for="jobCard in jobCards"
-        :key="jobCard.operation"
-        :jobCard="jobCard"
-        :activeLog="activeLog"
+        v-for="op in operations"
+        :key="op.name"
+        :operation="op"
+        :activeTimer="activeTimer"
         :employee_id="employee_id"
         :workOrder="workOrder"
-        @update:activeLog="$emit('update:activeLog', $event)"
+        @update:activeTimer="$emit('update:activeTimer', $event)"
+        @time_logged="$emit('time_logged')"
       />
     </div>
   </Column>
@@ -25,7 +26,7 @@ import type { PropType } from "vue";
 
 import Column from "./Column.vue";
 import JobCardWidget from "./JobCardWidget.vue";
-import type { JobCard, ActiveLog } from "../types/JobCard";
+import type { Operation, ActiveTimer } from "../types/JobCard";
 
 export default defineComponent({
   name: "JobCards",
@@ -34,12 +35,12 @@ export default defineComponent({
     Column,
   },
   props: {
-    jobCards: {
-      type: Array as PropType<JobCard[]>,
+    operations: {
+      type: Array as PropType<Operation[]>,
       default: () => [],
     },
-    activeLog: {
-      type: Object as PropType<ActiveLog | null>,
+    activeTimer: {
+      type: Object as PropType<ActiveTimer | null>,
       default: null,
     },
     employee_id: {
@@ -51,6 +52,6 @@ export default defineComponent({
       required: true,
     },
   },
-  emits: ["update:activeLog"],
+  emits: ["update:activeTimer", "time_logged"],
 });
 </script>

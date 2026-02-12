@@ -1,5 +1,4 @@
 <template>
-  <!-- <div v-if="taskStarted" class="fixed bottom-4 right-4 p-4 bg-gray-200 rounded-lg shadow-md"> -->
   <div>
     <div class="flex gap-4 justify-end">
       <!-- Regular Timer Section -->
@@ -8,29 +7,26 @@
       >
         <button
           class="bg-green-400 text-white font-normal text-lg lg:text-xl focus:bg-green-200 rounded-md px-4 py-3 lg:px-6 lg:py-4"
-          @click="startTask(jobCard)"
-          v-if="taskStarted === false && completedJobCard === false"
+          @click="startTask"
+          v-if="taskStarted === false"
         >
           Start Timer
         </button>
         <button
           class="bg-red-400 text-white font-normal text-lg lg:text-xl focus:bg-red-200 rounded-md px-4 py-3 lg:px-6 lg:py-4"
-          @click="stopTask(jobCard)"
-          v-if="taskStarted && completedJobCard === false"
+          @click="stopTask"
+          v-if="taskStarted"
         >
           Stop Timer
         </button>
-        <p
-          class="text-gray-700 text-md font-family-sans mt-2"
-          v-if="completedJobCard === false"
-        >
+        <p class="text-gray-700 text-md font-family-sans mt-2">
           {{ elapsedTime }}
         </p>
         <p
           class="text-gray-400 text-xs mt-1"
-          v-if="employeeRegularMins > 0"
+          v-if="operation.employee_time_mins > 0"
         >
-          Your total: {{ formatMins(employeeRegularMins) }}
+          Your total: {{ formatMins(operation.employee_time_mins) }}
         </p>
       </div>
       <!-- Rework Timer Section -->
@@ -39,29 +35,26 @@
       >
         <button
           class="bg-orange-500 text-white font-normal text-lg lg:text-xl focus:bg-orange-300 rounded-md px-4 py-3 lg:px-6 lg:py-4"
-          @click="startRework(jobCard)"
-          v-if="reworkStarted === false && completedJobCard === false"
+          @click="startRework"
+          v-if="reworkStarted === false"
         >
           Start Rework
         </button>
         <button
           class="bg-orange-700 text-white font-normal text-lg lg:text-xl focus:bg-orange-400 rounded-md px-4 py-3 lg:px-6 lg:py-4"
-          @click="stopRework(jobCard)"
-          v-if="reworkStarted && completedJobCard === false"
+          @click="stopRework"
+          v-if="reworkStarted"
         >
           Stop Rework
         </button>
-        <p
-          class="text-orange-600 text-md font-family-sans font-bold mt-2"
-          v-if="completedJobCard === false"
-        >
+        <p class="text-orange-600 text-md font-family-sans font-bold mt-2">
           {{ reworkElapsedTime }}
         </p>
         <p
           class="text-orange-400 text-xs mt-1"
-          v-if="employeeReworkMins > 0"
+          v-if="operation.corrective_employee_time_mins > 0"
         >
-          Your total: {{ formatMins(employeeReworkMins) }}
+          Your total: {{ formatMins(operation.corrective_employee_time_mins) }}
         </p>
       </div>
     </div>
@@ -71,130 +64,101 @@
 <script lang="ts">
 import { defineComponent, watch } from "vue";
 import type { PropType } from "vue";
-import type { JobCard, ActiveLog } from "../types/JobCard";
+import type { Operation, ActiveTimer } from "../types/JobCard";
 import type { FrappeDateTimeString } from "../types/FrappeDateTime";
 import { dateToFrappeDateTimeString } from "../types/FrappeDateTime";
-import { useStorage } from "@vueuse/core";
 import { frappeCall } from "../../FrappeCall";
 import { useToast } from "vue-toastification";
-import type {
-  LogStartTimeResponse,
-  LogEndTimeResponse,
-  LogReworkStartResponse,
-  LogReworkEndResponse,
-} from "../types/api";
+import type { StartTimerResponse, StopTimerResponse } from "../types/api";
 const toast = useToast();
 
 export default defineComponent({
   name: "TimerWidget",
 
   data(): {
-    completedJobCard: boolean;
     elapsedTime: string;
     interval: ReturnType<typeof setInterval> | null;
     reworkElapsedTime: string;
     reworkInterval: ReturnType<typeof setInterval> | null;
     reworkStarted: boolean;
     reworkStartTime: Date;
-    reworkStartTimeFrappe: FrappeDateTimeString | null;
     startTime: Date;
-    startTimeFrappe: FrappeDateTimeString | null;
     taskStarted: boolean;
     timerStarted: boolean;
-    endTime: Date | null;
-    end_time_frappe: FrappeDateTimeString | null;
   } {
     return {
-      completedJobCard: false,
       elapsedTime: "00:00:00",
       interval: null,
       reworkElapsedTime: "00:00:00",
       reworkInterval: null,
       reworkStarted: false,
       reworkStartTime: new Date(),
-      reworkStartTimeFrappe: null,
       startTime: new Date(),
-      startTimeFrappe: null,
       taskStarted: false,
       timerStarted: false,
-      endTime: null,
-      end_time_frappe: null,
     };
   },
 
   props: {
-    jobCard: {
-      type: Object as PropType<JobCard>,
-      default: () => {},
+    operation: {
+      type: Object as PropType<Operation>,
+      required: true,
     },
-    activeLog: {
-      type: Object as PropType<ActiveLog | null>,
+    activeTimer: {
+      type: Object as PropType<ActiveTimer | null>,
       default: null,
     },
-    employee_id: String,
+    employee_id: {
+      type: String,
+      required: true,
+    },
     workOrder: {
       type: String,
       required: true,
     },
-    employeeRegularMins: {
-      type: Number,
-      default: 0,
-    },
-    employeeReworkMins: {
-      type: Number,
-      default: 0,
-    },
   },
-  emits: ["emit_timer", "update:activeLog", "time_logged"],
+
+  emits: ["emit_timer", "update:activeTimer", "time_logged"],
+
   methods: {
     getTimeInString(date: Date): FrappeDateTimeString {
       return dateToFrappeDateTimeString(date, 5);
     },
 
-    async startTask(jobCard: JobCard) {
+    async startTask() {
       // Stop rework timer if it's running (mutually exclusive)
       if (this.reworkStarted) {
-        await this.stopRework(jobCard);
+        await this.stopRework();
       }
 
       this.startTime = new Date();
-      this.startTimeFrappe = this.getTimeInString(this.startTime);
-      // this.$emit('send_start_time', this.startTimeFrappe, jobCard.name);
+      const startTimeFrappe = this.getTimeInString(this.startTime);
 
-      // Server call to test time.
-      // console.log('start_time',this.startTimeFrappe);
-      // console.log(this.employee_id)
-      const response = await frappeCall<LogStartTimeResponse>(
-        "timeclock.www.job_timeclock.log_start_time_of_jobcard",
+      const response = await frappeCall<StartTimerResponse>(
+        "timeclock.www.job_timeclock.start_timer",
         {
           employee_id: this.employee_id,
-          start_time: this.startTimeFrappe,
           work_order: this.workOrder,
-          operation: jobCard.operation,
+          operation: this.operation.operation,
+          start_time: startTimeFrappe,
+          is_corrective: false,
         },
       );
 
       if (response.status === "success") {
-        // console.log('Start Time sent.')
-        // console.log('Started Time: ', response.card_logged_out)
         this.taskStarted = true;
         this.start_timer(this.startTime);
         this.timerStarted = true;
         this.$emit("emit_timer", this.timerStarted);
-        this.$emit("update:activeLog", {
-          operation: this.jobCard.operation,
-          time_log_name: response.updated_log?.[0]?.name ?? "",
-          from_time: this.startTimeFrappe,
-          is_rework: false,
-        } as ActiveLog);
-        if (response.card_logged_out !== "no cards logged out") {
-          console.log(response.card_logged_out);
-          toast.success(`Another card was logged out.`);
-        }
+        this.$emit("update:activeTimer", {
+          work_order: this.workOrder,
+          operation: this.operation.operation,
+          from_time: startTimeFrappe,
+          is_corrective: false,
+        } as ActiveTimer);
       } else {
-        toast.error(`${this.jobCard.operation} failed to start.`);
-        console.log("did not work.");
-        console.log(response.job_card);
+        toast.error(`${this.operation.operation} failed to start.`);
+        console.error("start_timer failed:", response.error);
       }
     },
 
@@ -215,25 +179,22 @@ export default defineComponent({
       }, 1000);
     },
 
-    async stopTask(jobCard: JobCard) {
-      // console.log('Stop', name)
-      this.endTime = new Date();
-      this.end_time_frappe = this.getTimeInString(this.endTime);
-      // console.log('frappe end time', this.end_time_frappe)
-      // this.$emit('send_end_time', this.end_time_frappe, jobCard.name);
+    async stopTask() {
+      const endTime = new Date();
+      const endTimeFrappe = this.getTimeInString(endTime);
 
-      const response = await frappeCall<LogEndTimeResponse>(
-        "timeclock.www.job_timeclock.log_end_time_of_jobcard",
+      const response = await frappeCall<StopTimerResponse>(
+        "timeclock.www.job_timeclock.stop_timer",
         {
           employee_id: this.employee_id,
-          end_time: this.end_time_frappe,
           work_order: this.workOrder,
-          operation: jobCard.operation,
+          operation: this.operation.operation,
+          end_time: endTimeFrappe,
+          is_corrective: false,
         },
       );
 
       if (response.status === "success") {
-        console.log("End Time sent.");
         if (this.interval !== null) {
           clearInterval(this.interval);
           this.interval = null;
@@ -241,47 +202,47 @@ export default defineComponent({
         this.taskStarted = false;
         this.timerStarted = false;
         this.$emit("emit_timer", this.timerStarted);
-        // console.log('end_time',this.end_time_frappe)
-        this.$emit("update:activeLog", null);
+        this.$emit("update:activeTimer", null);
         this.$emit("time_logged");
       } else {
-        toast.error(`${this.jobCard.operation} failed to end.`);
-        console.log("End job card did not work.");
+        toast.error(`${this.operation.operation} failed to stop.`);
+        console.error("stop_timer failed:", response.error);
       }
     },
 
-    async startRework(jobCard: JobCard) {
+    async startRework() {
       // Stop regular timer if it's running (mutually exclusive)
       if (this.taskStarted) {
-        await this.stopTask(jobCard);
+        await this.stopTask();
       }
 
       this.reworkStartTime = new Date();
-      this.reworkStartTimeFrappe = this.getTimeInString(this.reworkStartTime);
+      const reworkStartTimeFrappe = this.getTimeInString(this.reworkStartTime);
 
-      const response = await frappeCall<LogReworkStartResponse>(
-        "timeclock.www.job_timeclock.log_rework_start_time",
+      const response = await frappeCall<StartTimerResponse>(
+        "timeclock.www.job_timeclock.start_timer",
         {
           employee_id: this.employee_id,
-          start_time: this.reworkStartTimeFrappe,
           work_order: this.workOrder,
-          operation: jobCard.operation,
+          operation: this.operation.operation,
+          start_time: reworkStartTimeFrappe,
+          is_corrective: true,
         },
       );
 
       if (response.status === "success") {
         this.reworkStarted = true;
         this.start_rework_timer(this.reworkStartTime);
-        this.$emit("update:activeLog", {
-          operation: this.jobCard.operation,
-          time_log_name: response.updated_log?.[0]?.name ?? "",
-          from_time: this.reworkStartTimeFrappe,
-          is_rework: true,
-        } as ActiveLog);
-        toast.success(`Rework started for ${jobCard.operation}.`);
+        this.$emit("update:activeTimer", {
+          work_order: this.workOrder,
+          operation: this.operation.operation,
+          from_time: reworkStartTimeFrappe,
+          is_corrective: true,
+        } as ActiveTimer);
+        toast.success(`Rework started for ${this.operation.operation}.`);
       } else {
-        toast.error(`${jobCard.operation} rework failed to start.`);
-        console.log("Rework start did not work.");
+        toast.error(`${this.operation.operation} rework failed to start.`);
+        console.error("start_timer (corrective) failed:", response.error);
       }
     },
 
@@ -291,42 +252,42 @@ export default defineComponent({
       }, 1000);
     },
 
-    async stopRework(jobCard: JobCard) {
-      this.endTime = new Date();
-      this.end_time_frappe = this.getTimeInString(this.endTime);
+    async stopRework() {
+      const endTime = new Date();
+      const endTimeFrappe = this.getTimeInString(endTime);
 
-      const response = await frappeCall<LogReworkEndResponse>(
-        "timeclock.www.job_timeclock.log_rework_end_time",
+      const response = await frappeCall<StopTimerResponse>(
+        "timeclock.www.job_timeclock.stop_timer",
         {
           employee_id: this.employee_id,
-          end_time: this.end_time_frappe,
           work_order: this.workOrder,
-          operation: jobCard.operation,
+          operation: this.operation.operation,
+          end_time: endTimeFrappe,
+          is_corrective: true,
         },
       );
 
       if (response.status === "success") {
-        console.log("Rework End Time sent.");
         if (this.reworkInterval !== null) {
           clearInterval(this.reworkInterval);
           this.reworkInterval = null;
         }
         this.reworkStarted = false;
-        this.$emit("update:activeLog", null);
-        toast.success(`Rework completed for ${jobCard.operation}.`);
+        this.$emit("update:activeTimer", null);
+        toast.success(`Rework completed for ${this.operation.operation}.`);
         this.$emit("time_logged");
       } else {
-        toast.error(`${jobCard.operation} rework failed to end.`);
-        console.log("End rework did not work.");
+        toast.error(`${this.operation.operation} rework failed to stop.`);
+        console.error("stop_timer (corrective) failed:", response.error);
       }
     },
 
     initialize_ongoing_timer(): void {
-      const isRework = this.activeLog?.is_rework ?? false;
-      const time_from = this.activeLog?.from_time;
+      const isCorrective = this.activeTimer?.is_corrective ?? false;
+      const time_from = this.activeTimer?.from_time;
       if (!time_from) return;
 
-      if (isRework) {
+      if (isCorrective) {
         this.reworkStarted = true;
         this.reworkStartTime = new Date(time_from);
         this.start_rework_timer(this.reworkStartTime);
@@ -336,7 +297,6 @@ export default defineComponent({
         this.start_timer(this.startTime);
       }
 
-      // Highlight the card as active
       this.timerStarted = true;
       this.$emit("emit_timer", this.timerStarted);
     },
@@ -352,18 +312,14 @@ export default defineComponent({
   },
 
   mounted() {
-    // Turn off timer and buttons if job card is already complete.
-    if (this.jobCard.status === "Completed") {
-      this.completedJobCard = true;
-    }
-
     watch(
-      () => this.activeLog,
-      (newLog) => {
-        const isActiveForThisCard =
-          newLog?.operation === this.jobCard.operation;
-        if (!isActiveForThisCard) {
-          // Another card became active or all timers stopped — reset this one
+      () => this.activeTimer,
+      (newTimer) => {
+        const isActiveForThis =
+          newTimer?.work_order === this.workOrder &&
+          newTimer?.operation === this.operation.operation;
+        if (!isActiveForThis) {
+          // Another operation became active or all timers stopped — reset
           this.taskStarted = false;
           if (this.interval !== null) {
             clearInterval(this.interval);
@@ -384,7 +340,8 @@ export default defineComponent({
 
   beforeMount() {
     const isActive =
-      this.activeLog?.operation === this.jobCard.operation;
+      this.activeTimer?.work_order === this.workOrder &&
+      this.activeTimer?.operation === this.operation.operation;
     if (isActive) {
       this.initialize_ongoing_timer();
     } else {
@@ -393,7 +350,8 @@ export default defineComponent({
   },
 
   unmounted() {
-    // clearInterval(this.interval);
+    if (this.interval !== null) clearInterval(this.interval);
+    if (this.reworkInterval !== null) clearInterval(this.reworkInterval);
   },
 });
 </script>
