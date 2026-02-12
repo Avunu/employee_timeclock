@@ -51,11 +51,9 @@ override_doctype_class = {
 #                 "public/node_modules/@eonasdan/tempus-dominus/dist/plugins/customDateFormat.js"]
 # }
 
-# doctype_list_js = {
-#     "Workday": ["public/node_modules/@popperjs/core/dist/umd/popper-lite.min.js",
-#                 "public/node_modules/@eonasdan/tempus-dominus/dist/js/tempus-dominus.min.js",
-#                 "public/node_modules/@eonasdan/tempus-dominus/dist/plugins/customDateFormat.js"]
-# }
+doctype_list_js = {
+    "Job Card": "public/js/job_card.js"
+}
 
 # doctype_css = {
 #     "Workday": "/assets/timeclock/node_modules/@eonasdan/tempus-dominus/dist/css/tempus-dominus.min.css"

@@ -3,15 +3,19 @@
     :title="workOrder.production_item"
     :subtitle="selected ? undefined : workOrder.name"
     @click="click"
-    :class="{ '!bg-blue-100': isSelected }"
+    :class="{
+      '!bg-blue-100': isSelected,
+      'ring-2 ring-green-500': isActive,
+    }"
     class="overflow-hidden cursor-pointer mt-2 mb-2"
   >
     <template #actions>
-      <span
-        class="px-2 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 text-green-800 whitespace-nowrap"
-      >
-        {{ workOrder.status }}
-      </span>
+      <Badge
+        :label="workOrder.status"
+        :theme="statusTheme"
+        variant="outline"
+        size="lg"
+      />
     </template>
   </Card>
 </template>
@@ -20,12 +24,13 @@
 import { defineComponent } from "vue";
 import type { PropType } from "vue";
 import type { WorkOrder } from "../types/WorkOrder";
-import { Card } from "frappe-ui";
+import { Card, Badge } from "frappe-ui";
 
 export default defineComponent({
   name: "WorkOrderWidget",
   components: {
     Card,
+    Badge,
   },
   props: {
     workOrder: {
@@ -36,6 +41,10 @@ export default defineComponent({
       type: Boolean,
       default: false,
     },
+    isActive: {
+      type: Boolean,
+      default: false,
+    },
   },
   data(): {
     selected: boolean;
@@ -43,6 +52,19 @@ export default defineComponent({
     return {
       selected: false,
     };
+  },
+
+  computed: {
+    statusTheme(): "gray" | "blue" | "green" | "orange" | "red" {
+      const map: Record<string, "gray" | "blue" | "green" | "orange" | "red"> = {
+        "Not Started": "gray",
+        "In Process": "blue",
+        "Completed": "green",
+        "Stopped": "red",
+        "Draft": "gray",
+      };
+      return map[this.workOrder.status] ?? "gray";
+    },
   },
 
   methods: {

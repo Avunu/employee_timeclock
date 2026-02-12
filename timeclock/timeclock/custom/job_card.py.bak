@@ -1,0 +1,5 @@
+import frappe
+from erpnext.manufacturing.doctype.job_card.job_card import JobCard
+
+def on_submit(doc: JobCard, method: str):
+    pass

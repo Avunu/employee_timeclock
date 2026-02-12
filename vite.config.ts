@@ -61,7 +61,8 @@ export default defineConfig({
 			output: {
 				assetFileNames: 'index.css'
 			}
-		}
+		},
+		sourcemap: true,
 	},
 	resolve: {
 		alias: {

@@ -10,8 +10,9 @@
         :key="workOrder.name"
         :workOrder="workOrder"
         :isSelected="
-          selectedWorkOrder && selectedWorkOrder.name === workOrder.name
+          !!(selectedWorkOrder && selectedWorkOrder.name === workOrder.name)
         "
+        :isActive="activeWorkOrder === workOrder.name"
         @click="selectWorkOrder(workOrder)"
       />
     </div>
@@ -38,6 +39,10 @@ export default defineComponent({
     },
     selectedWorkOrder: {
       type: Object as PropType<WorkOrder | null>,
+      default: null,
+    },
+    activeWorkOrder: {
+      type: String as PropType<string | null>,
       default: null,
     },
   },

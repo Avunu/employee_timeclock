@@ -451,14 +451,18 @@ def _close_open_time_logs(employee_id: str, close_time: str) -> int:
 		The number of time-log rows that were closed.
 	"""
 	TL = DocType("Job Card Time Log")
+	JC = DocType("Job Card")
 
 	employee_ids: list[str] = [employee_id] + list(MACHINE_OPERATIONS.values())
 
 	open_logs: list[dict[str, Any]] = (
 		frappe.qb.from_(TL)
+		.inner_join(JC)
+		.on(TL.parent == JC.name)
 		.select(TL.parent, TL.name)
 		.where(TL.to_time.isnull())
 		.where(TL.employee.isin(employee_ids))
+		.where(JC.docstatus == 0)
 	).run(as_dict=True)
 
 	if not open_logs:
@@ -523,7 +527,7 @@ def get_active_timer(token: str) -> dict[str, Any]:
 			TL.from_time,
 			JC.is_corrective_job_card,
 		)
-		.where(JC.docstatus < 2)
+		.where(JC.docstatus == 0)
 		.where(TL.time_in_mins == 0)
 		.where(TL.to_time.isnull())
 		.where(TL.employee.isin(employee_ids))
@@ -593,7 +597,9 @@ def start_timer(
 
 			# Find or create corrective job card
 			existing_corrective = frappe.db.get_value(
-				"Job Card", {"for_job_card": jobcard_name, "is_corrective_job_card": 1}, "name"
+				"Job Card",
+				{"for_job_card": jobcard_name, "is_corrective_job_card": 1, "docstatus": 0},
+				"name",
 			)
 
 			if existing_corrective:

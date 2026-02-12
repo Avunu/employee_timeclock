@@ -16,6 +16,25 @@
         <!--<button class="bg-teal-300 hover:bg-teal-400 text-white font-normal lg:text-3xl py-4 px-8 rounded ring-2 ring-offset-1 ring-gray-100" -->
         <!-- v-if="activeSession" @click="log_out_employee(token)">Clock Out</button>-->
 
+        <!-- Active Timer Indicator -->
+        <div
+          v-if="activeSession && activeTimer"
+          class="flex items-center gap-3 rounded-lg px-4 py-2 ring-2 ring-green-500 bg-green-50"
+        >
+          <span class="text-green-700 font-semibold text-lg lg:text-2xl truncate">
+            {{ activeTimer.operation }}
+          </span>
+          <span class="text-green-800 font-mono text-xl lg:text-2xl font-bold">
+            {{ headerElapsedTime }}
+          </span>
+          <span
+            v-if="activeTimer.is_corrective"
+            class="text-orange-600 text-sm font-semibold"
+          >
+            REWORK
+          </span>
+        </div>
+
         <!-- Work station Dropdown -->
         <KeepAlive include="workstation">
           <DropDownMenu
@@ -26,8 +45,8 @@
         <!-- Switch Employee -->
         <Button
           theme="green"
-          variant="solid"
-          size="xl"
+          variant="outline"
+          size="2xl"
           label="Switch Employee"
           v-if="activeSession"
           @click="switchEmployee"
@@ -50,6 +69,7 @@
         class="z-0"
         :workOrders="workOrders"
         :selectedWorkOrder="selectedWorkOrder"
+        :activeWorkOrder="activeTimer?.work_order ?? null"
         @select="selectWorkOrder"
       />
       <!-- Job Cards Section -->
@@ -60,10 +80,11 @@
           :operations="operations"
           :activeTimer="activeTimer"
           v-if="selectedWorkOrder"
-          :employee_id="employeeId"
           :workOrder="selectedWorkOrder!.name"
-          @update:activeTimer="activeTimer = $event"
-          @time_logged="getOperations(selectedWorkOrder!.name)"
+          @start-task="handleStartTask"
+          @stop-task="handleStopTask"
+          @start-rework="handleStartRework"
+          @stop-rework="handleStopRework"
         />
       </transition>
     </main>
@@ -73,6 +94,8 @@
       <!-- When session is inactive -->
       <AuthorizationMessage />
     </main>
+
+    <Toasts />
   </div>
 </template>
 
@@ -94,17 +117,15 @@ declare global {
 // import sub components
 import AuthorizationMessage from "./components/AuthorizationMessage.vue";
 import SessionTimer from "./components/SessionTimer.vue";
-import TimerWidget from "./components/TimerWidget.vue";
 import WorkOrderList from "./components/WorkOrderList.vue";
 import type { WorkOrder } from "./types/WorkOrder";
 import JobCardList from "./components/JobCardList.vue";
 import type { Operation, ActiveTimer } from "./types/JobCard";
 import type { Employee } from "./types/Employee";
 import DropDownMenu from "./components/DropDownMenu.vue";
-import { Button } from "frappe-ui";
+import { Button, toast, Toast } from "frappe-ui";
 
-//  Toastification is a simple system to make toast notifications.
-import { useToast } from "vue-toastification";
+import { dateToFrappeDateTimeString } from "./types/FrappeDateTime";
 import type {
   AuthenticateEmployeeResponse,
   CheckErpLoginResponse,
@@ -112,12 +133,9 @@ import type {
   GetOperationsResponse,
   GetActiveTimerResponse,
   GetWorkOrdersResponse,
+  StartTimerResponse,
+  StopTimerResponse,
 } from "./types/api";
-// Trying to use realtime to track when employees clock out for the day
-// then shutting off their time when they do.
-// import { FrappeUI, initSocket } from 'frappe-ui';
-
-const toast = useToast();
 
 export default defineComponent({
   name: "JobTimeClock",
@@ -126,7 +144,7 @@ export default defineComponent({
     Button,
     JobCardList,
     SessionTimer,
-    TimerWidget,
+    Toast,
     WorkOrderList,
     DropDownMenu,
   },
@@ -137,6 +155,8 @@ export default defineComponent({
     employeeLoggedIn: boolean;
     employeeName: string;
     header: string;
+    headerElapsedTime: string;
+    headerTimerInterval: ReturnType<typeof setInterval> | null;
     operations: Operation[];
     selectedWorkOrder: WorkOrder | null;
     showAuthMessage: boolean;
@@ -153,6 +173,8 @@ export default defineComponent({
       employeeLoggedIn: false,
       employeeName: "",
       header: "Job Timeclock",
+      headerElapsedTime: "00:00:00",
+      headerTimerInterval: null,
       operations: [],
       selectedWorkOrder: null,
       showAuthMessage: false,
@@ -226,6 +248,7 @@ export default defineComponent({
         //}
 
         await this.getWorkOrders();
+        await this.getActiveTimer();
       } else {
         console.log("Sorry! You are not authenticated.");
         console.log(response.message);
@@ -309,6 +332,135 @@ export default defineComponent({
       if (response.status === "success" && response.token) {
         this.token = response.token;
         this.activeTimer = response.active_timer ?? null;
+      }
+    },
+
+    async handleStartTask(operationName: string) {
+      // If rework is running on the same operation, stop it first
+      if (
+        this.activeTimer?.is_corrective &&
+        this.activeTimer?.operation === operationName &&
+        this.activeTimer?.work_order === this.selectedWorkOrder?.name
+      ) {
+        await this.handleStopRework(operationName);
+      }
+
+      const startTime = new Date();
+      const startTimeFrappe = dateToFrappeDateTimeString(startTime, 5);
+
+      const response = await frappeCall<StartTimerResponse>(
+        "timeclock.www.job_timeclock.start_timer",
+        {
+          employee_id: this.employeeId,
+          work_order: this.selectedWorkOrder!.name,
+          operation: operationName,
+          start_time: startTimeFrappe,
+          is_corrective: false,
+        },
+      );
+
+      if (response.status === "success") {
+        this.activeTimer = {
+          work_order: this.selectedWorkOrder!.name,
+          operation: operationName,
+          from_time: startTimeFrappe,
+          is_corrective: false,
+        };
+      } else {
+        toast.error(`${operationName} failed to start.`);
+        console.error("start_timer failed:", response.error);
+      }
+    },
+
+    async handleStopTask(operationName: string) {
+      const endTime = new Date();
+      const endTimeFrappe = dateToFrappeDateTimeString(endTime, 5);
+
+      const response = await frappeCall<StopTimerResponse>(
+        "timeclock.www.job_timeclock.stop_timer",
+        {
+          employee_id: this.employeeId,
+          work_order: this.selectedWorkOrder!.name,
+          operation: operationName,
+          end_time: endTimeFrappe,
+          is_corrective: false,
+        },
+      );
+
+      if (response.status === "success") {
+        this.activeTimer = null;
+        if (this.selectedWorkOrder) {
+          await this.getOperations(this.selectedWorkOrder.name);
+        }
+      } else {
+        toast.error(`${operationName} failed to stop.`);
+        console.error("stop_timer failed:", response.error);
+      }
+    },
+
+    async handleStartRework(operationName: string) {
+      // If regular timer is running on the same operation, stop it first
+      if (
+        this.activeTimer &&
+        !this.activeTimer.is_corrective &&
+        this.activeTimer.operation === operationName &&
+        this.activeTimer.work_order === this.selectedWorkOrder?.name
+      ) {
+        await this.handleStopTask(operationName);
+      }
+
+      const startTime = new Date();
+      const startTimeFrappe = dateToFrappeDateTimeString(startTime, 5);
+
+      const response = await frappeCall<StartTimerResponse>(
+        "timeclock.www.job_timeclock.start_timer",
+        {
+          employee_id: this.employeeId,
+          work_order: this.selectedWorkOrder!.name,
+          operation: operationName,
+          start_time: startTimeFrappe,
+          is_corrective: true,
+        },
+      );
+
+      if (response.status === "success") {
+        this.activeTimer = {
+          work_order: this.selectedWorkOrder!.name,
+          operation: operationName,
+          from_time: startTimeFrappe,
+          is_corrective: true,
+        };
+        toast.success(`Rework started for ${operationName}.`);
+      } else {
+        toast.error(`${operationName} rework failed to start.`);
+        console.error("start_timer (corrective) failed:", response.error);
+      }
+    },
+
+    async handleStopRework(operationName: string) {
+      const endTime = new Date();
+      const endTimeFrappe = dateToFrappeDateTimeString(endTime, 5);
+
+      const response = await frappeCall<StopTimerResponse>(
+        "timeclock.www.job_timeclock.stop_timer",
+        {
+          employee_id: this.employeeId,
+          work_order: this.selectedWorkOrder!.name,
+          operation: operationName,
+          end_time: endTimeFrappe,
+          is_corrective: true,
+        },
+      );
+
+      if (response.status === "success") {
+        this.activeTimer = null;
+        toast.success(`Rework completed for ${operationName}.`);
+        if (this.selectedWorkOrder) {
+          await this.getOperations(this.selectedWorkOrder.name);
+        }
+      } else {
+        toast.error(`${operationName} rework failed to stop.`);
+        console.error("stop_timer (corrective) failed:", response.error);
       }
     },
 
@@ -470,13 +622,38 @@ export default defineComponent({
       () => this.token,
       (newToken) => {
         // If you don't do this, it will refresh every time you switch work orders.
-        // console.log('watching.')
         if (newToken !== this.token) {
           this.decodeToken();
         } else if (newToken) {
           this.decodeToken();
         } else {
-          // console.log('Token is the same.')
+          // Token is the same.
+        }
+      },
+      { immediate: true },
+    );
+
+    // Keep the header elapsed timer in sync with activeTimer
+    watch(
+      () => this.activeTimer,
+      (timer) => {
+        if (this.headerTimerInterval) {
+          clearInterval(this.headerTimerInterval);
+          this.headerTimerInterval = null;
+        }
+        if (timer?.from_time) {
+          const tick = () => {
+            const start = new Date(timer.from_time).getTime();
+            const diff = Math.floor((Date.now() - start) / 1000);
+            const h = String(Math.floor(diff / 3600)).padStart(2, "0");
+            const m = String(Math.floor((diff % 3600) / 60)).padStart(2, "0");
+            const s = String(diff % 60).padStart(2, "0");
+            this.headerElapsedTime = `${h}:${m}:${s}`;
+          };
+          tick();
+          this.headerTimerInterval = setInterval(tick, 1000);
+        } else {
+          this.headerElapsedTime = "00:00:00";
         }
       },
       { immediate: true },
@@ -484,6 +661,11 @@ export default defineComponent({
   },
 
   beforeUnmount() {
+    // Clean up header timer interval
+    if (this.headerTimerInterval) {
+      clearInterval(this.headerTimerInterval);
+      this.headerTimerInterval = null;
+    }
     // Clean up onScan listener when component is destroyed
     if (window.onScanAttached) {
       onScan.detachFrom(document);
@@ -502,19 +684,5 @@ export default defineComponent({
 .job_card_list-enter-from,
 .job_card_list-leave-to {
   opacity: 0;
-}
-
-.Vue-Toastification__toast--default.custom_default {
-  background-color: rgb(15, 255, 35);
-}
-
-/* Applied to the toast body when using regular strings as content */
-.Vue-Toastification__toast-body.custom-class-1 {
-  font-size: 30px;
-}
-
-/* Applied to a wrapper div when using a custom component as content */
-.Vue-Toastification__toast-component-body.custom-class-2 {
-  width: 100%;
 }
 </style>

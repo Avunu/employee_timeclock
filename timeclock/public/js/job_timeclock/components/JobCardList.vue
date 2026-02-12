@@ -11,10 +11,11 @@
         :key="op.name"
         :operation="op"
         :activeTimer="activeTimer"
-        :employee_id="employee_id"
         :workOrder="workOrder"
-        @update:activeTimer="$emit('update:activeTimer', $event)"
-        @time_logged="$emit('time_logged')"
+        @start-task="$emit('start-task', $event)"
+        @stop-task="$emit('stop-task', $event)"
+        @start-rework="$emit('start-rework', $event)"
+        @stop-rework="$emit('stop-rework', $event)"
       />
     </div>
   </Column>
@@ -43,15 +44,11 @@ export default defineComponent({
       type: Object as PropType<ActiveTimer | null>,
       default: null,
     },
-    employee_id: {
-      type: String,
-      required: true,
-    },
     workOrder: {
       type: String,
       required: true,
     },
   },
-  emits: ["update:activeTimer", "time_logged"],
+  emits: ["start-task", "stop-task", "start-rework", "stop-rework"],
 });
 </script>
