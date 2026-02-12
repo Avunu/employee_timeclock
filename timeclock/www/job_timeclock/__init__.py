@@ -8,7 +8,7 @@ from erpnext.manufacturing.doctype.job_card_time_log.job_card_time_log import (
 	JobCardTimeLog,
 )
 from frappe import _
-from frappe.query_builder import DocType, Case
+from frappe.query_builder import Case, DocType
 from frappe.query_builder.functions import Coalesce, Max, Sum
 from frappe.rate_limiter import rate_limit
 from frappe.utils.data import get_datetime
@@ -27,9 +27,7 @@ MACHINE_OPERATIONS: dict[str, str] = {
 }
 
 
-def _resolve_job_card_name(
-	work_order: str, operation: str, *, corrective: bool = False
-) -> str | None:
+def _resolve_job_card_name(work_order: str, operation: str, *, corrective: bool = False) -> str | None:
 	"""Resolve work_order + operation to a Job Card name.
 
 	Args:
@@ -368,11 +366,7 @@ def get_operations(token: str, work_order: str, workstation: str = "") -> dict[s
 	results: list[dict[str, Any]] = (
 		frappe.qb.from_(WOOp)
 		.left_join(JC)
-		.on(
-			(JC.work_order == WOOp.parent)
-			& (JC.operation == WOOp.operation)
-			& (JC.docstatus < 2)
-		)
+		.on((JC.work_order == WOOp.parent) & (JC.operation == WOOp.operation) & (JC.docstatus < 2))
 		.left_join(TL)
 		.on(TL.parent == JC.name)
 		.select(
@@ -380,9 +374,9 @@ def get_operations(token: str, work_order: str, workstation: str = "") -> dict[s
 			WOOp.operation,
 			WOOp.workstation,
 			WOOp.time_in_mins.as_("planned_time_mins"),
-			Coalesce(
-				Sum(Case().when(JC.is_corrective_job_card == 0, TL.time_in_mins).else_(0)), 0
-			).as_("actual_time_mins"),
+			Coalesce(Sum(Case().when(JC.is_corrective_job_card == 0, TL.time_in_mins).else_(0)), 0).as_(
+				"actual_time_mins"
+			),
 			Coalesce(
 				Sum(
 					Case()
@@ -394,9 +388,9 @@ def get_operations(token: str, work_order: str, workstation: str = "") -> dict[s
 				),
 				0,
 			).as_("employee_time_mins"),
-			Coalesce(
-				Sum(Case().when(JC.is_corrective_job_card == 1, TL.time_in_mins).else_(0)), 0
-			).as_("corrective_total_time_mins"),
+			Coalesce(Sum(Case().when(JC.is_corrective_job_card == 1, TL.time_in_mins).else_(0)), 0).as_(
+				"corrective_total_time_mins"
+			),
 			Coalesce(
 				Sum(
 					Case()
@@ -408,20 +402,14 @@ def get_operations(token: str, work_order: str, workstation: str = "") -> dict[s
 				),
 				0,
 			).as_("corrective_employee_time_mins"),
-			Coalesce(
-				Max(Case().when(JC.is_corrective_job_card == 0, JC.docstatus).else_(None)), 0
-			).as_("regular_docstatus"),
+			Coalesce(Max(Case().when(JC.is_corrective_job_card == 0, JC.docstatus).else_(None)), 0).as_(
+				"regular_docstatus"
+			),
 		)
 		.where(WOOp.parent == work_order)
 		.where(WOOp.parenttype == "Work Order")
 		.groupby(WOOp.name)
-		.orderby(
-			Case()
-			.when(WOOp.workstation == workstation, 0)
-			.else_(1)
-			if workstation
-			else WOOp.idx
-		)
+		.orderby(Case().when(WOOp.workstation == workstation, 0).else_(1) if workstation else WOOp.idx)
 		.orderby(WOOp.idx)
 	).run(as_dict=True)
 
@@ -611,7 +599,7 @@ def get_active_timer(token: str) -> dict[str, Any]:
 			- status: "success" or "error"
 			- token: Refreshed JWT token
 			- active_timer: Dict with work_order, operation, from_time,
-			  is_corrective (or None if no timer running)
+				is_corrective (or None if no timer running)
 
 	Raises:
 		None: Returns error dict on exception

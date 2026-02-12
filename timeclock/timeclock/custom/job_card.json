@@ -6,6 +6,16 @@
 	"property_setters": [
 		{
 			"doc_type": "Job Card",
+			"doctype_or_field": "DocType",
+			"is_system_generated": 1,
+			"module": "Timeclock",
+			"name": "Job Card-main-show_preview_popup",
+			"property": "show_preview_popup",
+			"property_type": "Check",
+			"value": "1"
+		},
+		{
+			"doc_type": "Job Card",
 			"doctype_or_field": "DocField",
 			"field_name": "is_corrective_job_card",
 			"is_system_generated": 1,
@@ -21,10 +31,76 @@
 			"field_name": "is_corrective_job_card",
 			"is_system_generated": 1,
 			"module": "Timeclock",
+			"name": "Job Card-is_corrective_job_card-in_filter",
+			"property": "in_filter",
+			"property_type": "Check",
+			"value": "1"
+		},
+		{
+			"doc_type": "Job Card",
+			"doctype_or_field": "DocField",
+			"field_name": "is_corrective_job_card",
+			"is_system_generated": 1,
+			"module": "Timeclock",
+			"name": "Job Card-is_corrective_job_card-in_standard_filter",
+			"property": "in_standard_filter",
+			"property_type": "Check",
+			"value": "1"
+		},
+		{
+			"doc_type": "Job Card",
+			"doctype_or_field": "DocField",
+			"field_name": "is_corrective_job_card",
+			"is_system_generated": 1,
+			"module": "Timeclock",
+			"name": "Job Card-is_corrective_job_card-in_preview",
+			"property": "in_preview",
+			"property_type": "Check",
+			"value": "1"
+		},
+		{
+			"doc_type": "Job Card",
+			"doctype_or_field": "DocField",
+			"field_name": "is_corrective_job_card",
+			"is_system_generated": 1,
+			"module": "Timeclock",
 			"name": "Job Card-is_corrective_job_card-label",
 			"property": "label",
 			"property_type": "Data",
 			"value": "Rework"
+		},
+		{
+			"doc_type": "Job Card",
+			"doctype_or_field": "DocField",
+			"field_name": "production_item",
+			"is_system_generated": 1,
+			"module": "Timeclock",
+			"name": "Job Card-production_item-in_preview",
+			"property": "in_preview",
+			"property_type": "Check",
+			"value": "1"
+		},
+		{
+			"doc_type": "Job Card",
+			"doctype_or_field": "DocField",
+			"field_name": "expected_start_date",
+			"is_system_generated": 1,
+			"module": "Timeclock",
+			"name": "Job Card-expected_start_date-in_preview",
+			"property": "in_preview",
+			"property_type": "Check",
+			"value": "1"
+		},
+		{
+			"doc_type": "Job Card",
+			"doctype_or_field": "DocField",
+			"field_name": "time_required",
+			"is_system_generated": 1,
+			"module": "Timeclock",
+			"name": "Job Card-time_required-in_preview",
+			"property": "in_preview",
+			"property_type": "Check",
+			"value": "1"
 		}
 	],
 	"sync_on_migrate": 1

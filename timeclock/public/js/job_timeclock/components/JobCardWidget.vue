@@ -8,10 +8,29 @@
       <div class="text-xs text-gray-400 mt-0.5" v-if="operation.workstation">
         {{ operation.workstation }}
       </div>
-      <div class="text-sm text-gray-500 mt-1" v-if="operation.actual_time_mins > 0 || operation.corrective_total_time_mins > 0">
-        <span v-if="operation.actual_time_mins > 0">{{ formatMins(operation.actual_time_mins) }} logged</span>
-        <span v-if="operation.actual_time_mins > 0 && operation.corrective_total_time_mins > 0"> · </span>
-        <span v-if="operation.corrective_total_time_mins > 0" class="text-orange-500">{{ formatMins(operation.corrective_total_time_mins) }} rework</span>
+      <div
+        class="text-sm text-gray-500 mt-1"
+        v-if="
+          operation.actual_time_mins > 0 ||
+          operation.corrective_total_time_mins > 0
+        "
+      >
+        <span v-if="operation.actual_time_mins > 0"
+          >{{ formatMins(operation.actual_time_mins) }} logged</span
+        >
+        <span
+          v-if="
+            operation.actual_time_mins > 0 &&
+            operation.corrective_total_time_mins > 0
+          "
+        >
+          ·
+        </span>
+        <span
+          v-if="operation.corrective_total_time_mins > 0"
+          class="text-orange-500"
+          >{{ formatMins(operation.corrective_total_time_mins) }} rework</span
+        >
       </div>
     </div>
     <TimerWidget
