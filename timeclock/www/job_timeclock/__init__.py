@@ -325,16 +325,21 @@ def get_work_orders(token: str) -> dict[str, Any]:
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=4, seconds=1)
-def get_operations(token: str, work_order: str) -> dict[str, Any]:
+def get_operations(token: str, work_order: str, workstation: str = "") -> dict[str, Any]:
 	"""
 	Retrieve all operations for a work order with aggregated time totals.
 
 	Anchors on the Work Order Operation child table and LEFT JOINs through
 	Job Card → Job Card Time Log to aggregate regular and corrective time.
 
+	When a workstation is provided, operations whose workstation matches are
+	sorted to the top, followed by the remaining operations in their natural
+	idx order.
+
 	Args:
 		token: JWT authentication token for the employee
 		work_order: Name/ID of the work order
+		workstation: Optional workstation name to prioritize matching operations
 
 	Returns:
 		Dict containing:
@@ -407,6 +412,13 @@ def get_operations(token: str, work_order: str) -> dict[str, Any]:
 		.where(WOOp.parent == work_order)
 		.where(WOOp.parenttype == "Work Order")
 		.groupby(WOOp.name)
+		.orderby(
+			Case()
+			.when(WOOp.workstation == workstation, 0)
+			.else_(1)
+			if workstation
+			else WOOp.idx
+		)
 		.orderby(WOOp.idx)
 	).run(as_dict=True)
 
@@ -429,76 +441,6 @@ def get_operations(token: str, work_order: str) -> dict[str, Any]:
 		"token": token,
 		"operations": operations,
 	}
-
-
-@frappe.whitelist(allow_guest=True)
-def sort_jobcard_by_workstation(jobCards: list[dict[str, Any]], workstation: str) -> dict[str, Any]:
-	"""
-	Sort job cards to prioritize operations relevant to a specific workstation.
-
-	Moves job cards with operations matching the specified workstation to the top of the list,
-	making it easier for employees to find relevant work at their current workstation.
-
-	Args:
-		jobCards: List of job card dictionaries to sort
-		workstation: Name of the workstation (e.g., "Planer", "CNC", "Hand Sanding")
-
-	Returns:
-		Dict containing:
-			- status: "success"
-			- sorted_job_cards: Reordered list with relevant operations at the top
-
-	Raises:
-		None
-	"""
-	operation_workstation: list[dict[str, Any]] = [
-		{
-			"workstation": "Planer",
-			"operation": ["Planing Machine Time", "Pulling & Planing"],
-		},
-		{"workstation": "CNC", "operation": ["CNC Labor", "CNC Machine Time"]},
-		{"workstation": "Hand Sanding", "operation": ["Hand Sanding"]},
-		{
-			"workstation": "Sander/Stainer",
-			"operation": [
-				"Sanding Machine Labor",
-				"Sanding Machine Hours",
-				"Machine Staining Labor",
-				"Machine Staining Hours",
-			],
-		},
-		{
-			"workstation": "Truss Assembly",
-			"operation": ["Truss Assembly", "Hardware Packing Labor", "Packing Labor"],
-		},
-		{"workstation": "T&G Cutting", "operation": ["T&G Cutting"]},
-	]
-
-	for entry in operation_workstation:
-		if entry["workstation"] == workstation:
-			operations: list[str] = entry["operation"]
-
-	top_index: list[dict[str, Any]] = []
-	new_jobCards: list[dict[str, Any]] = []
-	waste: list[dict[str, Any]] = []
-	for card in jobCards:
-		for station_operation in operations:
-			if card["operation"] == station_operation and card not in waste:
-				top_index.append(card)
-				waste.append(card)
-			elif card not in new_jobCards and card not in waste:
-				new_jobCards.append(card)
-				waste.append(card)
-
-	if len(top_index) == 0:
-		return {"status": "success", "sorted_job_cards": jobCards}
-
-	i: int = 0
-	for index in top_index:
-		new_jobCards.insert(i, index)
-		i += 1
-
-	return {"status": "success", "sorted_job_cards": new_jobCards}
 
 
 def log_end_time_of_jobcard(

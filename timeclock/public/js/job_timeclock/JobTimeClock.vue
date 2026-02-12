@@ -110,7 +110,6 @@ import type {
   GetOperationsResponse,
   GetActiveTimerResponse,
   GetWorkOrdersResponse,
-  SortJobCardsResponse,
 } from "./types/api";
 // Trying to use realtime to track when employees clock out for the day
 // then shutting off their time when they do.
@@ -280,7 +279,11 @@ export default defineComponent({
     async getOperations(workOrderName: string) {
       const response = await frappeCall<GetOperationsResponse>(
         "timeclock.www.job_timeclock.get_operations",
-        { token: this.token, work_order: workOrderName },
+        {
+          token: this.token,
+          work_order: workOrderName,
+          workstation: this.workstation,
+        },
       );
       if (
         response.status === "success" &&
@@ -289,21 +292,6 @@ export default defineComponent({
       ) {
         this.token = response.token;
         this.operations = response.operations;
-
-        // Check for workstation
-        if (this.workstation !== "") {
-          const response2 = await frappeCall<SortJobCardsResponse>(
-            "timeclock.www.job_timeclock.sort_jobcard_by_workstation",
-            { jobCards: this.operations, workstation: this.workstation },
-          );
-          if (response2.status === "success") {
-            this.operations = response2.sorted_job_cards;
-          } else {
-            console.log("sort failed.");
-          }
-        } else {
-          console.log("Workstation: default");
-        }
       } else {
         this.operations = [];
         this.activeSession = false;

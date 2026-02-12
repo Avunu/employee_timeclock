@@ -55,12 +55,6 @@ export interface GetActiveTimerResponse extends BaseResponse {
     active_timer?: ActiveTimer | null;
 }
 
-/** sort_jobcard_by_workstation response */
-export interface SortJobCardsResponse extends BaseResponse {
-    status: 'success';
-    sorted_job_cards: Operation[];
-}
-
 /** start_timer response */
 export interface StartTimerResponse extends BaseResponse {
     status: 'success' | 'failed';
