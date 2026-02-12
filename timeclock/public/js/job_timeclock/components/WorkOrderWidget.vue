@@ -6,7 +6,7 @@
     :class="{ '!bg-blue-100': isSelected }"
     class="overflow-hidden cursor-pointer mt-2 mb-2"
   >
-    <template #actions v-if="!selected">
+    <template #actions>
       <span
         class="px-2 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 text-green-800 whitespace-nowrap"
       >
