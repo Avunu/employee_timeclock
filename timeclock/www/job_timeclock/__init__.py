@@ -8,8 +8,8 @@ from erpnext.manufacturing.doctype.job_card_time_log.job_card_time_log import (
 	JobCardTimeLog,
 )
 from frappe import _
-from frappe.query_builder import DocType
-from frappe.query_builder.functions import Max
+from frappe.query_builder import DocType, Case
+from frappe.query_builder.functions import Coalesce, Max, Min, Sum
 from frappe.rate_limiter import rate_limit
 from frappe.utils.data import get_datetime
 
@@ -25,6 +25,28 @@ MACHINE_OPERATIONS: dict[str, str] = {
 	"CNC Machine Time": "HR-MACH-CNC-00051",
 	"Planing Machine Time": "HR-MACH-PL-00054",
 }
+
+
+def _resolve_job_card_name(
+	work_order: str, operation: str, *, corrective: bool = False
+) -> str | None:
+	"""Resolve work_order + operation to a Job Card name.
+
+	Args:
+		work_order: Work Order name
+		operation: Operation name (e.g. "CNC Machine Time")
+		corrective: If True, find the corrective card for this operation
+
+	Returns:
+		Job Card name string, or None if not found
+	"""
+	filters: dict[str, Any] = {
+		"work_order": work_order,
+		"operation": operation,
+		"is_corrective_job_card": 1 if corrective else 0,
+		"docstatus": ["<", 2],
+	}
+	return cast(str | None, frappe.db.get_value("Job Card", filters, "name"))
 
 
 def refresh_token(employee_id: str) -> str:
@@ -92,13 +114,14 @@ def authenticate_employee(rfid: str) -> dict[str, Any]:
 	token = refresh_token(str(employee_id))
 
 	# get the last employee checkin to see if the employee is clocked in or out
-	last_checkin: list[str] = frappe.get_list(
-		"Employee Checkin",
-		filters={"employee": employee_id},
-		order_by="modified desc",
-		limit=1,
-		ignore_permissions=True,
-		pluck="log_type",
+	EmployeeCheckinDT = DocType("Employee Checkin")
+	last_checkin: list[str] = (
+		frappe.qb.from_(EmployeeCheckinDT)
+		.select(EmployeeCheckinDT.log_type)
+		.where(EmployeeCheckinDT.employee == employee_id)
+		.orderby(EmployeeCheckinDT.modified, order=frappe.qb.desc)
+		.limit(1)
+		.run(pluck="log_type")
 	)
 
 	# get the last Job Card Time Log where there is no to_time to see if a timer is running
@@ -290,11 +313,12 @@ def get_work_orders(token: str) -> dict[str, Any]:
 
 	# Get the employee's work orders
 	# work order status can be Submitted, Not Started, or In Process
-	work_orders: list[dict[str, Any]] = frappe.get_list(
-		"Work Order",
-		filters={"status": ["in", ["Submitted", "Not Started", "In Process"]]},
-		fields=["name", "production_item", "status"],
-		ignore_permissions=True,
+	WorkOrders = DocType("Work Order")
+	work_orders: list[dict[str, Any]] = (
+		frappe.qb.from_(WorkOrders)
+		.select(WorkOrders.name, WorkOrders.production_item, WorkOrders.status)
+		.where(WorkOrders.status.isin(["Submitted", "Not Started", "In Process"]))
+		.run(as_dict=True)
 	)
 	return {"status": "success", "token": token, "work_orders": work_orders}
 
@@ -303,12 +327,13 @@ def get_work_orders(token: str) -> dict[str, Any]:
 @rate_limit(limit=4, seconds=1)
 def get_job_cards(token: str, work_order: str) -> dict[str, Any]:
 	"""
-	Retrieve all job cards for a specific work order with time log information.
+	Retrieve all operations for a work order with aggregated time totals.
 
-	Uses Query Builder to efficiently fetch job cards with their latest time log
-	for the authenticated employee in a single query. Determines which cards are
-	currently active (have a running timer). Handles both regular employee
-	operations and machine operations entirely in SQL.
+	Two lightweight queries:
+	1. Main: LEFT JOIN time logs onto all cards (regular + corrective),
+	GROUP BY operation, CASE-SUM splits regular vs rework by is_corrective_job_card.
+	2. Active log: find the single running timer (time_in_mins == 0)
+	for this employee, returning the operation name.
 
 	Args:
 		token: JWT authentication token for the employee
@@ -318,8 +343,8 @@ def get_job_cards(token: str, work_order: str) -> dict[str, Any]:
 		Dict containing:
 			- status: "success" or error message
 			- token: Refreshed JWT token
-			- job_cards: List of job card dicts sorted by sequence_id with time log info
-			- active_cards: List of booleans indicating which cards are active
+			- job_cards: Flat list of operation dicts with time totals
+			- active_log: The currently running time log for this employee, or None
 
 	Raises:
 		None: Returns error dict on exception
@@ -333,105 +358,109 @@ def get_job_cards(token: str, work_order: str) -> dict[str, Any]:
 		return {"status": "error", "message": str(e)}
 
 	# Define DocTypes
-	JobCards = DocType("Job Card")
-	TimeLogs = DocType("Job Card Time Log")
+	JC = DocType("Job Card")
+	TL = DocType("Job Card Time Log")
 
-	# Build CASE expression: map operation -> expected employee
-	# For machine operations use machine employee, otherwise use authenticated employee
+	# CASE: map operation -> expected employee (machine ops use machine employee)
 	employee_case = Case()
 	for operation, machine_id in MACHINE_OPERATIONS.items():
-		employee_case = employee_case.when(JobCards.operation == operation, machine_id)
+		employee_case = employee_case.when(JC.operation == operation, machine_id)
 	employee_case = employee_case.else_(employee_id)
 
-	# Subquery: Get the latest from_time per job card for the expected employee
-	latest_log_subquery = (
-		frappe.qb.from_(TimeLogs)
-		.inner_join(JobCards)
-		.on(TimeLogs.parent == JobCards.name)
+	# ── Query 1: operation-anchored time totals ──
+	main_query = (
+		frappe.qb.from_(JC)
+		.left_join(TL)
+		.on((TL.parent == JC.name) & (TL.time_in_mins > 0))
 		.select(
-			TimeLogs.parent.as_("job_card_name"),
-			Max(TimeLogs.from_time).as_("max_from_time"),
+			JC.operation,
+			Max(Case().when(JC.is_corrective_job_card == 0, JC.status).else_(None)).as_("status"),
+			Min(JC.sequence_id).as_("sequence_id"),
+			Coalesce(
+				Sum(Case().when(JC.is_corrective_job_card == 0, TL.time_in_mins).else_(0)), 0
+			).as_("all_regular_mins"),
+			Coalesce(
+				Sum(
+					Case()
+					.when(
+						(JC.is_corrective_job_card == 0) & (TL.employee == employee_case),
+						TL.time_in_mins,
+					)
+					.else_(0)
+				),
+				0,
+			).as_("employee_regular_mins"),
+			Coalesce(
+				Sum(Case().when(JC.is_corrective_job_card == 1, TL.time_in_mins).else_(0)), 0
+			).as_("all_rework_mins"),
+			Coalesce(
+				Sum(
+					Case()
+					.when(
+						(JC.is_corrective_job_card == 1) & (TL.employee == employee_case),
+						TL.time_in_mins,
+					)
+					.else_(0)
+				),
+				0,
+			).as_("employee_rework_mins"),
 		)
-		.where(JobCards.work_order == work_order)
-		.where(TimeLogs.employee == employee_case)
-		.groupby(TimeLogs.parent)
-	)
-	LatestLog = latest_log_subquery.as_("latest_log")
-
-	# Rebuild CASE for main query (needs fresh reference to JobCards)
-	employee_case_main = Case()
-	for operation, machine_id in MACHINE_OPERATIONS.items():
-		employee_case_main = employee_case_main.when(JobCards.operation == operation, machine_id)
-	employee_case_main = employee_case_main.else_(employee_id)
-
-	# is_active: true when time_in_mins == 0 (timer running, no end time)
-	is_active_case = Case().when(TimeLogs.time_in_mins == 0, 1).else_(0)
-
-	# Main query: Get job cards with their latest time log info
-	query = (
-		frappe.qb.from_(JobCards)
-		.left_join(LatestLog)
-		.on(LatestLog.job_card_name == JobCards.name)
-		.left_join(TimeLogs)
-		.on(
-			(TimeLogs.parent == JobCards.name)
-			& (TimeLogs.from_time == LatestLog.max_from_time)
-			& (TimeLogs.employee == employee_case_main)
-		)
-		.select(
-			JobCards.name,
-			JobCards.operation,
-			JobCards.status,
-			JobCards.sequence_id,
-			TimeLogs.name.as_("time_log_name"),
-			TimeLogs.from_time,
-			TimeLogs.to_time,
-			TimeLogs.time_in_mins,
-			TimeLogs.employee.as_("time_log_employee"),
-			is_active_case.as_("is_active"),
-		)
-		.where(JobCards.work_order == work_order)
-		.orderby(JobCards.sequence_id)
+		.where(JC.work_order == work_order)
+		.where(JC.docstatus < 2)
+		.groupby(JC.operation)
+		.orderby(Min(JC.sequence_id))
 	)
 
-	results: list[dict[str, Any]] = query.run(as_dict=True)
+	results: list[dict[str, Any]] = main_query.run(as_dict=True)
 
-	if not results:
-		return {
-			"status": "success",
-			"token": token,
-			"job_cards": [],
-			"active_cards": [],
+	# ── Query 2: currently running timer for this employee (if any) ──
+	active_query = (
+		frappe.qb.from_(TL)
+		.inner_join(JC)
+		.on(TL.parent == JC.name)
+		.select(
+			JC.operation,
+			TL.name.as_("time_log_name"),
+			TL.from_time,
+			JC.is_corrective_job_card,
+		)
+		.where(JC.work_order == work_order)
+		.where(JC.docstatus < 2)
+		.where(TL.time_in_mins == 0)
+		.where(TL.to_time.isnull())
+		.where(TL.employee == employee_case)
+		.limit(1)
+	)
+
+	active_result: list[dict[str, Any]] = active_query.run(as_dict=True)
+	active_log: dict[str, Any] | None = None
+	if active_result:
+		row = active_result[0]
+		active_log = {
+			"operation": row["operation"],
+			"time_log_name": row["time_log_name"],
+			"from_time": row["from_time"],
+			"is_rework": bool(row.get("is_corrective_job_card")),
 		}
 
-	# Minimal transformation: structure time_logs and extract active_cards
 	job_cards: list[dict[str, Any]] = [
 		{
-			"name": row["name"],
 			"operation": row["operation"],
 			"status": row["status"],
 			"sequence_id": row["sequence_id"],
-			"time_logs": (
-				{
-					"name": row["time_log_name"],
-					"from_time": row["from_time"],
-					"to_time": row["to_time"],
-					"time_in_mins": row["time_in_mins"],
-					"employee": row["time_log_employee"],
-				}
-				if row.get("time_log_name")
-				else None
-			),
+			"all_regular_mins": float(row.get("all_regular_mins", 0)),
+			"all_rework_mins": float(row.get("all_rework_mins", 0)),
+			"employee_regular_mins": float(row.get("employee_regular_mins", 0)),
+			"employee_rework_mins": float(row.get("employee_rework_mins", 0)),
 		}
 		for row in results
 	]
-	active_cards: list[bool] = [bool(row.get("is_active")) for row in results]
 
 	return {
 		"status": "success",
 		"token": token,
 		"job_cards": job_cards,
-		"active_cards": active_cards,
+		"active_log": active_log,
 	}
 
 
@@ -506,17 +535,25 @@ def sort_jobcard_by_workstation(jobCards: list[dict[str, Any]], workstation: str
 
 
 @frappe.whitelist(allow_guest=True)
-def log_end_time_of_jobcard(employee_id: str, end_time: str, jobcard_name: str) -> dict[str, Any]:
+def log_end_time_of_jobcard(
+	employee_id: str,
+	end_time: str,
+	jobcard_name: str = "",
+	work_order: str = "",
+	operation: str = "",
+) -> dict[str, Any]:
 	"""
 	Stop a timer on a job card by logging the end time.
 
-	Updates the most recent Job Card Time Log entry for the employee by setting the end time.
-	For machine operations, uses the machine employee ID to find the correct time log.
+	Accepts either a direct jobcard_name (used internally by check_all_job_cards)
+	or work_order + operation (used by the frontend) to resolve the card.
 
 	Args:
 		employee_id: The employee stopping work on the job card
 		end_time: Timestamp string for when work ends
-		jobcard_name: Name/ID of the job card to stop
+		jobcard_name: Direct job card name (optional, for internal use)
+		work_order: Work order name (used with operation to resolve card)
+		operation: Operation name (used with work_order to resolve card)
 
 	Returns:
 		Dict containing:
@@ -527,6 +564,10 @@ def log_end_time_of_jobcard(employee_id: str, end_time: str, jobcard_name: str) 
 	Raises:
 		None: Returns failed status on exception
 	"""
+	if not jobcard_name and work_order and operation:
+		jobcard_name = _resolve_job_card_name(work_order, operation) or ""
+	if not jobcard_name:
+		return {"status": "failed", "error": "Job card not found"}
 
 	job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
 
@@ -643,18 +684,26 @@ def check_all_job_cards(employee_id: str, time: str) -> str | list[Any]:
 
 
 @frappe.whitelist(allow_guest=True)
-def log_start_time_of_jobcard(employee_id: str, start_time: str, jobcard_name: str) -> dict[str, Any]:
+def log_start_time_of_jobcard(
+	employee_id: str,
+	start_time: str,
+	jobcard_name: str = "",
+	work_order: str = "",
+	operation: str = "",
+) -> dict[str, Any]:
 	"""
 	Start a timer on a job card by logging the start time.
 
-	Creates a new Job Card Time Log entry with the start time for the employee.
-	For machine operations, uses the machine employee ID instead of the regular employee.
+	Accepts either a direct jobcard_name or work_order + operation to resolve
+	the card. For machine operations, uses the machine employee ID.
 	Automatically clocks out the employee from any other active job cards.
 
 	Args:
 		employee_id: The employee starting work on the job card
 		start_time: Timestamp string for when work begins
-		jobcard_name: Name/ID of the job card to start
+		jobcard_name: Direct job card name (optional, for internal use)
+		work_order: Work order name (used with operation to resolve card)
+		operation: Operation name (used with work_order to resolve card)
 
 	Returns:
 		Dict containing:
@@ -667,6 +716,10 @@ def log_start_time_of_jobcard(employee_id: str, start_time: str, jobcard_name: s
 	Raises:
 		None: Catches and logs exceptions
 	"""
+	if not jobcard_name and work_order and operation:
+		jobcard_name = _resolve_job_card_name(work_order, operation) or ""
+	if not jobcard_name:
+		return {"status": "failed", "error": "Job card not found"}
 
 	job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
 	new_time_log: JobCardTimeLog = cast(JobCardTimeLog, frappe.new_doc("Job Card Time Log"))
@@ -793,7 +846,13 @@ def submit_jobcard(jobCard: dict[str, Any], complete_time: str, employee_id: str
 
 
 @frappe.whitelist(allow_guest=True)
-def log_rework_start_time(employee_id: str, start_time: str, jobcard_name: str) -> dict[str, Any]:
+def log_rework_start_time(
+	employee_id: str,
+	start_time: str,
+	jobcard_name: str = "",
+	work_order: str = "",
+	operation: str = "",
+) -> dict[str, Any]:
 	"""
 	Start a rework timer on a corrective job card.
 
@@ -801,10 +860,15 @@ def log_rework_start_time(employee_id: str, start_time: str, jobcard_name: str) 
 	then adds a time log entry. Corrective job cards track rework time separately
 	from normal production time.
 
+	Accepts either a direct jobcard_name (the original card) or
+	work_order + operation to resolve it.
+
 	Args:
 		employee_id: The employee performing the rework
 		start_time: Timestamp string for when rework begins
-		jobcard_name: Name/ID of the original job card requiring rework
+		jobcard_name: Direct original job card name (optional, for internal use)
+		work_order: Work order name (used with operation to resolve card)
+		operation: Operation name (used with work_order to resolve card)
 
 	Returns:
 		Dict containing:
@@ -817,6 +881,11 @@ def log_rework_start_time(employee_id: str, start_time: str, jobcard_name: str) 
 	Raises:
 		None: Catches and logs exceptions
 	"""
+	if not jobcard_name and work_order and operation:
+		jobcard_name = _resolve_job_card_name(work_order, operation) or ""
+	if not jobcard_name:
+		return {"status": "failed", "error": "Job card not found"}
+
 	original_job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
 
 	# Determine the employee for the time log
@@ -881,17 +950,28 @@ def log_rework_start_time(employee_id: str, start_time: str, jobcard_name: str) 
 
 
 @frappe.whitelist(allow_guest=True)
-def log_rework_end_time(employee_id: str, end_time: str, jobcard_name: str) -> dict[str, Any]:
+def log_rework_end_time(
+	employee_id: str,
+	end_time: str,
+	jobcard_name: str = "",
+	work_order: str = "",
+	operation: str = "",
+) -> dict[str, Any]:
 	"""
 	Stop a rework timer on a corrective job card.
 
 	Finds the corrective Job Card linked to the original job card and updates
 	the most recent time log entry with the end time.
 
+	Accepts either a direct jobcard_name (the original card) or
+	work_order + operation to resolve it.
+
 	Args:
 		employee_id: The employee stopping the rework
 		end_time: Timestamp string for when rework ends
-		jobcard_name: Name/ID of the original job card
+		jobcard_name: Direct original job card name (optional, for internal use)
+		work_order: Work order name (used with operation to resolve card)
+		operation: Operation name (used with work_order to resolve card)
 
 	Returns:
 		Dict containing:
@@ -903,6 +983,11 @@ def log_rework_end_time(employee_id: str, end_time: str, jobcard_name: str) -> d
 	Raises:
 		None: Catches and logs exceptions, returns error in dict
 	"""
+	if not jobcard_name and work_order and operation:
+		jobcard_name = _resolve_job_card_name(work_order, operation) or ""
+	if not jobcard_name:
+		return {"status": "failed", "error": "Job card not found"}
+
 	original_job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
 
 	# Determine the employee for the time log
@@ -942,3 +1027,87 @@ def log_rework_end_time(employee_id: str, end_time: str, jobcard_name: str) -> d
 	except Exception as e:
 		frappe.log_error("Error Ending Rework Log", e)
 		return {"status": "failed", "job_card": corrective_job_card, "error": str(e)}
+
+
+@frappe.whitelist(allow_guest=True)
+def get_job_card_time_totals(
+	employee_id: str,
+	work_order: str = "",
+	operation: str = "",
+) -> dict[str, Any]:
+	"""
+	Get total time logged for an operation, split by regular vs rework,
+	for all employees and a specific employee.
+
+	Uses a single JOIN query across Job Card and Job Card Time Log,
+	splitting regular vs corrective via CASE expressions.
+
+	Args:
+		employee_id: The employee to get individual totals for
+		work_order: Work order name
+		operation: Operation name
+
+	Returns:
+		Dict containing:
+			- status: "success"
+			- all_regular_mins: Total regular minutes across all employees
+			- all_rework_mins: Total rework minutes across all employees
+			- employee_regular_mins: Total regular minutes for this employee
+			- employee_rework_mins: Total rework minutes for this employee
+	"""
+	JC = DocType("Job Card")
+	TL = DocType("Job Card Time Log")
+
+	# Determine the effective employee for machine operations
+	effective_employee = employee_id
+	if operation in MACHINE_OPERATIONS:
+		effective_employee = MACHINE_OPERATIONS[operation]
+
+	result = (
+		frappe.qb.from_(JC)
+		.left_join(TL)
+		.on((TL.parent == JC.name) & (TL.time_in_mins > 0))
+		.select(
+			Coalesce(
+				Sum(Case().when(JC.is_corrective_job_card == 0, TL.time_in_mins).else_(0)), 0
+			).as_("all_regular_mins"),
+			Coalesce(
+				Sum(
+					Case()
+					.when(
+						(JC.is_corrective_job_card == 0) & (TL.employee == effective_employee),
+						TL.time_in_mins,
+					)
+					.else_(0)
+				),
+				0,
+			).as_("employee_regular_mins"),
+			Coalesce(
+				Sum(Case().when(JC.is_corrective_job_card == 1, TL.time_in_mins).else_(0)), 0
+			).as_("all_rework_mins"),
+			Coalesce(
+				Sum(
+					Case()
+					.when(
+						(JC.is_corrective_job_card == 1) & (TL.employee == effective_employee),
+						TL.time_in_mins,
+					)
+					.else_(0)
+				),
+				0,
+			).as_("employee_rework_mins"),
+		)
+		.where(JC.work_order == work_order)
+		.where(JC.operation == operation)
+		.where(JC.docstatus < 2)
+	).run(as_dict=True)
+
+	row = result[0] if result else {}
+
+	return {
+		"status": "success",
+		"all_regular_mins": float(row.get("all_regular_mins", 0)),
+		"all_rework_mins": float(row.get("all_rework_mins", 0)),
+		"employee_regular_mins": float(row.get("employee_regular_mins", 0)),
+		"employee_rework_mins": float(row.get("employee_rework_mins", 0)),
+	}

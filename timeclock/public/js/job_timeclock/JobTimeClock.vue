@@ -57,8 +57,11 @@
           class="z-0"
           name="job_cards_comp"
           :jobCards="jobCards"
+          :activeLog="activeLog"
           v-if="selectedWorkOrder"
           :employee_id="employeeId"
+          :workOrder="selectedWorkOrder!.name"
+          @update:activeLog="activeLog = $event"
         />
       </transition>
     </main>
@@ -93,7 +96,7 @@ import TimerWidget from "./components/TimerWidget.vue";
 import WorkOrderList from "./components/WorkOrderList.vue";
 import type { WorkOrder } from "./types/WorkOrder";
 import JobCardList from "./components/JobCardList.vue";
-import type { JobCard } from "./types/JobCard";
+import type { JobCard, ActiveLog } from "./types/JobCard";
 import type { Employee } from "./types/Employee";
 import DropDownMenu from "./components/DropDownMenu.vue";
 
@@ -124,6 +127,7 @@ export default defineComponent({
     DropDownMenu,
   },
   data(): {
+    activeLog: ActiveLog | null;
     activeSession: boolean;
     employeeId: string;
     employeeLoggedIn: boolean;
@@ -139,6 +143,7 @@ export default defineComponent({
     workstation: string;
   } {
     return {
+      activeLog: null,
       activeSession: false,
       employeeId: "",
       employeeLoggedIn: false,
@@ -191,6 +196,7 @@ export default defineComponent({
     async authenticateEmployee(sCode: string) {
       this.token = null;
       this.tokenExpiration = 0;
+      this.activeLog = null;
       this.jobCards = [];
       this.selectedWorkOrder = null;
       this.workOrders = [];
@@ -277,16 +283,11 @@ export default defineComponent({
       if (
         response.status === "success" &&
         response.job_cards &&
-        response.token &&
-        response.active_cards
+        response.token
       ) {
         this.token = response.token;
         this.jobCards = response.job_cards;
-        // console.log(response.active_cards)
-        this.jobCards.forEach((jobCard, index) => {
-          jobCard.is_active = response.active_cards[index];
-        });
-        // console.log(this.jobCards)
+        this.activeLog = response.active_log ?? null;
 
         // Check for workstation
         if (this.workstation !== "") {
@@ -323,6 +324,7 @@ export default defineComponent({
     endTimer() {
       this.setSessionFalse;
       this.activeSession = false;
+      this.activeLog = null;
       this.token = null;
       this.tokenExpiration = 0;
       this.jobCards = [];
@@ -369,13 +371,9 @@ export default defineComponent({
 
     switchEmployee() {
       toast.success(`${this.employeeName} switched user.`);
-      // toast('Signed Out.', {
-      //     toastClassName: "custom_default",
-      //     bodyClassName: ['custom_class-1','custom-class-2']
-
-      // });
 
       this.activeSession = false;
+      this.activeLog = null;
       this.token = null;
       this.tokenExpiration = 0;
       this.jobCards = [];
@@ -384,13 +382,6 @@ export default defineComponent({
       this.employeeId = "";
       this.employeeName = "";
 
-      this.employeeId = "";
-      this.employeeName = "";
-      this.jobCards = [];
-      this.selectedWorkOrder = null;
-      this.tokenExpiration = 0;
-      this.workOrders = [];
-      this.activeSession = false;
       this.employeeLoggedIn = false;
     },
 

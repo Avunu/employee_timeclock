@@ -26,6 +26,12 @@
         >
           {{ elapsedTime }}
         </p>
+        <p
+          class="text-gray-400 text-xs mt-1"
+          v-if="employeeRegularMins > 0"
+        >
+          Your total: {{ formatMins(employeeRegularMins) }}
+        </p>
       </div>
       <!-- Rework Timer Section -->
       <div
@@ -51,6 +57,12 @@
         >
           {{ reworkElapsedTime }}
         </p>
+        <p
+          class="text-orange-400 text-xs mt-1"
+          v-if="employeeReworkMins > 0"
+        >
+          Your total: {{ formatMins(employeeReworkMins) }}
+        </p>
       </div>
     </div>
   </div>
@@ -59,7 +71,7 @@
 <script lang="ts">
 import { defineComponent, watch } from "vue";
 import type { PropType } from "vue";
-import type { JobCard } from "../types/JobCard";
+import type { JobCard, ActiveLog } from "../types/JobCard";
 import type { FrappeDateTimeString } from "../types/FrappeDateTime";
 import { dateToFrappeDateTimeString } from "../types/FrappeDateTime";
 import { useStorage } from "@vueuse/core";
@@ -115,8 +127,25 @@ export default defineComponent({
       type: Object as PropType<JobCard>,
       default: () => {},
     },
+    activeLog: {
+      type: Object as PropType<ActiveLog | null>,
+      default: null,
+    },
     employee_id: String,
+    workOrder: {
+      type: String,
+      required: true,
+    },
+    employeeRegularMins: {
+      type: Number,
+      default: 0,
+    },
+    employeeReworkMins: {
+      type: Number,
+      default: 0,
+    },
   },
+  emits: ["emit_timer", "update:activeLog", "time_logged"],
   methods: {
     getTimeInString(date: Date): FrappeDateTimeString {
       return dateToFrappeDateTimeString(date, 5);
@@ -140,7 +169,8 @@ export default defineComponent({
         {
           employee_id: this.employee_id,
           start_time: this.startTimeFrappe,
-          jobcard_name: jobCard.name,
+          work_order: this.workOrder,
+          operation: jobCard.operation,
         },
       );
 
@@ -151,16 +181,15 @@ export default defineComponent({
         this.start_timer(this.startTime);
         this.timerStarted = true;
         this.$emit("emit_timer", this.timerStarted);
-        this.jobCard.is_active = true;
-        this.$emit("emit_deactivate_others", this.jobCard.name);
+        this.$emit("update:activeLog", {
+          operation: this.jobCard.operation,
+          time_log_name: response.updated_log?.[0]?.name ?? "",
+          from_time: this.startTimeFrappe,
+          is_rework: false,
+        } as ActiveLog);
         if (response.card_logged_out !== "no cards logged out") {
-          // Make Sure the new card's is_active value is updated as well.
           console.log(response.card_logged_out);
           toast.success(`Another card was logged out.`);
-          this.$emit("emit_logged_out_card", {
-            card_logged_out: response.card_logged_out,
-            card_logged_in: this.jobCard,
-          });
         }
       } else {
         toast.error(`${this.jobCard.operation} failed to start.`);
@@ -198,7 +227,8 @@ export default defineComponent({
         {
           employee_id: this.employee_id,
           end_time: this.end_time_frappe,
-          jobcard_name: jobCard.name,
+          work_order: this.workOrder,
+          operation: jobCard.operation,
         },
       );
 
@@ -212,7 +242,8 @@ export default defineComponent({
         this.timerStarted = false;
         this.$emit("emit_timer", this.timerStarted);
         // console.log('end_time',this.end_time_frappe)
-        this.jobCard.is_active = false;
+        this.$emit("update:activeLog", null);
+        this.$emit("time_logged");
       } else {
         toast.error(`${this.jobCard.operation} failed to end.`);
         console.log("End job card did not work.");
@@ -233,15 +264,20 @@ export default defineComponent({
         {
           employee_id: this.employee_id,
           start_time: this.reworkStartTimeFrappe,
-          jobcard_name: jobCard.name,
+          work_order: this.workOrder,
+          operation: jobCard.operation,
         },
       );
 
       if (response.status === "success") {
         this.reworkStarted = true;
         this.start_rework_timer(this.reworkStartTime);
-        this.jobCard.is_active = true;
-        this.$emit("emit_deactivate_others", this.jobCard.name);
+        this.$emit("update:activeLog", {
+          operation: this.jobCard.operation,
+          time_log_name: response.updated_log?.[0]?.name ?? "",
+          from_time: this.reworkStartTimeFrappe,
+          is_rework: true,
+        } as ActiveLog);
         toast.success(`Rework started for ${jobCard.operation}.`);
       } else {
         toast.error(`${jobCard.operation} rework failed to start.`);
@@ -264,7 +300,8 @@ export default defineComponent({
         {
           employee_id: this.employee_id,
           end_time: this.end_time_frappe,
-          jobcard_name: jobCard.name,
+          work_order: this.workOrder,
+          operation: jobCard.operation,
         },
       );
 
@@ -275,8 +312,9 @@ export default defineComponent({
           this.reworkInterval = null;
         }
         this.reworkStarted = false;
-        this.jobCard.is_active = false;
+        this.$emit("update:activeLog", null);
         toast.success(`Rework completed for ${jobCard.operation}.`);
+        this.$emit("time_logged");
       } else {
         toast.error(`${jobCard.operation} rework failed to end.`);
         console.log("End rework did not work.");
@@ -284,16 +322,32 @@ export default defineComponent({
     },
 
     initialize_ongoing_timer(): void {
-      this.taskStarted = true;
-      const time_from = this.jobCard.time_logs?.from_time;
+      const isRework = this.activeLog?.is_rework ?? false;
+      const time_from = this.activeLog?.from_time;
       if (!time_from) return;
-      this.startTime = new Date(time_from);
-      this.start_timer(this.startTime);
 
-      // This is to change style in job card widget.
+      if (isRework) {
+        this.reworkStarted = true;
+        this.reworkStartTime = new Date(time_from);
+        this.start_rework_timer(this.reworkStartTime);
+      } else {
+        this.taskStarted = true;
+        this.startTime = new Date(time_from);
+        this.start_timer(this.startTime);
+      }
+
+      // Highlight the card as active
       this.timerStarted = true;
       this.$emit("emit_timer", this.timerStarted);
-      // console.log('if statement failed.')
+    },
+
+    formatMins(mins: number): string {
+      if (mins <= 0) return "0m";
+      const h = Math.floor(mins / 60);
+      const m = Math.round(mins % 60);
+      if (h > 0 && m > 0) return `${h}h ${m}m`;
+      if (h > 0) return `${h}h`;
+      return `${m}m`;
     },
   },
 
@@ -304,12 +358,12 @@ export default defineComponent({
     }
 
     watch(
-      () => this.jobCard.is_active,
-      (newStatus) => {
-        // If you don't do this, it will refresh every time you switch work orders.
-        // console.log('watching.')
-        if (newStatus === false) {
-          // console.log('Status now False.')
+      () => this.activeLog,
+      (newLog) => {
+        const isActiveForThisCard =
+          newLog?.operation === this.jobCard.operation;
+        if (!isActiveForThisCard) {
+          // Another card became active or all timers stopped — reset this one
           this.taskStarted = false;
           if (this.interval !== null) {
             clearInterval(this.interval);
@@ -317,7 +371,6 @@ export default defineComponent({
           }
           this.timerStarted = false;
           this.$emit("emit_timer", this.timerStarted);
-          // Also stop rework timer
           this.reworkStarted = false;
           if (this.reworkInterval !== null) {
             clearInterval(this.reworkInterval);
@@ -330,11 +383,12 @@ export default defineComponent({
   },
 
   beforeMount() {
-    if (this.jobCard.is_active === true) {
+    const isActive =
+      this.activeLog?.operation === this.jobCard.operation;
+    if (isActive) {
       this.initialize_ongoing_timer();
     } else {
       this.taskStarted = false;
-      // Initializer time on timer for a previously started timer.
     }
   },
 

@@ -3,7 +3,7 @@
  * These interfaces match the return types from timeclock.www.job_timeclock
  */
 
-import type { JobCard, JobCardTimeLog } from './JobCard';
+import type { JobCard, JobCardTimeLog, ActiveLog } from './JobCard';
 import type { WorkOrder } from './WorkOrder';
 
 /** Base response with status */
@@ -45,7 +45,7 @@ export interface GetJobCardsResponse extends BaseResponse {
     message?: string;
     token?: string;
     job_cards?: JobCard[];
-    active_cards?: boolean[];
+    active_log?: ActiveLog | null;
 }
 
 /** sort_jobcard_by_workstation response */
@@ -103,4 +103,13 @@ export interface LogReworkEndResponse extends BaseResponse {
 /** verify_login response (for LogInModule) */
 export interface VerifyLoginResponse extends BaseResponse {
     status: 'success' | 'failed';
+}
+
+/** get_job_card_time_totals response */
+export interface GetJobCardTimeTotalsResponse extends BaseResponse {
+    status: 'success';
+    all_regular_mins: number;
+    all_rework_mins: number;
+    employee_regular_mins: number;
+    employee_rework_mins: number;
 }
