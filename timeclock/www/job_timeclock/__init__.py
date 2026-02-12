@@ -435,152 +435,50 @@ def get_operations(token: str, work_order: str, workstation: str = "") -> dict[s
 	}
 
 
-def log_end_time_of_jobcard(
-	employee_id: str,
-	end_time: str,
-	jobcard_name: str = "",
-	work_order: str = "",
-	operation: str = "",
-) -> dict[str, Any]:
-	"""
-	Stop a timer on a job card by logging the end time.
+def _close_open_time_logs(employee_id: str, close_time: str) -> int:
+	"""Close all open time logs for an employee across every job card.
 
-	Accepts either a direct jobcard_name (used internally by check_all_job_cards)
-	or work_order + operation (used by the frontend) to resolve the card.
+	Queries Job Card Time Log for rows where to_time is NULL belonging
+	to ``employee_id`` or any of the machine employee IDs associated
+	with that employee.  Each affected parent Job Card is loaded, its
+	open logs are stamped with ``close_time``, and the card is saved.
 
 	Args:
-		employee_id: The employee stopping work on the job card
-		end_time: Timestamp string for when work ends
-		jobcard_name: Direct job card name (optional, for internal use)
-		work_order: Work order name (used with operation to resolve card)
-		operation: Operation name (used with work_order to resolve card)
+		employee_id: The human employee ID.
+		close_time: Timestamp string to write into to_time.
 
 	Returns:
-		Dict containing:
-			- status: "success" or "failed"
-			- updated_log: The complete list of time logs
-			- job_card: The JobCard object if failed
-
-	Raises:
-		None: Returns failed status on exception
+		The number of time-log rows that were closed.
 	"""
-	if not jobcard_name and work_order and operation:
-		jobcard_name = _resolve_job_card_name(work_order, operation) or ""
-	if not jobcard_name:
-		return {"status": "failed", "error": "Job card not found"}
+	TL = DocType("Job Card Time Log")
 
-	job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
+	employee_ids: list[str] = [employee_id] + list(MACHINE_OPERATIONS.values())
 
-	if job_card.operation in MACHINE_OPERATIONS.keys():
-		for key, machine_id in MACHINE_OPERATIONS.items():
-			if key == job_card.operation:
-				employee_id = machine_id
-				break
+	open_logs: list[dict[str, Any]] = (
+		frappe.qb.from_(TL)
+		.select(TL.parent, TL.name)
+		.where(TL.to_time.isnull())
+		.where(TL.employee.isin(employee_ids))
+	).run(as_dict=True)
 
-	# Find the last time log for this employee (with no to_time)
-	employee_logs: list[JobCardTimeLog] = [
-		log for log in job_card.time_logs if log.employee == employee_id and not log.to_time
-	]
+	if not open_logs:
+		return 0
 
-	if not employee_logs:
-		return {
-			"status": "failed",
-			"error": "No active time log found for this employee",
-		}
+	# Group log names by their parent Job Card
+	cards: dict[str, list[str]] = {}
+	for row in open_logs:
+		cards.setdefault(row["parent"], []).append(row["name"])
 
-	last_time_log: JobCardTimeLog = employee_logs[-1]
-	last_time_log.to_time = end_time
-
-	try:
+	closed = 0
+	for card_name, log_names in cards.items():
+		job_card: JobCard = JobCard("Job Card", card_name, ignore_permissions=True)
+		for tl in job_card.time_logs:
+			if tl.name in log_names:
+				tl.to_time = close_time
+				closed += 1
 		job_card.save(ignore_permissions=True)
-		updated_log: list[JobCardTimeLog] = job_card.time_logs
-		return {
-			"status": "success",
-			"updated_log": updated_log,
-		}
-	except Exception as e:
-		frappe.log_error("Error Ending Time Log", e)
-		return {"status": "failed", "job_card": job_card, "error": str(e)}
 
-
-# Function to check out employee of a job card, when they start a new one.
-@frappe.whitelist(allow_guest=True)
-def check_all_job_cards(employee_id: str, time: str) -> str | list[Any]:
-	"""
-	Clock out an employee from all active job cards across all work orders.
-
-	Searches through all active work orders (Not Started or In Process) to find
-	job cards where the employee has an open time log (no end time). Automatically
-	closes all such time logs with the provided time. Excludes machine operations.
-
-	Args:
-		employee_id: The employee to clock out from active job cards
-		time: Timestamp string to use as the end time for open logs
-
-	Returns:
-		Union of:
-			- String: "no cards logged out" if no active cards found
-			- List: List of time log objects that were closed
-
-	Raises:
-		None
-	"""
-	# work_orders = frappe.db.get_list('Work Order', filters=[{
-	#     'status':'Not Started'}, {'status':'In Process'}], pluck='name')
-	work_orders: list[dict[str, Any]] = frappe.db.get_list(
-		"Work Order",
-		or_filters=[{"status": "Not Started"}, {"status": "In Process"}],
-		fields=["name", "status"],
-		ignore_permissions=True,
-	)
-
-	# Get all job cards and check for employee id
-	job_cards_list: list[Any] = []
-	for work_order in work_orders:
-		# get job cards by work
-		job_cards: list[Any] = frappe.db.get_list(
-			"Job Card",
-			filters={"work_order": work_order["name"]},
-			fields=["name"],
-			ignore_permissions=True,
-		)
-
-		if len(job_cards) == 0:
-			pass
-		else:
-			for job_card in job_cards:
-				full_job_card: JobCard = JobCard("Job Card", job_card.name, ignore_permissions=True)
-				job_card.time_logs = full_job_card.time_logs
-
-				duplicate = []
-				for log in job_card.time_logs:
-					if log.employee == employee_id and job_card not in duplicate:
-						job_cards_list.append(job_card)
-						duplicate.append(job_card)
-	# Exit if no job cards are found with employee.
-	if len(job_cards_list) == 0:
-		return "no cards logged out"
-
-	# Go through job cards for employee
-	card_logged_out: list[Any] = []
-	for card in job_cards_list:
-		# job_card = frappe.get_doc('Job Card', card.name, ignore_permissions = True)
-		for log in card.time_logs:
-			if (
-				not log.to_time
-				and card
-				and (card.operation not in MACHINE_OPERATIONS.keys())
-				and log.employee == employee_id
-			):
-				log_end_time_of_jobcard(employee_id, time, card.name)
-				card_logged_out.append(log)
-			else:
-				pass
-
-	if len(card_logged_out) == 0:
-		return "no cards logged out"
-	# return {'card_logged_out':card_logged_out, 'employee':employee_id}
-	return card_logged_out
+	return closed
 
 
 @frappe.whitelist(allow_guest=True)
@@ -687,6 +585,9 @@ def start_timer(
 		log_employee = MACHINE_OPERATIONS[operation]
 
 	try:
+		# Close any open time logs for this employee before starting
+		_close_open_time_logs(employee_id, start_time)
+
 		if is_corrective:
 			original_job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
 
@@ -722,12 +623,6 @@ def start_timer(
 			target_card.append("time_logs", {"from_time": start_time, "employee": log_employee})
 			target_card.save(ignore_permissions=True)
 		else:
-			# Regular timer — clock out from other active cards first
-			if operation in MACHINE_OPERATIONS:
-				check_all_job_cards(log_employee, start_time)
-			else:
-				check_all_job_cards(employee_id, start_time)
-
 			job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
 			job_card.reload()
 			job_card.append("time_logs", {"from_time": start_time, "employee": log_employee})
@@ -743,23 +638,22 @@ def start_timer(
 @frappe.whitelist(allow_guest=True)
 def stop_timer(
 	employee_id: str,
-	work_order: str,
-	operation: str,
 	end_time: str,
-	is_corrective: bool = False,
+	**_kwargs: Any,
 ) -> dict[str, Any]:
 	"""
-	Stop a running timer on a job card (regular or corrective).
+	Stop all running timers for an employee.
 
-	Resolves the work_order + operation to the underlying Job Card,
-	finds the open time log for this employee, and sets the end time.
+	Closes every open time log (where to_time is NULL) belonging to
+	this employee or any of their associated machine employee IDs.
+
+	Accepts (and ignores) extra keyword arguments so existing frontend
+	callers that still pass work_order / operation / is_corrective
+	continue to work without error.
 
 	Args:
 		employee_id: The employee stopping work
-		work_order: Work order name
-		operation: Operation name
 		end_time: Timestamp string for when work ends
-		is_corrective: Whether this is a corrective (rework) timer
 
 	Returns:
 		Dict containing:
@@ -769,38 +663,10 @@ def stop_timer(
 	Raises:
 		None: Catches and logs exceptions
 	"""
-	# Resolve the original (non-corrective) job card
-	jobcard_name = _resolve_job_card_name(work_order, operation) or ""
-	if not jobcard_name:
-		return {"status": "failed", "error": "Job card not found for this operation"}
-
-	# Determine effective employee (machine ops use machine employee)
-	log_employee = employee_id
-	if operation in MACHINE_OPERATIONS:
-		log_employee = MACHINE_OPERATIONS[operation]
-
 	try:
-		if is_corrective:
-			corrective_name = frappe.db.get_value(
-				"Job Card", {"for_job_card": jobcard_name, "is_corrective_job_card": 1}, "name"
-			)
-			if not corrective_name:
-				return {"status": "failed", "error": "No corrective job card found"}
-			target_card: JobCard = JobCard("Job Card", corrective_name, ignore_permissions=True)
-			target_card.reload()
-		else:
-			target_card = JobCard("Job Card", jobcard_name, ignore_permissions=True)
-
-		# Find the last open time log for this employee
-		employee_logs: list[JobCardTimeLog] = [
-			log for log in target_card.time_logs if log.employee == log_employee and not log.to_time
-		]
-
-		if not employee_logs:
+		closed = _close_open_time_logs(employee_id, end_time)
+		if closed == 0:
 			return {"status": "failed", "error": "No active time log found"}
-
-		employee_logs[-1].to_time = end_time
-		target_card.save(ignore_permissions=True)
 		return {"status": "success"}
 
 	except Exception as e:
