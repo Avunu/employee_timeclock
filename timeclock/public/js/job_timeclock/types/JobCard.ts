@@ -34,4 +34,5 @@ export interface Operation {
     employee_time_mins: number;
     corrective_total_time_mins: number;
     corrective_employee_time_mins: number;
+    is_submitted: boolean;
 }

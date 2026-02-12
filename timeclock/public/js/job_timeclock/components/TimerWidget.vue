@@ -8,10 +8,16 @@
         <button
           class="bg-green-400 text-white font-normal text-lg lg:text-xl focus:bg-green-200 rounded-md px-4 py-3 lg:px-6 lg:py-4"
           @click="startTask"
-          v-if="taskStarted === false"
+          v-if="taskStarted === false && !operation.is_submitted"
         >
           Start Timer
         </button>
+        <span
+          class="text-gray-400 font-normal text-lg lg:text-xl px-4 py-3 lg:px-6 lg:py-4 italic"
+          v-if="!taskStarted && operation.is_submitted"
+        >
+          Submitted
+        </span>
         <button
           class="bg-red-400 text-white font-normal text-lg lg:text-xl focus:bg-red-200 rounded-md px-4 py-3 lg:px-6 lg:py-4"
           @click="stopTask"

@@ -9,7 +9,7 @@ from erpnext.manufacturing.doctype.job_card_time_log.job_card_time_log import (
 )
 from frappe import _
 from frappe.query_builder import DocType, Case
-from frappe.query_builder.functions import Coalesce, Sum
+from frappe.query_builder.functions import Coalesce, Max, Sum
 from frappe.rate_limiter import rate_limit
 from frappe.utils.data import get_datetime
 
@@ -408,6 +408,9 @@ def get_operations(token: str, work_order: str, workstation: str = "") -> dict[s
 				),
 				0,
 			).as_("corrective_employee_time_mins"),
+			Coalesce(
+				Max(Case().when(JC.is_corrective_job_card == 0, JC.docstatus).else_(None)), 0
+			).as_("regular_docstatus"),
 		)
 		.where(WOOp.parent == work_order)
 		.where(WOOp.parenttype == "Work Order")
@@ -432,6 +435,7 @@ def get_operations(token: str, work_order: str, workstation: str = "") -> dict[s
 			"employee_time_mins": float(row.get("employee_time_mins", 0)),
 			"corrective_total_time_mins": float(row.get("corrective_total_time_mins", 0)),
 			"corrective_employee_time_mins": float(row.get("corrective_employee_time_mins", 0)),
+			"is_submitted": int(row.get("regular_docstatus", 0)) == 1,
 		}
 		for row in results
 	]
