@@ -24,13 +24,14 @@
           />
         </KeepAlive>
         <!-- Switch Employee -->
-        <button
-          class="bg-green-500 hover:bg-green-600 text-white font-normal lg:text-3xl py-4 px-4 rounded ring-2 ring-offset-1 ring-gray-100"
+        <Button
+          theme="green"
+          variant="solid"
+          size="xl"
+          label="Switch Employee"
           v-if="activeSession"
           @click="switchEmployee"
-        >
-          Switch Employee
-        </button>
+        />
         <SessionTimer
           :employeeName="employeeName"
           :tokenExpiration="tokenExpiration"
@@ -100,6 +101,7 @@ import JobCardList from "./components/JobCardList.vue";
 import type { Operation, ActiveTimer } from "./types/JobCard";
 import type { Employee } from "./types/Employee";
 import DropDownMenu from "./components/DropDownMenu.vue";
+import { Button } from "frappe-ui";
 
 //  Toastification is a simple system to make toast notifications.
 import { useToast } from "vue-toastification";
@@ -121,6 +123,7 @@ export default defineComponent({
   name: "JobTimeClock",
   components: {
     AuthorizationMessage,
+    Button,
     JobCardList,
     SessionTimer,
     TimerWidget,

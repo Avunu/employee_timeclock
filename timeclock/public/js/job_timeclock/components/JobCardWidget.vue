@@ -1,55 +1,55 @@
 <template>
   <Card
-    class="flex flex-row font-sans text-black text-lg lg:text-4xl"
-    :class="{ 'bg-green-100': active_user, 'bg-white': active_user === false }"
+    :title="operation.operation"
+    :subtitle="operation.workstation || undefined"
+    class="font-sans text-black text-lg lg:text-4xl mt-2 mb-2"
+    :class="{ '!bg-green-100': active_user }"
   >
-    <div class="w-2/5">
-      <div>{{ operation.operation }}</div>
-      <div class="text-xs text-gray-400 mt-0.5" v-if="operation.workstation">
-        {{ operation.workstation }}
-      </div>
-      <div
-        class="text-sm text-gray-500 mt-1"
-        v-if="
-          operation.actual_time_mins > 0 ||
-          operation.corrective_total_time_mins > 0
-        "
-      >
-        <span v-if="operation.actual_time_mins > 0"
-          >{{ formatMins(operation.actual_time_mins) }} logged</span
-        >
-        <span
+    <div class="flex flex-row items-center">
+      <div class="w-2/5">
+        <div
+          class="text-sm text-gray-500"
           v-if="
-            operation.actual_time_mins > 0 &&
+            operation.actual_time_mins > 0 ||
             operation.corrective_total_time_mins > 0
           "
         >
-          ·
-        </span>
-        <span
-          v-if="operation.corrective_total_time_mins > 0"
-          class="text-orange-500"
-          >{{ formatMins(operation.corrective_total_time_mins) }} rework</span
-        >
+          <span v-if="operation.actual_time_mins > 0"
+            >{{ formatMins(operation.actual_time_mins) }} logged</span
+          >
+          <span
+            v-if="
+              operation.actual_time_mins > 0 &&
+              operation.corrective_total_time_mins > 0
+            "
+          >
+            &middot;
+          </span>
+          <span
+            v-if="operation.corrective_total_time_mins > 0"
+            class="text-orange-500"
+            >{{ formatMins(operation.corrective_total_time_mins) }} rework</span
+          >
+        </div>
       </div>
+      <TimerWidget
+        class="w-3/5"
+        :operation="operation"
+        :activeTimer="activeTimer"
+        :employee_id="employee_id"
+        :workOrder="workOrder"
+        @emit_timer="emit_timer"
+        @update:activeTimer="$emit('update:activeTimer', $event)"
+        @time_logged="$emit('time_logged')"
+      />
     </div>
-    <TimerWidget
-      class="w-3/5"
-      :operation="operation"
-      :activeTimer="activeTimer"
-      :employee_id="employee_id"
-      :workOrder="workOrder"
-      @emit_timer="emit_timer"
-      @update:activeTimer="$emit('update:activeTimer', $event)"
-      @time_logged="$emit('time_logged')"
-    />
   </Card>
 </template>
 
 <script lang="ts">
 import { defineComponent } from "vue";
 import type { PropType } from "vue";
-import Card from "./Card.vue";
+import { Card } from "frappe-ui";
 import type { Operation, ActiveTimer } from "../types/JobCard";
 import TimerWidget from "./TimerWidget.vue";
 

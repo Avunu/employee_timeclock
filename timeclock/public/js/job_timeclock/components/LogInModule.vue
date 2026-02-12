@@ -24,8 +24,7 @@
 
 <script lang="ts">
 import { defineComponent } from "vue";
-import Card from "./Card.vue";
-import Button from "frappe-ui/src/components/Button/Button.vue";
+import { Card, Button } from "frappe-ui";
 import { frappeCall } from "../../FrappeCall";
 import type { VerifyLoginResponse } from "../types/api";
 

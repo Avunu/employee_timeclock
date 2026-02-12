@@ -5,26 +5,28 @@
       <div
         class="flex flex-col items-center border border-gray-300 rounded-lg p-3 bg-gray-50"
       >
-        <button
-          class="bg-green-400 text-white font-normal text-lg lg:text-xl focus:bg-green-200 rounded-md px-4 py-3 lg:px-6 lg:py-4"
+        <Button
+          theme="green"
+          variant="solid"
+          size="xl"
+          label="Start Timer"
           @click="startTask"
           v-if="taskStarted === false && !operation.is_submitted"
-        >
-          Start Timer
-        </button>
+        />
         <span
           class="text-gray-400 font-normal text-lg lg:text-xl px-4 py-3 lg:px-6 lg:py-4 italic"
           v-if="!taskStarted && operation.is_submitted"
         >
           Submitted
         </span>
-        <button
-          class="bg-red-400 text-white font-normal text-lg lg:text-xl focus:bg-red-200 rounded-md px-4 py-3 lg:px-6 lg:py-4"
+        <Button
+          theme="red"
+          variant="solid"
+          size="xl"
+          label="Stop Timer"
           @click="stopTask"
           v-if="taskStarted"
-        >
-          Stop Timer
-        </button>
+        />
         <p class="text-gray-700 text-md font-family-sans mt-2">
           {{ elapsedTime }}
         </p>
@@ -39,20 +41,24 @@
       <div
         class="flex flex-col items-center border border-orange-300 rounded-lg p-3 bg-orange-50"
       >
-        <button
-          class="bg-orange-500 text-white font-normal text-lg lg:text-xl focus:bg-orange-300 rounded-md px-4 py-3 lg:px-6 lg:py-4"
+        <Button
+          theme="red"
+          variant="outline"
+          size="xl"
+          label="Start Rework"
+          class="!text-orange-600 !border-orange-400 hover:!bg-orange-100"
           @click="startRework"
           v-if="reworkStarted === false"
-        >
-          Start Rework
-        </button>
-        <button
-          class="bg-orange-700 text-white font-normal text-lg lg:text-xl focus:bg-orange-400 rounded-md px-4 py-3 lg:px-6 lg:py-4"
+        />
+        <Button
+          theme="red"
+          variant="solid"
+          size="xl"
+          label="Stop Rework"
+          class="!bg-orange-700 hover:!bg-orange-800"
           @click="stopRework"
           v-if="reworkStarted"
-        >
-          Stop Rework
-        </button>
+        />
         <p class="text-orange-600 text-md font-family-sans font-bold mt-2">
           {{ reworkElapsedTime }}
         </p>
@@ -70,6 +76,7 @@
 <script lang="ts">
 import { defineComponent, watch } from "vue";
 import type { PropType } from "vue";
+import { Button } from "frappe-ui";
 import type { Operation, ActiveTimer } from "../types/JobCard";
 import type { FrappeDateTimeString } from "../types/FrappeDateTime";
 import { dateToFrappeDateTimeString } from "../types/FrappeDateTime";
@@ -80,6 +87,7 @@ const toast = useToast();
 
 export default defineComponent({
   name: "TimerWidget",
+  components: { Button },
 
   data(): {
     elapsedTime: string;
