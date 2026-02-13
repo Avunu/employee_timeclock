@@ -56,15 +56,6 @@
           :tokenExpiration="tokenExpiration"
           v-if="activeSession"
         />
-        <!-- Settings Icon Button -->
-        <button
-          v-if="activeSession"
-          @click="isSidebarOpen = true"
-          class="p-3 rounded-lg hover:bg-gray-200 transition-colors"
-          title="Settings"
-        >
-          <IconSettings class="w-8 h-8 text-gray-700" />
-        </button>
         <!-- Sign Out Icon Button -->
         <button
           v-if="activeSession"
@@ -73,6 +64,15 @@
           title="Sign Out"
         >
           <IconLogOut class="w-8 h-8 text-gray-700" />
+        </button>
+        <!-- Settings Icon Button -->
+        <button
+          v-if="activeSession"
+          @click="isSidebarOpen = true"
+          class="p-3 rounded-lg hover:bg-gray-200 transition-colors"
+          title="Settings"
+        >
+          <IconSettings class="w-8 h-8 text-gray-700" />
         </button>
       </div>
     </header>
@@ -197,7 +197,8 @@ import JobCardList from "./components/JobCardList.vue";
 import type { Operation, ActiveTimer } from "./types/JobCard";
 import type { Employee } from "./types/Employee";
 import DropDownMenu from "./components/DropDownMenu.vue";
-import { Button, toast, Toast, Sidebar } from "frappe-ui";
+import Button from "./components/Button.vue";
+import { toast, Toast, Sidebar } from "frappe-ui";
 import IconSettings from "~icons/lucide/settings";
 import IconLogOut from "~icons/lucide/log-out";
 

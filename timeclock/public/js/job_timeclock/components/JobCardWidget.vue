@@ -2,7 +2,6 @@
   <div :data-operation="operation.operation">
     <Card
       :title="operation.operation"
-      :subtitle="operation.workstation || undefined"
       class="font-sans text-black text-lg lg:text-4xl mt-2 mb-2"
       :class="{
         'ring-2 ring-green-500 !bg-green-50': active_user && !reworkStarted,
@@ -67,16 +66,20 @@
             operation.employee_time_mins > 0
           "
         >
-          <span class="text-gray-500" v-if="operation.actual_time_mins > 0">
-            {{ formatMins(operation.actual_time_mins) }} logged
-          </span>
-          <span v-else />
+          <div>
+            <span class="text-gray-500" v-if="operation.workstation">
+              {{ operation.workstation }}
+            </span>
+            <span class="text-gray-500" v-if="operation.actual_time_mins > 0">
+              {{ formatMins(operation.actual_time_mins) }} logged
+            </span>
+          </div>
           <div class="text-right">
-            <span class="text-gray-700 font-mono" v-if="taskStarted">
+            <span class="text-gray-700 font-mono text-sm" v-if="taskStarted">
               {{ elapsedTime }}
             </span>
             <span
-              class="text-gray-400 text-xs ml-2"
+              class="text-gray-400 text-sm ml-2"
               v-if="operation.employee_time_mins > 0"
             >
               Your total: {{ formatMins(operation.employee_time_mins) }}
@@ -123,7 +126,8 @@
 <script lang="ts">
 import { defineComponent, watch } from "vue";
 import type { PropType } from "vue";
-import { Card, Button } from "frappe-ui";
+import { Card } from "frappe-ui";
+import Button from "./Button.vue";
 import type { Operation, ActiveTimer } from "../types/JobCard";
 
 export default defineComponent({

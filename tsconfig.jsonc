@@ -24,7 +24,8 @@
     "paths": {
       "@/*": ["timeclock/public/js/*"],
       "@job_timeclock/*": ["timeclock/public/js/job_timeclock/*"],
-      "@timeclock/*": ["timeclock/public/js/timeclock/*"]
+      "@timeclock/*": ["timeclock/public/js/timeclock/*"],
+      "frappe-ui/src/*": ["node_modules/frappe-ui/src/*"]
     }
   },
   "include": [

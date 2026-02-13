@@ -75,7 +75,7 @@ def _get_all_machine_employee_ids() -> list[str]:
 	return employee_ids
 
 
-def _build_machine_employee_case(operation_field: Any, fallback_employee_id: str) -> Case:
+def _build_machine_employee_case(operation_field: Any, fallback_employee_id: str) -> Any:
 	"""Build a SQL CASE expression mapping operations to machine employee IDs.
 
 	For each machine operation (``is_machine_time == 1``) that has a linked
@@ -83,12 +83,17 @@ def _build_machine_employee_case(operation_field: Any, fallback_employee_id: str
 	*first* employee in that group.  Non-machine operations fall back to
 	``fallback_employee_id``.
 
+	When no machine operations are configured, returns the
+	``fallback_employee_id`` string directly (usable as a literal in
+	query-builder expressions) to avoid an empty CASE statement.
+
 	Args:
 		operation_field: The query-builder field to compare (e.g. ``WOOp.operation``).
-		fallback_employee_id: The human employee ID used as the ELSE.
+		fallback_employee_id: The human employee ID used as the ELSE / sole value.
 
 	Returns:
-		A frappe query-builder ``Case`` expression.
+		A frappe query-builder ``Case`` expression, or a plain string when
+		there are no machine operations.
 	"""
 	Op = DocType("Operation")
 	EGT = DocType("Employee Group Table")
@@ -102,6 +107,9 @@ def _build_machine_employee_case(operation_field: Any, fallback_employee_id: str
 		.where(Op.employee_group.isnotnull())
 		.groupby(Op.name)
 	).run(as_dict=True)
+
+	if not machine_ops:
+		return fallback_employee_id
 
 	case = Case()
 	for row in machine_ops:
