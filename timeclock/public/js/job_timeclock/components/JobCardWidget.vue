@@ -1,107 +1,122 @@
 <template>
   <div :data-operation="operation.operation">
-  <Card
-    :title="operation.operation"
-    :subtitle="operation.workstation || undefined"
-    class="font-sans text-black text-lg lg:text-4xl mt-2 mb-2"
-    :class="{
-      'ring-2 ring-green-500 !bg-green-50': active_user && !reworkStarted,
-      'ring-2 ring-orange-500 !bg-orange-50': active_user && reworkStarted,
-    }"
-  >
-    <template #actions>
-      <div class="flex gap-2 items-start">
-        <Button
-          theme="green"
-          variant="outline"
-          size="2xl"
-          label="Start Timer"
-          @click="startTask"
-          v-if="!taskStarted && !operation.is_submitted"
-        />
-        <Button
-          theme="gray"
-          variant="ghost"
-          size="2xl"
-          label="Submitted"
-          :disabled="true"
-          class="italic"
-          v-if="!taskStarted && operation.is_submitted"
-        />
-        <Button
-          theme="green"
-          variant="outline"
-          size="2xl"
-          label="Stop Timer"
-          @click="stopTask"
-          v-if="taskStarted"
-        />
-        <Button
-          theme="gray"
-          variant="solid"
-          size="2xl"
-          label="Start Rework"
-          class="!bg-orange-500 !text-white hover:!bg-orange-600"
-          @click="startRework"
-          v-if="!reworkStarted"
-        />
-        <Button
-          theme="gray"
-          variant="outline"
-          size="2xl"
-          label="Stop Rework"
-          class="!text-orange-600 !border-orange-500 hover:!bg-orange-100"
-          @click="stopRework"
-          v-if="reworkStarted"
-        />
-      </div>
-    </template>
+    <Card
+      :title="operation.operation"
+      :subtitle="operation.workstation || undefined"
+      class="font-sans text-black text-lg lg:text-4xl mt-2 mb-2"
+      :class="{
+        'ring-2 ring-green-500 !bg-green-50': active_user && !reworkStarted,
+        'ring-2 ring-orange-500 !bg-orange-50': active_user && reworkStarted,
+      }"
+    >
+      <template #actions>
+        <div class="flex gap-2 items-start">
+          <Button
+            theme="green"
+            variant="outline"
+            size="2xl"
+            label="Start Timer"
+            @click="startTask"
+            v-if="!taskStarted && !operation.is_submitted"
+          />
+          <Button
+            theme="gray"
+            variant="ghost"
+            size="2xl"
+            label="Submitted"
+            :disabled="true"
+            class="italic"
+            v-if="!taskStarted && operation.is_submitted"
+          />
+          <Button
+            theme="green"
+            variant="outline"
+            size="2xl"
+            label="Stop Timer"
+            @click="stopTask"
+            v-if="taskStarted"
+          />
+          <Button
+            theme="gray"
+            variant="solid"
+            size="2xl"
+            label="Start Rework"
+            class="!bg-orange-500 !text-white hover:!bg-orange-600"
+            @click="startRework"
+            v-if="!reworkStarted"
+          />
+          <Button
+            theme="gray"
+            variant="outline"
+            size="2xl"
+            label="Stop Rework"
+            class="!text-orange-600 !border-orange-500 hover:!bg-orange-100"
+            @click="stopRework"
+            v-if="reworkStarted"
+          />
+        </div>
+      </template>
 
-    <div class="flex flex-col gap-2 text-sm" v-if="hasTimeData">
-      <!-- Regular Time Row -->
-      <div
-        class="flex justify-between items-center"
-        v-if="taskStarted || operation.actual_time_mins > 0 || operation.employee_time_mins > 0"
-      >
-        <span class="text-gray-500" v-if="operation.actual_time_mins > 0">
-          {{ formatMins(operation.actual_time_mins) }} logged
-        </span>
-        <span v-else />
-        <div class="text-right">
-          <span class="text-gray-700 font-mono" v-if="taskStarted">
-            {{ elapsedTime }}
+      <div class="flex flex-col gap-2 text-sm" v-if="hasTimeData">
+        <!-- Regular Time Row -->
+        <div
+          class="flex justify-between items-center"
+          v-if="
+            taskStarted ||
+            operation.actual_time_mins > 0 ||
+            operation.employee_time_mins > 0
+          "
+        >
+          <span class="text-gray-500" v-if="operation.actual_time_mins > 0">
+            {{ formatMins(operation.actual_time_mins) }} logged
           </span>
+          <span v-else />
+          <div class="text-right">
+            <span class="text-gray-700 font-mono" v-if="taskStarted">
+              {{ elapsedTime }}
+            </span>
+            <span
+              class="text-gray-400 text-xs ml-2"
+              v-if="operation.employee_time_mins > 0"
+            >
+              Your total: {{ formatMins(operation.employee_time_mins) }}
+            </span>
+          </div>
+        </div>
+        <!-- Corrective Time Row -->
+        <div
+          class="flex justify-between items-center"
+          v-if="
+            reworkStarted ||
+            operation.corrective_total_time_mins > 0 ||
+            operation.corrective_employee_time_mins > 0
+          "
+        >
           <span
-            class="text-gray-400 text-xs ml-2"
-            v-if="operation.employee_time_mins > 0"
+            class="text-orange-500"
+            v-if="operation.corrective_total_time_mins > 0"
           >
-            Your total: {{ formatMins(operation.employee_time_mins) }}
+            {{ formatMins(operation.corrective_total_time_mins) }} rework
           </span>
+          <span v-else />
+          <div class="text-right">
+            <span
+              class="text-orange-600 font-mono font-bold"
+              v-if="reworkStarted"
+            >
+              {{ reworkElapsedTime }}
+            </span>
+            <span
+              class="text-orange-400 text-xs ml-2"
+              v-if="operation.corrective_employee_time_mins > 0"
+            >
+              Your total:
+              {{ formatMins(operation.corrective_employee_time_mins) }}
+            </span>
+          </div>
         </div>
       </div>
-      <!-- Corrective Time Row -->
-      <div
-        class="flex justify-between items-center"
-        v-if="reworkStarted || operation.corrective_total_time_mins > 0 || operation.corrective_employee_time_mins > 0"
-      >
-        <span class="text-orange-500" v-if="operation.corrective_total_time_mins > 0">
-          {{ formatMins(operation.corrective_total_time_mins) }} rework
-        </span>
-        <span v-else />
-        <div class="text-right">
-          <span class="text-orange-600 font-mono font-bold" v-if="reworkStarted">
-            {{ reworkElapsedTime }}
-          </span>
-          <span
-            class="text-orange-400 text-xs ml-2"
-            v-if="operation.corrective_employee_time_mins > 0"
-          >
-            Your total: {{ formatMins(operation.corrective_employee_time_mins) }}
-          </span>
-        </div>
-      </div>
-    </div>
-  </Card>
+    </Card>
   </div>
 </template>
 

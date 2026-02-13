@@ -34,10 +34,7 @@ def _get_machine_employee_ids(operation: str) -> list[str]:
 	"""
 	Op = DocType("Operation")
 	row = (
-		frappe.qb.from_(Op)
-		.select(Op.is_machine_time, Op.employee_group)
-		.where(Op.name == operation)
-		.limit(1)
+		frappe.qb.from_(Op).select(Op.is_machine_time, Op.employee_group).where(Op.name == operation).limit(1)
 	).run(as_dict=True)
 
 	if not row or not row[0].get("is_machine_time") or not row[0].get("employee_group"):
@@ -68,10 +65,7 @@ def _get_all_machine_employee_ids() -> list[str]:
 	employee_ids: list[str] = (
 		frappe.qb.from_(Op)
 		.inner_join(EGT)
-		.on(
-			(EGT.parent == Op.employee_group)
-			& (EGT.parenttype == "Employee Group")
-		)
+		.on((EGT.parent == Op.employee_group) & (EGT.parenttype == "Employee Group"))
 		.select(EGT.employee)
 		.where(Op.is_machine_time == 1)
 		.where(Op.employee_group.isnotnull())
@@ -102,10 +96,7 @@ def _build_machine_employee_case(operation_field: Any, fallback_employee_id: str
 	machine_ops: list[dict[str, Any]] = (
 		frappe.qb.from_(Op)
 		.inner_join(EGT)
-		.on(
-			(EGT.parent == Op.employee_group)
-			& (EGT.parenttype == "Employee Group")
-		)
+		.on((EGT.parent == Op.employee_group) & (EGT.parenttype == "Employee Group"))
 		.select(Op.name.as_("operation"), EGT.employee)
 		.where(Op.is_machine_time == 1)
 		.where(Op.employee_group.isnotnull())
@@ -807,11 +798,7 @@ def get_workstations() -> dict[str, Any]:
 			- workstations: List of workstation name strings
 	"""
 	WS = DocType("Workstation")
-	workstations: list[str] = (
-		frappe.qb.from_(WS)
-		.select(WS.name)
-		.orderby(WS.name)
-	).run(pluck="name")
+	workstations: list[str] = (frappe.qb.from_(WS).select(WS.name).orderby(WS.name)).run(pluck="name")
 
 	return {"status": "success", "workstations": workstations}
 

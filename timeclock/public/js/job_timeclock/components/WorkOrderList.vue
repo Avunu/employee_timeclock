@@ -13,7 +13,9 @@
           !!(selectedWorkOrder && selectedWorkOrder.name === workOrder.name)
         "
         :isActive="activeWorkOrder === workOrder.name"
-        :isCorrective="activeWorkOrder === workOrder.name && activeTimerIsCorrective"
+        :isCorrective="
+          activeWorkOrder === workOrder.name && activeTimerIsCorrective
+        "
         @click="selectWorkOrder(workOrder)"
       />
     </div>

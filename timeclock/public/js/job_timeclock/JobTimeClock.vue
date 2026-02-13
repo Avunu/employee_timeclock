@@ -20,20 +20,26 @@
         <div
           v-if="activeSession && activeTimer"
           class="flex items-center gap-3 rounded-lg px-4 py-2 ring-2 cursor-pointer"
-          :class="activeTimer.is_corrective
-            ? 'ring-orange-500 bg-orange-50 hover:bg-orange-100'
-            : 'ring-green-500 bg-green-50 hover:bg-green-100'"
+          :class="
+            activeTimer.is_corrective
+              ? 'ring-orange-500 bg-orange-50 hover:bg-orange-100'
+              : 'ring-green-500 bg-green-50 hover:bg-green-100'
+          "
           @click="navigateToActiveTimer"
         >
           <span
             class="font-semibold text-lg lg:text-2xl truncate"
-            :class="activeTimer.is_corrective ? 'text-orange-700' : 'text-green-700'"
+            :class="
+              activeTimer.is_corrective ? 'text-orange-700' : 'text-green-700'
+            "
           >
             {{ activeTimer.operation }}
           </span>
           <span
             class="font-mono text-xl lg:text-2xl font-bold"
-            :class="activeTimer.is_corrective ? 'text-orange-800' : 'text-green-800'"
+            :class="
+              activeTimer.is_corrective ? 'text-orange-800' : 'text-green-800'
+            "
           >
             {{ headerElapsedTime }}
           </span>
@@ -79,8 +85,11 @@
         @click.self="isSidebarOpen = false"
       >
         <!-- Backdrop -->
-        <div class="absolute inset-0 bg-black bg-opacity-50" @click="isSidebarOpen = false"></div>
-        
+        <div
+          class="absolute inset-0 bg-black bg-opacity-50"
+          @click="isSidebarOpen = false"
+        ></div>
+
         <!-- Sidebar Content -->
         <div class="relative w-80 h-full bg-white shadow-2xl flex flex-col">
           <!-- Sidebar Header -->
@@ -90,8 +99,18 @@
               @click="isSidebarOpen = false"
               class="p-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              <svg
+                class="w-6 h-6 text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -100,11 +119,11 @@
           <div class="flex-1 overflow-y-auto p-6">
             <div class="space-y-6">
               <div>
-                <h3 class="text-lg font-semibold text-gray-700 mb-3">Workstation</h3>
+                <h3 class="text-lg font-semibold text-gray-700 mb-3">
+                  Workstation
+                </h3>
                 <KeepAlive include="workstation">
-                  <DropDownMenu
-                    @send_workstation="select_workstation"
-                  />
+                  <DropDownMenu @send_workstation="select_workstation" />
                 </KeepAlive>
               </div>
             </div>
