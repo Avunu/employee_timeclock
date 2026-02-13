@@ -6,7 +6,7 @@ app_icon = "octicon octicon-file-directory"
 app_color = "grey"
 app_email = "mail@avu.nu"
 app_license = "MIT"
-app_include_js = "timeclock.bundle.js"
+app_include_js = "timeclock.app.bundle.js"
 export_python_type_annotations = True
 required_apps = ["erpnext", "hrms"]
 
