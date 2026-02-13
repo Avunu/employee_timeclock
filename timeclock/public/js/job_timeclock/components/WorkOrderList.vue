@@ -13,6 +13,7 @@
           !!(selectedWorkOrder && selectedWorkOrder.name === workOrder.name)
         "
         :isActive="activeWorkOrder === workOrder.name"
+        :isCorrective="activeWorkOrder === workOrder.name && activeTimerIsCorrective"
         @click="selectWorkOrder(workOrder)"
       />
     </div>
@@ -44,6 +45,10 @@ export default defineComponent({
     activeWorkOrder: {
       type: String as PropType<string | null>,
       default: null,
+    },
+    activeTimerIsCorrective: {
+      type: Boolean,
+      default: false,
     },
   },
   methods: {

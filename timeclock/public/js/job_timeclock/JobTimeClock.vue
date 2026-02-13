@@ -19,12 +19,22 @@
         <!-- Active Timer Indicator -->
         <div
           v-if="activeSession && activeTimer"
-          class="flex items-center gap-3 rounded-lg px-4 py-2 ring-2 ring-green-500 bg-green-50"
+          class="flex items-center gap-3 rounded-lg px-4 py-2 ring-2 cursor-pointer"
+          :class="activeTimer.is_corrective
+            ? 'ring-orange-500 bg-orange-50 hover:bg-orange-100'
+            : 'ring-green-500 bg-green-50 hover:bg-green-100'"
+          @click="navigateToActiveTimer"
         >
-          <span class="text-green-700 font-semibold text-lg lg:text-2xl truncate">
+          <span
+            class="font-semibold text-lg lg:text-2xl truncate"
+            :class="activeTimer.is_corrective ? 'text-orange-700' : 'text-green-700'"
+          >
             {{ activeTimer.operation }}
           </span>
-          <span class="text-green-800 font-mono text-xl lg:text-2xl font-bold">
+          <span
+            class="font-mono text-xl lg:text-2xl font-bold"
+            :class="activeTimer.is_corrective ? 'text-orange-800' : 'text-green-800'"
+          >
             {{ headerElapsedTime }}
           </span>
           <span
@@ -70,6 +80,7 @@
         :workOrders="workOrders"
         :selectedWorkOrder="selectedWorkOrder"
         :activeWorkOrder="activeTimer?.work_order ?? null"
+        :activeTimerIsCorrective="activeTimer?.is_corrective ?? false"
         @select="selectWorkOrder"
       />
       <!-- Job Cards Section -->
@@ -300,6 +311,39 @@ export default defineComponent({
     selectWorkOrder(workOrder: WorkOrder) {
       this.selectedWorkOrder = workOrder;
       this.getOperations(workOrder.name);
+    },
+
+    async navigateToActiveTimer() {
+      if (!this.activeTimer) return;
+
+      // Find the work order matching the active timer
+      const targetWO = this.workOrders.find(
+        (wo) => wo.name === this.activeTimer!.work_order,
+      );
+      if (!targetWO) return;
+
+      // Select the work order (loads operations)
+      this.selectedWorkOrder = targetWO;
+      await this.getOperations(targetWO.name);
+
+      // Wait for DOM to update, then scroll to the work order and job card
+      this.$nextTick(() => {
+        // Scroll work order into view
+        const woEl = document.querySelector(
+          `[data-work-order="${this.activeTimer!.work_order}"]`,
+        );
+        if (woEl) {
+          woEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+
+        // Scroll job card into view
+        const jcEl = document.querySelector(
+          `[data-operation="${this.activeTimer!.operation}"]`,
+        );
+        if (jcEl) {
+          jcEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      });
     },
 
     async getOperations(workOrderName: string) {

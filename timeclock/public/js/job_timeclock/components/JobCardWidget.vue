@@ -1,18 +1,19 @@
 <template>
+  <div :data-operation="operation.operation">
   <Card
     :title="operation.operation"
     :subtitle="operation.workstation || undefined"
     class="font-sans text-black text-lg lg:text-4xl mt-2 mb-2"
     :class="{
-      'ring-2 ring-green-500': active_user,
-      'ring-2 ring-orange-500': active_user && reworkStarted,
+      'ring-2 ring-green-500 !bg-green-50': active_user && !reworkStarted,
+      'ring-2 ring-orange-500 !bg-orange-50': active_user && reworkStarted,
     }"
   >
     <template #actions>
       <div class="flex gap-2 items-start">
         <Button
           theme="green"
-          variant="outline"
+          variant="solid"
           size="2xl"
           label="Start Timer"
           @click="startTask"
@@ -28,7 +29,7 @@
           v-if="!taskStarted && operation.is_submitted"
         />
         <Button
-          theme="red"
+          theme="green"
           variant="outline"
           size="2xl"
           label="Stop Timer"
@@ -36,20 +37,20 @@
           v-if="taskStarted"
         />
         <Button
-          theme="red"
-          variant="outline"
+          theme="gray"
+          variant="solid"
           size="2xl"
           label="Start Rework"
-          class="!text-orange-600 !border-orange-400 hover:!bg-orange-100"
+          class="!bg-orange-500 !text-white hover:!bg-orange-600"
           @click="startRework"
           v-if="!reworkStarted"
         />
         <Button
-          theme="red"
-          variant="solid"
+          theme="gray"
+          variant="outline"
           size="2xl"
           label="Stop Rework"
-          class="!bg-orange-700 hover:!bg-orange-800"
+          class="!text-orange-600 !border-orange-500 hover:!bg-orange-100"
           @click="stopRework"
           v-if="reworkStarted"
         />
@@ -101,6 +102,7 @@
       </div>
     </div>
   </Card>
+  </div>
 </template>
 
 <script lang="ts">

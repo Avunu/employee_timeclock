@@ -1,11 +1,13 @@
 <template>
+  <div :data-work-order="workOrder.name">
   <Card
     :title="workOrder.production_item"
     :subtitle="selected ? undefined : workOrder.name"
     @click="click"
     :class="{
-      '!bg-blue-100': isSelected,
-      'ring-2 ring-green-500': isActive,
+      '!bg-blue-100': isSelected && !isActive,
+      'ring-2 ring-green-500 !bg-green-50': isActive && !isCorrective,
+      'ring-2 ring-orange-500 !bg-orange-50': isActive && isCorrective,
     }"
     class="overflow-hidden cursor-pointer mt-2 mb-2"
   >
@@ -18,6 +20,7 @@
       />
     </template>
   </Card>
+  </div>
 </template>
 
 <script lang="ts">
@@ -42,6 +45,10 @@ export default defineComponent({
       default: false,
     },
     isActive: {
+      type: Boolean,
+      default: false,
+    },
+    isCorrective: {
       type: Boolean,
       default: false,
     },
