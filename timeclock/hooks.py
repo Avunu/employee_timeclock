@@ -42,6 +42,7 @@ doc_events = {
 override_doctype_class = {
 	"Employee Checkin": "timeclock.timeclock.custom.employee_checkin.EmployeeCheckin",
 	"Employee": "timeclock.timeclock.custom.employee.Employee",
+	"Operation": "timeclock.timeclock.custom.operation.Operation",
 }
 
 # include tempus-dominus.min.js on the workday doctype

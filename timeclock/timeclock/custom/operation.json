@@ -1,0 +1,15 @@
+{
+    "custom_fields": [
+        {
+            "dt": "Operation",
+            "fieldname": "is_machine_time",
+            "fieldtype": "Check",
+            "insert_after": "is_corrective_operation",
+            "label": "Is Machine Time",
+            "module": "Timeclock"
+        }
+    ],
+    "property_setters": [],
+    "sync_on_migrate": 1,
+    "doctype": "Operation"
+}
