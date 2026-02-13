@@ -18,13 +18,104 @@ from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
 # import secret key from site_config.json
 SECRET_KEY = frappe.get_site_config().get("encryption_key")
 
-# List of "Machine employees" to be able to run machines same time as other processes.
-MACHINE_OPERATIONS: dict[str, str] = {
-	"Machine Staining Hours": "HR-MACH-ST-00052",
-	"Sanding Machine Hours": "HR-MACH-SA-00053",
-	"CNC Machine Time": "HR-MACH-CNC-00051",
-	"Planing Machine Time": "HR-MACH-PL-00054",
-}
+
+def _get_machine_employee_ids(operation: str) -> list[str]:
+	"""Return the employee IDs from the Employee Group linked to a machine operation.
+
+	If the operation has ``is_machine_time`` checked and a ``employee_group``
+	set, queries the Employee Group Table for all member employee IDs.
+
+	Args:
+		operation: The Operation name.
+
+	Returns:
+		List of employee ID strings.  Empty list when the operation is not
+		a machine operation or the group has no members.
+	"""
+	Op = DocType("Operation")
+	row = (
+		frappe.qb.from_(Op)
+		.select(Op.is_machine_time, Op.employee_group)
+		.where(Op.name == operation)
+		.limit(1)
+	).run(as_dict=True)
+
+	if not row or not row[0].get("is_machine_time") or not row[0].get("employee_group"):
+		return []
+
+	EGT = DocType("Employee Group Table")
+	return (
+		frappe.qb.from_(EGT)
+		.select(EGT.employee)
+		.where(EGT.parent == row[0]["employee_group"])
+		.where(EGT.parenttype == "Employee Group")
+		.run(pluck="employee")
+	)
+
+
+def _get_all_machine_employee_ids() -> list[str]:
+	"""Return every machine employee ID across all machine operations.
+
+	Queries all Operations where ``is_machine_time == 1`` and collects the
+	employee IDs from each linked Employee Group.
+
+	Returns:
+		De-duplicated list of machine employee ID strings.
+	"""
+	Op = DocType("Operation")
+	EGT = DocType("Employee Group Table")
+
+	employee_ids: list[str] = (
+		frappe.qb.from_(Op)
+		.inner_join(EGT)
+		.on(
+			(EGT.parent == Op.employee_group)
+			& (EGT.parenttype == "Employee Group")
+		)
+		.select(EGT.employee)
+		.where(Op.is_machine_time == 1)
+		.where(Op.employee_group.isnotnull())
+		.distinct()
+	).run(pluck="employee")
+
+	return employee_ids
+
+
+def _build_machine_employee_case(operation_field: Any, fallback_employee_id: str) -> Case:
+	"""Build a SQL CASE expression mapping operations to machine employee IDs.
+
+	For each machine operation (``is_machine_time == 1``) that has a linked
+	Employee Group, creates a WHEN clause mapping the operation name to the
+	*first* employee in that group.  Non-machine operations fall back to
+	``fallback_employee_id``.
+
+	Args:
+		operation_field: The query-builder field to compare (e.g. ``WOOp.operation``).
+		fallback_employee_id: The human employee ID used as the ELSE.
+
+	Returns:
+		A frappe query-builder ``Case`` expression.
+	"""
+	Op = DocType("Operation")
+	EGT = DocType("Employee Group Table")
+
+	machine_ops: list[dict[str, Any]] = (
+		frappe.qb.from_(Op)
+		.inner_join(EGT)
+		.on(
+			(EGT.parent == Op.employee_group)
+			& (EGT.parenttype == "Employee Group")
+		)
+		.select(Op.name.as_("operation"), EGT.employee)
+		.where(Op.is_machine_time == 1)
+		.where(Op.employee_group.isnotnull())
+		.groupby(Op.name)
+	).run(as_dict=True)
+
+	case = Case()
+	for row in machine_ops:
+		case = case.when(operation_field == row["operation"], row["employee"])
+	return case.else_(fallback_employee_id)
 
 
 def _resolve_job_card_name(work_order: str, operation: str, *, corrective: bool = False) -> str | None:
@@ -358,10 +449,7 @@ def get_operations(token: str, work_order: str, workstation: str = "") -> dict[s
 	TL = DocType("Job Card Time Log")
 
 	# CASE: map operation -> expected employee (machine ops use machine employee)
-	employee_case = Case()
-	for op_name, machine_id in MACHINE_OPERATIONS.items():
-		employee_case = employee_case.when(WOOp.operation == op_name, machine_id)
-	employee_case = employee_case.else_(employee_id)
+	employee_case = _build_machine_employee_case(WOOp.operation, employee_id)
 
 	results: list[dict[str, Any]] = (
 		frappe.qb.from_(WOOp)
@@ -453,7 +541,7 @@ def _close_open_time_logs(employee_id: str, close_time: str) -> int:
 	TL = DocType("Job Card Time Log")
 	JC = DocType("Job Card")
 
-	employee_ids: list[str] = [employee_id] + list(MACHINE_OPERATIONS.values())
+	employee_ids: list[str] = [employee_id] + _get_all_machine_employee_ids()
 
 	open_logs: list[dict[str, Any]] = (
 		frappe.qb.from_(TL)
@@ -515,7 +603,7 @@ def get_active_timer(token: str) -> dict[str, Any]:
 	TL = DocType("Job Card Time Log")
 
 	# Employee could be logged under their own ID or a machine employee ID
-	employee_ids: list[str] = [employee_id] + list(MACHINE_OPERATIONS.values())
+	employee_ids: list[str] = [employee_id] + _get_all_machine_employee_ids()
 
 	result: list[dict[str, Any]] = (
 		frappe.qb.from_(TL)
@@ -585,8 +673,9 @@ def start_timer(
 
 	# Determine effective employee (machine ops use machine employee)
 	log_employee = employee_id
-	if operation in MACHINE_OPERATIONS:
-		log_employee = MACHINE_OPERATIONS[operation]
+	machine_employees = _get_machine_employee_ids(operation)
+	if machine_employees:
+		log_employee = machine_employees[0]
 
 	try:
 		# Close any open time logs for this employee before starting
@@ -702,6 +791,29 @@ def check_for_erp_log_in() -> dict[str, Any]:
 		return {"user_id": frappe.session.user}
 	else:
 		return {"user_id": frappe.session.user}
+
+
+@frappe.whitelist(allow_guest=True)
+@rate_limit(limit=4, seconds=1)
+def get_workstations() -> dict[str, Any]:
+	"""
+	Retrieve all workstations for the workstation selector dropdown.
+
+	Fetches workstation names from the Workstation doctype, ordered by name.
+
+	Returns:
+		Dict containing:
+			- status: "success"
+			- workstations: List of workstation name strings
+	"""
+	WS = DocType("Workstation")
+	workstations: list[str] = (
+		frappe.qb.from_(WS)
+		.select(WS.name)
+		.orderby(WS.name)
+	).run(pluck="name")
+
+	return {"status": "success", "workstations": workstations}
 
 
 @frappe.whitelist(allow_guest=True)

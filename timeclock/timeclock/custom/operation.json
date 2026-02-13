@@ -7,6 +7,17 @@
             "insert_after": "is_corrective_operation",
             "label": "Is Machine Time",
             "module": "Timeclock"
+        },
+        {
+            "dt": "Operation",
+            "fieldname": "employee_group",
+            "fieldtype": "Link",
+            "options": "Employee Group",
+            "insert_after": "is_machine_time",
+            "label": "Machine Employee Group",
+            "depends_on": "is_machine_time",
+            "mandatory_depends_on": "is_machine_time",
+            "module": "Timeclock"
         }
     ],
     "property_setters": [],

@@ -13,7 +13,7 @@
       <div class="flex gap-2 items-start">
         <Button
           theme="green"
-          variant="solid"
+          variant="outline"
           size="2xl"
           label="Start Timer"
           @click="startTask"

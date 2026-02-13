@@ -45,29 +45,73 @@
           </span>
         </div>
 
-        <!-- Work station Dropdown -->
-        <KeepAlive include="workstation">
-          <DropDownMenu
-            v-if="activeSession"
-            @send_workstation="select_workstation"
-          />
-        </KeepAlive>
-        <!-- Switch Employee -->
-        <Button
-          theme="green"
-          variant="outline"
-          size="2xl"
-          label="Switch Employee"
-          v-if="activeSession"
-          @click="switchEmployee"
-        />
         <SessionTimer
           :employeeName="employeeName"
           :tokenExpiration="tokenExpiration"
           v-if="activeSession"
         />
+        <!-- Settings Icon Button -->
+        <button
+          v-if="activeSession"
+          @click="isSidebarOpen = true"
+          class="p-3 rounded-lg hover:bg-gray-200 transition-colors"
+          title="Settings"
+        >
+          <IconSettings class="w-8 h-8 text-gray-700" />
+        </button>
+        <!-- Sign Out Icon Button -->
+        <button
+          v-if="activeSession"
+          @click="switchEmployee"
+          class="p-3 rounded-lg hover:bg-gray-200 transition-colors"
+          title="Sign Out"
+        >
+          <IconLogOut class="w-8 h-8 text-gray-700" />
+        </button>
       </div>
     </header>
+
+    <!-- Settings Sidebar -->
+    <transition name="sidebar">
+      <div
+        v-if="isSidebarOpen && activeSession"
+        class="fixed inset-0 z-50 flex justify-end"
+        @click.self="isSidebarOpen = false"
+      >
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-black bg-opacity-50" @click="isSidebarOpen = false"></div>
+        
+        <!-- Sidebar Content -->
+        <div class="relative w-80 h-full bg-white shadow-2xl flex flex-col">
+          <!-- Sidebar Header -->
+          <div class="flex items-center justify-between p-6 border-b">
+            <h2 class="text-2xl font-bold text-gray-900">Settings</h2>
+            <button
+              @click="isSidebarOpen = false"
+              class="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Sidebar Body -->
+          <div class="flex-1 overflow-y-auto p-6">
+            <div class="space-y-6">
+              <div>
+                <h3 class="text-lg font-semibold text-gray-700 mb-3">Workstation</h3>
+                <KeepAlive include="workstation">
+                  <DropDownMenu
+                    @send_workstation="select_workstation"
+                  />
+                </KeepAlive>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
 
     <main
       class="z-0 flex w-full overflow-hidden my-16 pt-16"
@@ -134,7 +178,9 @@ import JobCardList from "./components/JobCardList.vue";
 import type { Operation, ActiveTimer } from "./types/JobCard";
 import type { Employee } from "./types/Employee";
 import DropDownMenu from "./components/DropDownMenu.vue";
-import { Button, toast, Toast } from "frappe-ui";
+import { Button, toast, Toast, Sidebar } from "frappe-ui";
+import IconSettings from "~icons/lucide/settings";
+import IconLogOut from "~icons/lucide/log-out";
 
 import { dateToFrappeDateTimeString } from "./types/FrappeDateTime";
 import type {
@@ -158,6 +204,9 @@ export default defineComponent({
     Toast,
     WorkOrderList,
     DropDownMenu,
+    Sidebar,
+    IconSettings,
+    IconLogOut,
   },
   data(): {
     activeTimer: ActiveTimer | null;
@@ -168,6 +217,7 @@ export default defineComponent({
     header: string;
     headerElapsedTime: string;
     headerTimerInterval: ReturnType<typeof setInterval> | null;
+    isSidebarOpen: boolean;
     operations: Operation[];
     selectedWorkOrder: WorkOrder | null;
     showAuthMessage: boolean;
@@ -186,6 +236,7 @@ export default defineComponent({
       header: "Job Timeclock",
       headerElapsedTime: "00:00:00",
       headerTimerInterval: null,
+      isSidebarOpen: false,
       operations: [],
       selectedWorkOrder: null,
       showAuthMessage: false,
@@ -728,5 +779,25 @@ export default defineComponent({
 .job_card_list-enter-from,
 .job_card_list-leave-to {
   opacity: 0;
+}
+
+.sidebar-enter-active,
+.sidebar-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.sidebar-enter-active > div:last-child,
+.sidebar-leave-active > div:last-child {
+  transition: transform 0.3s ease;
+}
+
+.sidebar-enter-from,
+.sidebar-leave-to {
+  opacity: 0;
+}
+
+.sidebar-enter-from > div:last-child,
+.sidebar-leave-to > div:last-child {
+  transform: translateX(100%);
 }
 </style>

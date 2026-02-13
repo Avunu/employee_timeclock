@@ -79,6 +79,12 @@ export interface SubmitJobCardResponse extends BaseResponse {
     error_message?: string;
 }
 
+/** get_workstations response */
+export interface GetWorkstationsResponse extends BaseResponse {
+    status: 'success';
+    workstations: string[];
+}
+
 /** verify_login response (for LogInModule) */
 export interface VerifyLoginResponse extends BaseResponse {
     status: 'success' | 'failed';

@@ -15,6 +15,8 @@
 import { defineComponent } from "vue";
 import { useStorage } from "@vueuse/core";
 import { Dropdown } from "frappe-ui";
+import { frappeCall } from "../../FrappeCall";
+import type { GetWorkstationsResponse } from "../types/api";
 
 export default defineComponent({
   name: "DropDownMenu",
@@ -23,41 +25,47 @@ export default defineComponent({
   },
 
   data(): {
-    workstations: Array<{ id: number; name: string }>;
+    workstations: string[];
     selected: string;
   } {
     return {
-      workstations: [
-        { id: 1, name: "Planer" },
-        { id: 2, name: "CNC" },
-        { id: 3, name: "Hand Sanding" },
-        { id: 4, name: "Sander/Stainer" },
-        { id: 5, name: "Truss Assembly" },
-        { id: 6, name: "Hardware" },
-        { id: 7, name: "T&G Cutting" },
-      ],
+      workstations: [],
       selected: useStorage<string>("workstation", "").value,
     };
   },
 
   computed: {
     dropdownOptions() {
-      return this.workstations.map((ws) => ({
-        label: ws.name,
-        onClick: () => this.send_workstation(ws),
+      return this.workstations.map((name) => ({
+        label: name,
+        onClick: () => this.send_workstation(name),
       }));
     },
   },
 
   methods: {
-    send_workstation(workstation: { id: number; name: string }): void {
-      this.selected = workstation.name;
-      useStorage<string>("workstation", "").value = workstation.name;
-      this.$emit("send_workstation", workstation.name);
+    send_workstation(workstation: string): void {
+      this.selected = workstation;
+      useStorage<string>("workstation", "").value = workstation;
+      this.$emit("send_workstation", workstation);
+    },
+
+    async fetchWorkstations(): Promise<void> {
+      try {
+        const response = await frappeCall<GetWorkstationsResponse>(
+          "timeclock.timeclock.www.job_timeclock.get_workstations",
+        );
+        if (response.status === "success" && response.workstations) {
+          this.workstations = response.workstations;
+        }
+      } catch (error) {
+        console.error("Failed to fetch workstations:", error);
+      }
     },
   },
 
-  mounted(): void {
+  async mounted(): Promise<void> {
+    await this.fetchWorkstations();
     if (this.selected && this.selected !== "") {
       this.$emit("send_workstation", this.selected);
     }
