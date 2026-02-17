@@ -120,11 +120,18 @@
             <div class="space-y-6">
               <div>
                 <h3 class="text-lg font-semibold text-gray-700 mb-3">
-                  Workstation
+                  Workstations
                 </h3>
-                <KeepAlive include="workstation">
-                  <DropDownMenu @send_workstation="select_workstation" />
-                </KeepAlive>
+                <div v-if="availableWorkstations.length" class="space-y-2">
+                  <Checkbox
+                    v-for="ws in availableWorkstations"
+                    :key="ws"
+                    :label="ws"
+                    :modelValue="workstations.includes(ws)"
+                    @update:modelValue="toggleWorkstation(ws, $event)"
+                  />
+                </div>
+                <p v-else class="text-sm text-gray-500">Loading…</p>
               </div>
             </div>
           </div>
@@ -196,9 +203,9 @@ import type { WorkOrder } from "./types/WorkOrder";
 import JobCardList from "./components/JobCardList.vue";
 import type { Operation, ActiveTimer } from "./types/JobCard";
 import type { Employee } from "./types/Employee";
-import DropDownMenu from "./components/DropDownMenu.vue";
 import Button from "./components/Button.vue";
-import { toast, Toast, Sidebar } from "frappe-ui";
+import { Checkbox, toast, Toast, Sidebar } from "frappe-ui";
+import type { GetWorkstationsResponse } from "./types/api";
 import IconSettings from "~icons/lucide/settings";
 import IconLogOut from "~icons/lucide/log-out";
 
@@ -223,7 +230,7 @@ export default defineComponent({
     SessionTimer,
     Toast,
     WorkOrderList,
-    DropDownMenu,
+    Checkbox,
     Sidebar,
     IconSettings,
     IconLogOut,
@@ -245,7 +252,8 @@ export default defineComponent({
     token: string | null;
     tokenExpiration: number;
     workOrders: WorkOrder[];
-    workstation: string;
+    workstations: string[];
+    availableWorkstations: string[];
   } {
     return {
       activeTimer: null,
@@ -264,7 +272,8 @@ export default defineComponent({
       token: useStorage<string | null>("token", null).value,
       tokenExpiration: 0,
       workOrders: [],
-      workstation: useStorage<string>("workstation", "").value,
+      workstations: useStorage<string[]>("workstations", []).value,
+      availableWorkstations: [],
     };
   },
 
@@ -310,7 +319,6 @@ export default defineComponent({
       this.workOrders = [];
       this.employeeId = "";
       this.employeeName = "";
-      this.workstation = this.workstation;
 
       const response = await frappeCall<AuthenticateEmployeeResponse>(
         "timeclock.www.job_timeclock.authenticate_employee",
@@ -423,7 +431,7 @@ export default defineComponent({
         {
           token: this.token,
           work_order: workOrderName,
-          workstation: this.workstation,
+          workstations: JSON.stringify(this.workstations),
         },
       );
       if (
@@ -707,10 +715,28 @@ export default defineComponent({
       console.log("Page reloaded.");
     },
 
-    select_workstation(workstation: string): void {
-      console.log("Workstation Name", workstation);
-      this.workstation = workstation;
-      useStorage<string>("workstation", "").value = workstation;
+    toggleWorkstation(ws: string, checked: boolean): void {
+      if (checked) {
+        if (!this.workstations.includes(ws)) {
+          this.workstations = [...this.workstations, ws];
+        }
+      } else {
+        this.workstations = this.workstations.filter((w) => w !== ws);
+      }
+      useStorage<string[]>("workstations", []).value = this.workstations;
+    },
+
+    async fetchWorkstations(): Promise<void> {
+      try {
+        const response = await frappeCall<GetWorkstationsResponse>(
+          "timeclock.timeclock.www.job_timeclock.get_workstations",
+        );
+        if (response.status === "success" && response.workstations) {
+          this.availableWorkstations = response.workstations;
+        }
+      } catch (error) {
+        console.error("Failed to fetch workstations:", error);
+      }
     },
   },
 
@@ -721,6 +747,7 @@ export default defineComponent({
       this.getActiveTimer();
     }
     this.check_for_erp_log_in();
+    this.fetchWorkstations();
 
     // Attach onScan to document for barcode scanning
     // attachTo returns void, so we just call it and track attachment state

@@ -413,21 +413,21 @@ def get_work_orders(token: str) -> dict[str, Any]:
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=4, seconds=1)
-def get_operations(token: str, work_order: str, workstation: str = "") -> dict[str, Any]:
+def get_operations(token: str, work_order: str, workstations: str = "[]") -> dict[str, Any]:
 	"""
 	Retrieve all operations for a work order with aggregated time totals.
 
 	Anchors on the Work Order Operation child table and LEFT JOINs through
 	Job Card → Job Card Time Log to aggregate regular and corrective time.
 
-	When a workstation is provided, operations whose workstation matches are
-	sorted to the top, followed by the remaining operations in their natural
-	idx order.
+	When workstations are provided, operations whose workstation matches any
+	of the given names are sorted to the top, followed by the remaining
+	operations in their natural idx order.
 
 	Args:
 		token: JWT authentication token for the employee
 		work_order: Name/ID of the work order
-		workstation: Optional workstation name to prioritize matching operations
+		workstations: JSON-encoded list of workstation names to prioritize
 
 	Returns:
 		Dict containing:
@@ -442,6 +442,12 @@ def get_operations(token: str, work_order: str, workstation: str = "") -> dict[s
 		employee_id, token = extract_employee_from_token(token)
 	except Exception as e:
 		return {"status": "error", "message": str(e)}
+
+	import json as _json
+	try:
+		ws_list: list[str] = _json.loads(workstations) if workstations else []
+	except (ValueError, TypeError):
+		ws_list = [workstations] if workstations else []
 
 	WOOp = DocType("Work Order Operation")
 	JC = DocType("Job Card")
@@ -496,7 +502,7 @@ def get_operations(token: str, work_order: str, workstation: str = "") -> dict[s
 		.where(WOOp.parent == work_order)
 		.where(WOOp.parenttype == "Work Order")
 		.groupby(WOOp.name)
-		.orderby(Case().when(WOOp.workstation == workstation, 0).else_(1) if workstation else WOOp.idx)
+		.orderby(Case().when(WOOp.workstation.isin(ws_list), 0).else_(1) if ws_list else WOOp.idx)
 		.orderby(WOOp.idx)
 	).run(as_dict=True)
 
