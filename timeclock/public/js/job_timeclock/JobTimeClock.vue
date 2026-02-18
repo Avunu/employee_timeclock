@@ -80,6 +80,18 @@
               </div>
             </div>
           </div>
+
+          <!-- Sidebar Footer: Device Info -->
+          <div class="border-t p-4 bg-gray-50 text-xs text-gray-500 space-y-1 font-mono">
+            <div class="flex justify-between">
+              <span class="font-semibold text-gray-600">IP</span>
+              <span>{{ deviceIp || '—' }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="font-semibold text-gray-600">MAC</span>
+              <span>{{ deviceMac || '—' }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </transition>
@@ -146,8 +158,7 @@ import type {
   GetActiveTimerResponse,
   GetWorkOrdersResponse,
   StartTimerResponse,
-  StopTimerResponse,
-} from "./types/api";
+  StopTimerResponse,  GetDeviceInfoResponse,} from "./types/api";
 
 export default defineComponent({
   name: "JobTimeClock",
@@ -182,6 +193,8 @@ export default defineComponent({
     workOrders: WorkOrder[];
     workstations: string[];
     availableWorkstations: string[];
+    deviceIp: string;
+    deviceMac: string;
   } {
     return {
       activeTimer: null,
@@ -202,6 +215,8 @@ export default defineComponent({
       workOrders: [],
       workstations: useStorage<string[]>("workstations", []).value,
       availableWorkstations: [],
+      deviceIp: "",
+      deviceMac: "",
     };
   },
 
@@ -667,6 +682,20 @@ export default defineComponent({
         console.error("Failed to fetch workstations:", error);
       }
     },
+
+    async getDeviceInfo(): Promise<void> {
+      try {
+        const response = await frappeCall<GetDeviceInfoResponse>(
+          "timeclock.www.job_timeclock.get_device_info",
+        );
+        if (response.status === "success") {
+          this.deviceIp = response.ip;
+          this.deviceMac = response.mac;
+        }
+      } catch (error) {
+        console.error("Failed to fetch device info:", error);
+      }
+    },
   },
 
   mounted() {
@@ -676,6 +705,7 @@ export default defineComponent({
       this.getActiveTimer();
     }
     this.check_for_erp_log_in();
+    this.getDeviceInfo();
 
     // Attach onScan to document for barcode scanning
     // attachTo returns void, so we just call it and track attachment state

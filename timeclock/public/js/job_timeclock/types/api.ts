@@ -85,6 +85,13 @@ export interface GetWorkstationsResponse extends BaseResponse {
     workstations: string[];
 }
 
+/** get_device_info response */
+export interface GetDeviceInfoResponse extends BaseResponse {
+    status: 'success';
+    ip: string;
+    mac: string;
+}
+
 /** verify_login response (for LogInModule) */
 export interface VerifyLoginResponse extends BaseResponse {
     status: 'success' | 'failed';

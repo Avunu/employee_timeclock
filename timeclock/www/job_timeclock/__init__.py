@@ -818,6 +818,32 @@ def get_workstations() -> dict[str, Any]:
 
 
 @frappe.whitelist(allow_guest=True)
+def get_device_info() -> dict[str, Any]:
+	"""Return the requesting client's IP address and MAC address.
+
+	The IP is read from the incoming request.  The MAC address is resolved
+	via the ``getmac`` Python library when available; falls back to an
+	empty string otherwise.
+
+	Returns:
+		Dict containing:
+			- status: "success"
+			- ip: Client IP address string
+			- mac: MAC address string, or empty string if unavailable
+	"""
+	ip: str = frappe.local.request_ip or ""
+	mac: str = ""
+	try:
+		import getmac  # type: ignore[import]
+
+		mac = getmac.get_mac_address(ip=ip) or ""
+	except Exception:
+		pass
+
+	return {"status": "success", "ip": ip, "mac": mac}
+
+
+@frappe.whitelist(allow_guest=True)
 def submit_jobcard(jobCard: dict[str, Any], complete_time: str, employee_id: str) -> dict[str, Any]:
 	"""
 	Complete and submit a job card by closing all open time logs.
