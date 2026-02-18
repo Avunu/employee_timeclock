@@ -370,8 +370,8 @@ def log_out_employee(token: str, time: str) -> dict[str, Any]:
 		return {"status": "unsuccessful", "log": new_log}
 
 
-@rate_limit(limit=1, seconds=1)
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=1, seconds=1)
 def get_work_orders(token: str) -> dict[str, Any]:
 	"""
 	Retrieve all active work orders for display in the job timeclock.
