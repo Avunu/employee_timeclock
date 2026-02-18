@@ -1,6 +1,6 @@
 <template>
-  <div class="static h-screen flex z-0">
-    <header class="z-10 block rounded-lg bg-gray-300 fixed w-screen">
+  <div class="flex flex-col h-screen">
+    <header class="rounded-lg bg-gray-300 w-full shrink-0">
       <div
         class="z-100 mx-auto px-4 py-6 lg:px-8 flex h-center items-center justify-between"
       >
@@ -179,7 +179,7 @@
     </transition>
 
     <main
-      class="z-0 flex w-full overflow-hidden mt-16 pt-16"
+      class="flex flex-1 w-full overflow-hidden min-h-0"
       v-if="activeSession"
     >
       <!-- When session is active -->
@@ -210,7 +210,7 @@
     </main>
 
     <!-- <main v-else: class="bg-white fixed w-auto top-100 z-50 h-24"> -->
-    <main v-else: class="w-full h-screen">
+    <main v-else: class="flex-1 w-full">
       <!-- When session is inactive -->
       <AuthorizationMessage />
     </main>

@@ -8,47 +8,54 @@
         'ring-2 ring-orange-500 !bg-orange-50': isActive && isCorrective,
       }"
     >
-      <!-- Header row: title + donut chart + status badge -->
+      <!-- Header row: title + status badge -->
       <div class="flex items-center justify-between gap-3">
         <p class="text-xl font-semibold flex-1 min-w-0 leading-tight truncate">
           {{ workOrder.production_item }}
         </p>
-        <div class="flex items-center gap-2 shrink-0">
-          <!-- Donut progress chart – click.stop so it doesn't re-trigger card click -->
-          <div v-if="workOrder.planned_time_mins > 0" @click.stop class="-my-1">
-            <Plotly
-              :data="chartData"
-              :layout="chartLayout"
-              :config="chartConfig"
-            />
-          </div>
-          <Badge
-            :label="workOrder.status"
-            :theme="statusTheme"
-            variant="outline"
-            size="lg"
+        <Badge
+          :label="workOrder.status"
+          :theme="statusTheme"
+          variant="outline"
+          size="lg"
+          class="shrink-0"
+        />
+      </div>
+
+      <!-- Body: subtitle + time summary (left) | donut chart (right, under badge) -->
+      <div class="flex items-end justify-between gap-2 mt-1">
+        <div class="flex-1 min-w-0">
+          <p class="text-sm text-gray-500">{{ workOrder.name }}</p>
+          <p
+            v-if="workOrder.planned_time_mins > 0"
+            class="text-xs mt-0.5 font-mono"
+            :class="isOverrun ? 'text-red-500' : 'text-gray-400'"
+          >
+            {{ formatMins(workOrder.logged_time_mins) }} /
+            {{ formatMins(workOrder.planned_time_mins) }}
+            <span v-if="isOverrun">
+              · +{{
+                formatMins(
+                  workOrder.logged_time_mins - workOrder.planned_time_mins,
+                )
+              }}
+              overrun
+            </span>
+          </p>
+        </div>
+        <!-- Donut progress chart – click.stop prevents re-triggering card click -->
+        <div
+          v-if="workOrder.planned_time_mins > 0"
+          @click.stop
+          class="shrink-0 -mb-1"
+        >
+          <Plotly
+            :data="chartData"
+            :layout="chartLayout"
+            :config="chartConfig"
           />
         </div>
       </div>
-
-      <!-- Subtitle -->
-      <p class="text-sm text-gray-500 mt-1">{{ workOrder.name }}</p>
-
-      <!-- Time summary row -->
-      <p
-        v-if="workOrder.planned_time_mins > 0"
-        class="text-xs mt-0.5 font-mono"
-        :class="isOverrun ? 'text-red-500' : 'text-gray-400'"
-      >
-        {{ formatMins(workOrder.logged_time_mins) }} /
-        {{ formatMins(workOrder.planned_time_mins) }}
-        <span v-if="isOverrun">
-          · +{{
-            formatMins(workOrder.logged_time_mins - workOrder.planned_time_mins)
-          }}
-          overrun
-        </span>
-      </p>
     </div>
   </div>
 </template>
@@ -133,8 +140,8 @@ export default defineComponent({
 
     chartLayout(): object {
       return {
-        width: 72,
-        height: 72,
+        width: 32,
+        height: 32,
         margin: { l: 0, r: 0, t: 0, b: 0, pad: 0 },
         showlegend: false,
         paper_bgcolor: "transparent",
