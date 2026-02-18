@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss'
+import defaultTheme from 'tailwindcss/defaultTheme'
 
 const config: Config = {
   presets: [
@@ -10,7 +11,11 @@ const config: Config = {
     "./node_modules/frappe-ui/src/components/**/*.{vue,js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      // frappe-ui's plugin replaces the entire fontSize scale with its own tokens;
+      // restore Tailwind's defaults so standard classes like text-4xl still work.
+      fontSize: defaultTheme.fontSize,
+    },
   },
   plugins: [],
 }
