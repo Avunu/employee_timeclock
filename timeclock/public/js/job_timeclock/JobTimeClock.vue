@@ -331,9 +331,13 @@ export default defineComponent({
       }
     },
 
-    selectWorkOrder(workOrder: WorkOrder) {
+    selectWorkOrder(workOrder: WorkOrder | null) {
+      // debug
+      console.debug("Selecting work order:", workOrder);
       this.selectedWorkOrder = workOrder;
-      this.getOperations(workOrder.name);
+      if (workOrder) {
+        this.getOperations(workOrder.name);
+      }
     },
 
     async navigateToActiveTimer() {
@@ -538,7 +542,7 @@ export default defineComponent({
     },
 
     startTimer(timeout: number) {
-      const timeoutId = setTimeout(this.endTimer, timeout);
+      this.timeoutId = window.setTimeout(this.endTimer, timeout);
     },
 
     endTimer() {
@@ -720,14 +724,9 @@ export default defineComponent({
 
     watch(
       () => this.token,
-      (newToken) => {
-        // If you don't do this, it will refresh every time you switch work orders.
-        if (newToken !== this.token) {
+      (newToken, oldToken) => {
+        if (newToken && newToken !== oldToken) {
           this.decodeToken();
-        } else if (newToken) {
-          this.decodeToken();
-        } else {
-          // Token is the same.
         }
       },
       { immediate: true },

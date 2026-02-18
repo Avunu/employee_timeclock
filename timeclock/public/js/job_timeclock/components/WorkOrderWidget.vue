@@ -35,6 +35,7 @@ export default defineComponent({
     Card,
     Badge,
   },
+  emits: ["click"],
   props: {
     workOrder: {
       type: Object as PropType<WorkOrder>,
