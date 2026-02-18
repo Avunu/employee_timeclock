@@ -1,12 +1,23 @@
 <template>
   <div :data-work-order="workOrder.name">
-    <Card :title="workOrder.production_item" :subtitle="workOrder.name" @click="click" :class="{
-      '!bg-blue-100': isSelected && !isActive,
-      'ring-2 ring-green-500 !bg-green-50': isActive && !isCorrective,
-      'ring-2 ring-orange-500 !bg-orange-50': isActive && isCorrective,
-    }" class="overflow-hidden cursor-pointer mt-2 mb-2">
+    <Card
+      :title="workOrder.production_item"
+      :subtitle="workOrder.name"
+      @click="click"
+      :class="{
+        '!bg-blue-100': isSelected && !isActive,
+        'ring-2 ring-green-500 !bg-green-50': isActive && !isCorrective,
+        'ring-2 ring-orange-500 !bg-orange-50': isActive && isCorrective,
+      }"
+      class="overflow-hidden cursor-pointer mt-2 mb-2"
+    >
       <template #actions>
-        <Badge :label="workOrder.status" :theme="statusTheme" variant="outline" size="lg" />
+        <Badge
+          :label="workOrder.status"
+          :theme="statusTheme"
+          variant="outline"
+          size="lg"
+        />
       </template>
     </Card>
   </div>
@@ -54,13 +65,13 @@ export default defineComponent({
   computed: {
     statusTheme(): "gray" | "blue" | "green" | "orange" | "red" {
       const map: Record<string, "gray" | "blue" | "green" | "orange" | "red"> =
-      {
-        "Not Started": "gray",
-        "In Process": "blue",
-        Completed: "green",
-        Stopped: "red",
-        Draft: "gray",
-      };
+        {
+          "Not Started": "gray",
+          "In Process": "blue",
+          Completed: "green",
+          Stopped: "red",
+          Draft: "gray",
+        };
       return map[this.workOrder.status] ?? "gray";
     },
   },
