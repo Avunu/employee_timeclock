@@ -19,36 +19,57 @@
         <!-- Active Timer Indicator -->
         <div
           v-if="activeSession && activeTimer"
-          class="flex items-center gap-3 rounded-lg px-4 py-2 ring-2 cursor-pointer"
-          :class="
-            activeTimer.is_corrective
-              ? 'ring-orange-500 bg-orange-50 hover:bg-orange-100'
-              : 'ring-green-500 bg-green-50 hover:bg-green-100'
-          "
-          @click="navigateToActiveTimer"
+          class="flex items-center gap-2"
         >
-          <span
-            class="font-semibold text-lg lg:text-2xl truncate"
+          <div
+            class="flex items-center gap-3 rounded-lg px-4 py-2 ring-2 cursor-pointer"
             :class="
-              activeTimer.is_corrective ? 'text-orange-700' : 'text-green-700'
+              activeTimer.is_corrective
+                ? 'ring-orange-500 bg-orange-50 hover:bg-orange-100'
+                : 'ring-green-500 bg-green-50 hover:bg-green-100'
+            "
+            @click="navigateToActiveTimer"
+          >
+            <span
+              class="font-semibold text-lg lg:text-2xl truncate"
+              :class="
+                activeTimer.is_corrective ? 'text-orange-700' : 'text-green-700'
+              "
+            >
+              {{ activeTimer.operation }}
+            </span>
+            <span
+              class="font-mono text-xl lg:text-2xl font-bold"
+              :class="
+                activeTimer.is_corrective ? 'text-orange-800' : 'text-green-800'
+              "
+            >
+              {{ headerElapsedTime }}
+            </span>
+            <span
+              v-if="activeTimer.is_corrective"
+              class="text-orange-600 text-sm font-semibold"
+            >
+              REWORK
+            </span>
+          </div>
+          <!-- Quick Stop Button -->
+          <button
+            class="p-3 rounded-lg transition-colors"
+            :class="
+              activeTimer.is_corrective
+                ? 'bg-orange-100 hover:bg-orange-200 text-orange-700'
+                : 'bg-green-100 hover:bg-green-200 text-green-700'
+            "
+            :title="activeTimer.is_corrective ? 'Stop Rework' : 'Stop Timer'"
+            @click="
+              activeTimer.is_corrective
+                ? handleStopRework(activeTimer.operation)
+                : handleStopTask(activeTimer.operation)
             "
           >
-            {{ activeTimer.operation }}
-          </span>
-          <span
-            class="font-mono text-xl lg:text-2xl font-bold"
-            :class="
-              activeTimer.is_corrective ? 'text-orange-800' : 'text-green-800'
-            "
-          >
-            {{ headerElapsedTime }}
-          </span>
-          <span
-            v-if="activeTimer.is_corrective"
-            class="text-orange-600 text-sm font-semibold"
-          >
-            REWORK
-          </span>
+            <div class="w-7 h-7 rounded-sm bg-current" />
+          </button>
         </div>
 
         <SessionTimer
@@ -158,7 +179,7 @@
     </transition>
 
     <main
-      class="z-0 flex w-full overflow-hidden my-16 pt-16"
+      class="z-0 flex w-full overflow-hidden mt-16 pt-16"
       v-if="activeSession"
     >
       <!-- When session is active -->
@@ -526,12 +547,14 @@ export default defineComponent({
     async handleStopTask(operationName: string) {
       const endTime = new Date();
       const endTimeFrappe = dateToFrappeDateTimeString(endTime, 5);
+      const workOrderName =
+        this.activeTimer?.work_order ?? this.selectedWorkOrder?.name ?? "";
 
       const response = await frappeCall<StopTimerResponse>(
         "timeclock.www.job_timeclock.stop_timer",
         {
           employee_id: this.employeeId,
-          work_order: this.selectedWorkOrder!.name,
+          work_order: workOrderName,
           operation: operationName,
           end_time: endTimeFrappe,
           is_corrective: false,
@@ -591,12 +614,14 @@ export default defineComponent({
     async handleStopRework(operationName: string) {
       const endTime = new Date();
       const endTimeFrappe = dateToFrappeDateTimeString(endTime, 5);
+      const workOrderName =
+        this.activeTimer?.work_order ?? this.selectedWorkOrder?.name ?? "";
 
       const response = await frappeCall<StopTimerResponse>(
         "timeclock.www.job_timeclock.stop_timer",
         {
           employee_id: this.employeeId,
-          work_order: this.selectedWorkOrder!.name,
+          work_order: workOrderName,
           operation: operationName,
           end_time: endTimeFrappe,
           is_corrective: true,
