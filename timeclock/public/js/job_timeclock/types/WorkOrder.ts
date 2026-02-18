@@ -6,4 +6,6 @@ export interface WorkOrder {
     name: string;
     production_item: string;
     status: 'Draft' | 'Submitted' | 'Not Started' | 'In Process' | 'Completed' | 'Stopped' | 'Cancelled';
+    planned_time_mins: number;
+    logged_time_mins: number;
 }

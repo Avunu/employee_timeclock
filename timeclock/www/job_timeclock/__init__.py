@@ -399,15 +399,50 @@ def get_work_orders(token: str) -> dict[str, Any]:
 	except Exception as e:
 		return {"status": "error", "message": str(e)}
 
-	# Get the employee's work orders
-	# work order status can be Submitted, Not Started, or In Process
+	# Get work orders with aggregated planned and logged times in a single query
 	WorkOrders = DocType("Work Order")
+	WOOp = DocType("Work Order Operation")
+	JC = DocType("Job Card")
+	TL = DocType("Job Card Time Log")
+
+	# Subquery: planned time per work order
+	planned_sq = (
+		frappe.qb.from_(WOOp)
+		.select(WOOp.parent.as_("wo"), Coalesce(Sum(WOOp.time_in_mins), 0).as_("planned_time_mins"))
+		.where(WOOp.parenttype == "Work Order")
+		.groupby(WOOp.parent)
+	)
+
+	# Subquery: logged time per work order
+	logged_sq = (
+		frappe.qb.from_(TL)
+		.inner_join(JC)
+		.on(TL.parent == JC.name)
+		.select(JC.work_order.as_("wo"), Coalesce(Sum(TL.time_in_mins), 0).as_("logged_time_mins"))
+		.where(JC.docstatus < 2)
+		.groupby(JC.work_order)
+	)
+
 	work_orders: list[dict[str, Any]] = (
 		frappe.qb.from_(WorkOrders)
-		.select(WorkOrders.name, WorkOrders.production_item, WorkOrders.status)
+		.left_join(planned_sq)
+		.on(planned_sq.wo == WorkOrders.name)
+		.left_join(logged_sq)
+		.on(logged_sq.wo == WorkOrders.name)
+		.select(
+			WorkOrders.name,
+			WorkOrders.production_item,
+			WorkOrders.status,
+			Coalesce(planned_sq.planned_time_mins, 0).as_("planned_time_mins"),
+			Coalesce(logged_sq.logged_time_mins, 0).as_("logged_time_mins"),
+		)
 		.where(WorkOrders.status.isin(["Submitted", "Not Started", "In Process"]))
-		.run(as_dict=True)
-	)
+	).run(as_dict=True)
+
+	for wo in work_orders:
+		wo["planned_time_mins"] = float(wo.get("planned_time_mins", 0))
+		wo["logged_time_mins"] = float(wo.get("logged_time_mins", 0))
+
 	return {"status": "success", "token": token, "work_orders": work_orders}
 
 
