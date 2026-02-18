@@ -1,63 +1,69 @@
 <template>
   <div :data-operation="operation.operation">
-    <Card
-      :title="operation.operation"
-      :subtitle="operation.workstation"
-      class="font-sans text-black text-lg lg:text-4xl mt-2 mb-2"
+    <div
+      class="flex flex-col rounded-lg border bg-white px-6 py-5 shadow font-sans text-black text-lg lg:text-4xl mt-2 mb-2"
       :class="{
         'ring-2 ring-green-500 !bg-green-50': active_user && !reworkStarted,
         'ring-2 ring-orange-500 !bg-orange-50': active_user && reworkStarted,
       }"
     >
-      <template #actions>
-        <div class="flex gap-2 items-start">
-          <Button
-            theme="green"
-            variant="outline"
-            size="2xl"
-            label="Start Timer"
-            @click="startTask"
-            v-if="!taskStarted && !operation.is_submitted"
-          />
-          <Button
-            theme="gray"
-            variant="ghost"
-            size="2xl"
-            label="Submitted"
-            :disabled="true"
-            class="italic"
-            v-if="!taskStarted && operation.is_submitted"
-          />
-          <Button
-            theme="green"
-            variant="outline"
-            size="2xl"
-            label="Stop Timer"
-            @click="stopTask"
-            v-if="taskStarted"
-          />
-          <Button
-            theme="gray"
-            variant="outline"
-            size="2xl"
-            label="Start Rework"
-            class="!bg-orange-500 !text-white hover:!bg-orange-600"
-            @click="startRework"
-            v-if="!reworkStarted"
-          />
-          <Button
-            theme="gray"
-            variant="outline"
-            size="2xl"
-            label="Stop Rework"
-            class="!text-orange-600 !border-orange-500 hover:!bg-orange-100"
-            @click="stopRework"
-            v-if="reworkStarted"
-          />
+      <!-- Header row: title + actions -->
+      <div class="flex items-baseline justify-between">
+        <h2 class="text-xl font-semibold">{{ operation.operation }}</h2>
+        <div class="flex items-center space-x-2">
+          <div class="flex gap-2 items-start">
+            <Button
+              theme="green"
+              variant="outline"
+              size="2xl"
+              label="Start Timer"
+              @click="startTask"
+              v-if="!taskStarted && !operation.is_submitted"
+            />
+            <Button
+              theme="gray"
+              variant="ghost"
+              size="2xl"
+              label="Submitted"
+              :disabled="true"
+              class="italic"
+              v-if="!taskStarted && operation.is_submitted"
+            />
+            <Button
+              theme="green"
+              variant="outline"
+              size="2xl"
+              label="Stop Timer"
+              @click="stopTask"
+              v-if="taskStarted"
+            />
+            <Button
+              theme="gray"
+              variant="outline"
+              size="2xl"
+              label="Start Rework"
+              class="!bg-orange-500 !text-white hover:!bg-orange-600"
+              @click="startRework"
+              v-if="!reworkStarted"
+            />
+            <Button
+              theme="gray"
+              variant="outline"
+              size="2xl"
+              label="Stop Rework"
+              class="!text-orange-600 !border-orange-500 hover:!bg-orange-100"
+              @click="stopRework"
+              v-if="reworkStarted"
+            />
+          </div>
         </div>
-      </template>
-
-      <div class="flex flex-col gap-2 text-lg" v-if="hasTimeData">
+      </div>
+      <!-- Subtitle -->
+      <p class="mt-1.5 text-base text-gray-600" v-if="operation.workstation">
+        {{ operation.workstation }}
+      </p>
+      <!-- Time data body -->
+      <div class="mt-4 flex flex-col gap-2 text-lg" v-if="hasTimeData">
         <!-- Regular Time Row -->
         <div
           class="flex justify-between items-center"
@@ -120,21 +126,19 @@
           </div>
         </div>
       </div>
-    </Card>
+    </div>
   </div>
 </template>
 
 <script lang="ts">
 import { defineComponent, watch } from "vue";
 import type { PropType } from "vue";
-import { Card } from "frappe-ui";
 import Button from "./Button.vue";
 import type { Operation, ActiveTimer } from "../types/JobCard";
 
 export default defineComponent({
   name: "JobCardWidget",
   components: {
-    Card,
     Button,
   },
   props: {
