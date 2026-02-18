@@ -339,6 +339,7 @@ export default defineComponent({
 
         await this.getWorkOrders();
         await this.getActiveTimer();
+        this.fetchWorkstations();
       } else {
         console.log("Sorry! You are not authenticated.");
         console.log(response.message);
@@ -747,7 +748,6 @@ export default defineComponent({
       this.getActiveTimer();
     }
     this.check_for_erp_log_in();
-    this.fetchWorkstations();
 
     // Attach onScan to document for barcode scanning
     // attachTo returns void, so we just call it and track attachment state
