@@ -3,24 +3,42 @@ import vue from '@vitejs/plugin-vue'
 import Icons from 'unplugin-icons/vite'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import type { Plugin } from 'vite'
+import { writeFileSync } from 'fs'
+import type { Plugin, ResolvedConfig } from 'vite'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 function frappeNotifyPlugin(changedFiles: string[]): Plugin {
 	let isFirstBuild = true
+	let resolvedConfig: ResolvedConfig
 
 	return {
 		name: 'frappe-notify',
+		configResolved(config) {
+			resolvedConfig = config
+		},
 		closeBundle() {
+			const isWatch = !!resolvedConfig?.build?.watch
+
 			if (isFirstBuild) {
 				isFirstBuild = false
+				// Write initial stamp so the browser has a baseline on first load
+				if (isWatch) writeStamp(resolvedConfig)
 				return
 			}
+
+			if (isWatch) writeStamp(resolvedConfig)
 			notifyFrappeReload(changedFiles)
 		},
 	}
+}
+
+function writeStamp(config: ResolvedConfig) {
+	try {
+		const outDir = config.build.outDir
+		writeFileSync(`${outDir}/build-stamp.json`, JSON.stringify({ ts: Date.now() }))
+	} catch (_) {}
 }
 
 async function notifyFrappeReload(changedFiles: string[]) {

@@ -16,6 +16,24 @@
 
     <script>window.csrf_token = '{{ csrf_token }}'</script>
     <script type="module" src="/assets/timeclock/dist/js/job_timeclock/index.js"></script>
+    {% if developer_mode %}
+    <script>
+    (function () {
+      var last = null;
+      function poll() {
+        fetch('/assets/timeclock/dist/js/job_timeclock/build-stamp.json?_=' + Date.now(), { cache: 'no-store' })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (last !== null && d.ts !== last) { window.location.reload(); }
+            last = d.ts;
+          })
+          .catch(function () {})
+          .finally(function () { setTimeout(poll, 1500); });
+      }
+      poll();
+    })();
+    </script>
+    {% endif %}
 </body>
 
 </html>

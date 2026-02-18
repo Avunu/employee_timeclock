@@ -337,8 +337,8 @@ export default defineComponent({
         //    this.employeeLoggedIn= true;
         //}
 
-        await this.getWorkOrders();
-        await this.getActiveTimer();
+        this.getWorkOrders();
+        this.getActiveTimer();
         this.fetchWorkstations();
       } else {
         console.log("Sorry! You are not authenticated.");
