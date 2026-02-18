@@ -725,7 +725,13 @@ export default defineComponent({
     watch(
       () => this.token,
       (newToken, oldToken) => {
-        if (newToken && newToken !== oldToken) {
+        if (!newToken) return;
+        // Always update the expiration/timer so the session clock reflects refreshed tokens
+        const tokenData: any = jwtDecode(String(newToken));
+        this.tokenExpiration = tokenData.exp * 1000;
+        this.resetTimer(this.tokenExpiration - Date.now());
+        // Only do a full decode (set employee info + log) on fresh login
+        if (!oldToken) {
           this.decodeToken();
         }
       },
