@@ -26,22 +26,6 @@
       <div class="flex items-end justify-between gap-2 mt-1">
         <div class="flex-1 min-w-0">
           <p class="text-sm text-gray-500">{{ workOrder.name }}</p>
-          <p
-            v-if="workOrder.planned_time_mins > 0"
-            class="text-xs mt-0.5 font-mono"
-            :class="isOverrun ? 'text-red-500' : 'text-gray-400'"
-          >
-            {{ formatMins(workOrder.logged_time_mins) }} /
-            {{ formatMins(workOrder.planned_time_mins) }}
-            <span v-if="isOverrun">
-              · +{{
-                formatMins(
-                  workOrder.logged_time_mins - workOrder.planned_time_mins,
-                )
-              }}
-              overrun
-            </span>
-          </p>
         </div>
         <!-- Donut progress chart – click.stop prevents re-triggering card click -->
         <div

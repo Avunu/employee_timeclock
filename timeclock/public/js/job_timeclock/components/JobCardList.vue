@@ -14,15 +14,22 @@
     </template>
 
     <!-- Overall Work Order Progress -->
-    <div v-if="totalPlannedMins > 0" class="mb-4">
-      <Progress :value="progressPercent" size="lg" :hint="true">
-        <template #hint>
-          <span class="text-sm font-medium" :class="progressHintClass">
-            {{ formatMins(totalLoggedMins) }} /
-            {{ formatMins(totalPlannedMins) }}
-          </span>
-        </template>
-      </Progress>
+    <div v-if="totalPlannedMins > 0" class="mb-4 space-y-1.5">
+      <!-- Time summary -->
+      <p class="text-sm font-mono font-medium" :class="progressHintClass">
+        {{ formatMins(totalLoggedMins) }} / {{ formatMins(totalPlannedMins) }}
+        <span v-if="isOverrun">
+          · +{{ formatMins(totalLoggedMins - totalPlannedMins) }} overrun
+        </span>
+      </p>
+      <!-- Custom progress bar: green normally, red on overrun -->
+      <div class="h-2 w-full rounded-full bg-gray-200 overflow-hidden">
+        <div
+          class="h-full rounded-full transition-all duration-300"
+          :class="isOverrun ? 'bg-red-500' : 'bg-green-500'"
+          :style="{ width: progressPercent + '%' }"
+        />
+      </div>
     </div>
 
     <div id="JobCards">
@@ -46,7 +53,7 @@
 import { defineComponent, computed } from "vue";
 import type { PropType } from "vue";
 
-import { Progress, Switch } from "frappe-ui";
+import { Switch } from "frappe-ui";
 import Column from "./Column.vue";
 import JobCardWidget from "./JobCardWidget.vue";
 import type { Operation, ActiveTimer } from "../types/JobCard";
@@ -56,7 +63,6 @@ export default defineComponent({
   components: {
     JobCardWidget,
     Column,
-    Progress,
     Switch,
   },
   props: {
@@ -116,8 +122,11 @@ export default defineComponent({
         100,
       );
     },
+    isOverrun(): boolean {
+      return this.totalLoggedMins > this.totalPlannedMins;
+    },
     progressHintClass(): string {
-      if (this.totalLoggedMins > this.totalPlannedMins) return "text-red-600";
+      if (this.isOverrun) return "text-red-600";
       if (this.progressPercent >= 80) return "text-orange-600";
       return "text-ink-gray-5";
     },
