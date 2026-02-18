@@ -6,14 +6,11 @@
   >
     <!-- Overall Work Order Progress -->
     <div v-if="totalPlannedMins > 0" class="mb-4">
-      <Progress
-        :value="progressPercent"
-        size="lg"
-        :hint="true"
-      >
+      <Progress :value="progressPercent" size="lg" :hint="true">
         <template #hint>
           <span class="text-sm font-medium" :class="progressHintClass">
-            {{ formatMins(totalLoggedMins) }} / {{ formatMins(totalPlannedMins) }}
+            {{ formatMins(totalLoggedMins) }} /
+            {{ formatMins(totalPlannedMins) }}
           </span>
         </template>
       </Progress>
@@ -70,17 +67,26 @@ export default defineComponent({
 
   computed: {
     totalPlannedMins(): number {
-      return this.operations.reduce((sum, op) => sum + (op.planned_time_mins || 0), 0);
+      return this.operations.reduce(
+        (sum, op) => sum + (op.planned_time_mins || 0),
+        0,
+      );
     },
     totalLoggedMins(): number {
       return this.operations.reduce(
-        (sum, op) => sum + (op.actual_time_mins || 0) + (op.corrective_total_time_mins || 0),
+        (sum, op) =>
+          sum +
+          (op.actual_time_mins || 0) +
+          (op.corrective_total_time_mins || 0),
         0,
       );
     },
     progressPercent(): number {
       if (this.totalPlannedMins <= 0) return 0;
-      return Math.min(Math.round((this.totalLoggedMins / this.totalPlannedMins) * 100), 100);
+      return Math.min(
+        Math.round((this.totalLoggedMins / this.totalPlannedMins) * 100),
+        100,
+      );
     },
     progressHintClass(): string {
       if (this.totalLoggedMins > this.totalPlannedMins) return "text-red-600";

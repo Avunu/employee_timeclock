@@ -444,6 +444,7 @@ def get_operations(token: str, work_order: str, workstations: str = "[]") -> dic
 		return {"status": "error", "message": str(e)}
 
 	import json as _json
+
 	try:
 		ws_list: list[str] = _json.loads(workstations) if workstations else []
 	except (ValueError, TypeError):

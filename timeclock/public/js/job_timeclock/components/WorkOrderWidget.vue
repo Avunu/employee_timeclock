@@ -2,7 +2,7 @@
   <div :data-work-order="workOrder.name">
     <Card
       :title="workOrder.production_item"
-      :subtitle="selected ? undefined : workOrder.name"
+      :subtitle="workOrder.name"
       @click="click"
       :class="{
         '!bg-blue-100': isSelected && !isActive,

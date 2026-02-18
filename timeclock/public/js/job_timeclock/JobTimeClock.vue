@@ -1,9 +1,14 @@
 <template>
   <div class="static h-screen flex z-0">
     <header class="z-10 block rounded-lg bg-gray-300 fixed w-screen">
-      <div class="z-100 mx-auto px-4 py-6 lg:px-8 flex h-center items-center justify-between">
+      <div
+        class="z-100 mx-auto px-4 py-6 lg:px-8 flex h-center items-center justify-between"
+      >
         <!-- Job Timeclock Header -->
-        <button class="text-4xl font-bold tracking-tight text-gray-900" @click="refresh_page">
+        <button
+          class="text-4xl font-bold tracking-tight text-gray-900"
+          @click="refresh_page"
+        >
           {{ header }}
         </button>
 
@@ -12,33 +17,61 @@
         <!-- v-if="activeSession" @click="log_out_employee(token)">Clock Out</button>-->
 
         <!-- Active Timer Indicator -->
-        <div v-if="activeSession && activeTimer"
-          class="flex items-center gap-3 rounded-lg px-4 py-2 ring-2 cursor-pointer" :class="activeTimer.is_corrective
+        <div
+          v-if="activeSession && activeTimer"
+          class="flex items-center gap-3 rounded-lg px-4 py-2 ring-2 cursor-pointer"
+          :class="
+            activeTimer.is_corrective
               ? 'ring-orange-500 bg-orange-50 hover:bg-orange-100'
               : 'ring-green-500 bg-green-50 hover:bg-green-100'
-            " @click="navigateToActiveTimer">
-          <span class="font-semibold text-lg lg:text-2xl truncate" :class="activeTimer.is_corrective ? 'text-orange-700' : 'text-green-700'
-            ">
+          "
+          @click="navigateToActiveTimer"
+        >
+          <span
+            class="font-semibold text-lg lg:text-2xl truncate"
+            :class="
+              activeTimer.is_corrective ? 'text-orange-700' : 'text-green-700'
+            "
+          >
             {{ activeTimer.operation }}
           </span>
-          <span class="font-mono text-xl lg:text-2xl font-bold" :class="activeTimer.is_corrective ? 'text-orange-800' : 'text-green-800'
-            ">
+          <span
+            class="font-mono text-xl lg:text-2xl font-bold"
+            :class="
+              activeTimer.is_corrective ? 'text-orange-800' : 'text-green-800'
+            "
+          >
             {{ headerElapsedTime }}
           </span>
-          <span v-if="activeTimer.is_corrective" class="text-orange-600 text-sm font-semibold">
+          <span
+            v-if="activeTimer.is_corrective"
+            class="text-orange-600 text-sm font-semibold"
+          >
             REWORK
           </span>
         </div>
 
-        <SessionTimer :employeeName="employeeName" :tokenExpiration="tokenExpiration" v-if="activeSession" />
+        <SessionTimer
+          :employeeName="employeeName"
+          :tokenExpiration="tokenExpiration"
+          v-if="activeSession"
+        />
         <!-- Sign Out Icon Button -->
-        <button v-if="activeSession" @click="switchEmployee" class="p-3 rounded-lg hover:bg-gray-200 transition-colors"
-          title="Sign Out">
+        <button
+          v-if="activeSession"
+          @click="switchEmployee"
+          class="p-3 rounded-lg hover:bg-gray-200 transition-colors"
+          title="Sign Out"
+        >
           <IconLogOut class="w-8 h-8 text-gray-700" />
         </button>
         <!-- Settings Icon Button -->
-        <button v-if="activeSession" @click="isSidebarOpen = true"
-          class="p-3 rounded-lg hover:bg-gray-200 transition-colors" title="Settings">
+        <button
+          v-if="activeSession"
+          @click="isSidebarOpen = true"
+          class="p-3 rounded-lg hover:bg-gray-200 transition-colors"
+          title="Settings"
+        >
           <IconSettings class="w-8 h-8 text-gray-700" />
         </button>
       </div>
@@ -46,19 +79,38 @@
 
     <!-- Settings Sidebar -->
     <transition name="sidebar">
-      <div v-if="isSidebarOpen && activeSession" class="fixed inset-0 z-50 flex justify-end"
-        @click.self="isSidebarOpen = false">
+      <div
+        v-if="isSidebarOpen && activeSession"
+        class="fixed inset-0 z-50 flex justify-end"
+        @click.self="isSidebarOpen = false"
+      >
         <!-- Backdrop -->
-        <div class="absolute inset-0 bg-black bg-opacity-50" @click="isSidebarOpen = false"></div>
+        <div
+          class="absolute inset-0 bg-black bg-opacity-50"
+          @click="isSidebarOpen = false"
+        ></div>
 
         <!-- Sidebar Content -->
         <div class="relative w-80 h-full bg-white shadow-2xl flex flex-col">
           <!-- Sidebar Header -->
           <div class="flex items-center justify-between p-6 border-b">
             <h2 class="text-2xl font-bold text-gray-900">Settings</h2>
-            <button @click="isSidebarOpen = false" class="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-              <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            <button
+              @click="isSidebarOpen = false"
+              class="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <svg
+                class="w-6 h-6 text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -71,9 +123,16 @@
                   Workstations
                 </h3>
                 <div v-if="availableWorkstations.length" class="space-y-2">
-                  <div v-for="ws in availableWorkstations" :key="ws" class="w-full">
-                    <Checkbox :label="ws" :modelValue="workstations.includes(ws)"
-                      @update:modelValue="toggleWorkstation(ws, $event)" />
+                  <div
+                    v-for="ws in availableWorkstations"
+                    :key="ws"
+                    class="w-full"
+                  >
+                    <Checkbox
+                      :label="ws"
+                      :modelValue="workstations.includes(ws)"
+                      @update:modelValue="toggleWorkstation(ws, $event)"
+                    />
                   </div>
                 </div>
                 <p v-else class="text-sm text-gray-500">Loading…</p>
@@ -82,31 +141,50 @@
           </div>
 
           <!-- Sidebar Footer: Device Info -->
-          <div class="border-t p-4 bg-gray-50 text-xs text-gray-500 space-y-1 font-mono">
+          <div
+            class="border-t p-4 bg-gray-50 text-xs text-gray-500 space-y-1 font-mono"
+          >
             <div class="flex justify-between">
               <span class="font-semibold text-gray-600">IP</span>
-              <span>{{ deviceIp || '—' }}</span>
+              <span>{{ deviceIp || "—" }}</span>
             </div>
             <div class="flex justify-between">
               <span class="font-semibold text-gray-600">MAC</span>
-              <span>{{ deviceMac || '—' }}</span>
+              <span>{{ deviceMac || "—" }}</span>
             </div>
           </div>
         </div>
       </div>
     </transition>
 
-    <main class="z-0 flex w-full overflow-hidden my-16 pt-16" v-if="activeSession">
+    <main
+      class="z-0 flex w-full overflow-hidden my-16 pt-16"
+      v-if="activeSession"
+    >
       <!-- When session is active -->
       <!-- Work Orders Section -->
-      <WorkOrderList class="z-0" :workOrders="workOrders" :selectedWorkOrder="selectedWorkOrder"
+      <WorkOrderList
+        class="z-0"
+        :workOrders="workOrders"
+        :selectedWorkOrder="selectedWorkOrder"
         :activeWorkOrder="activeTimer?.work_order ?? null"
-        :activeTimerIsCorrective="activeTimer?.is_corrective ?? false" @select="selectWorkOrder" />
+        :activeTimerIsCorrective="activeTimer?.is_corrective ?? false"
+        @select="selectWorkOrder"
+      />
       <!-- Job Cards Section -->
       <transition name="job_card_list">
-        <JobCardList class="z-0" name="job_cards_comp" :operations="operations" :activeTimer="activeTimer"
-          v-if="selectedWorkOrder" :workOrder="selectedWorkOrder!.name" @start-task="handleStartTask"
-          @stop-task="handleStopTask" @start-rework="handleStartRework" @stop-rework="handleStopRework" />
+        <JobCardList
+          class="z-0"
+          name="job_cards_comp"
+          :operations="operations"
+          :activeTimer="activeTimer"
+          v-if="selectedWorkOrder"
+          :workOrder="selectedWorkOrder!.name"
+          @start-task="handleStartTask"
+          @stop-task="handleStopTask"
+          @start-rework="handleStartRework"
+          @stop-rework="handleStopRework"
+        />
       </transition>
     </main>
 
@@ -158,7 +236,9 @@ import type {
   GetActiveTimerResponse,
   GetWorkOrdersResponse,
   StartTimerResponse,
-  StopTimerResponse,  GetDeviceInfoResponse,} from "./types/api";
+  StopTimerResponse,
+  GetDeviceInfoResponse,
+} from "./types/api";
 
 export default defineComponent({
   name: "JobTimeClock",
@@ -796,8 +876,8 @@ export default defineComponent({
   transition: opacity 0.3s ease;
 }
 
-.sidebar-enter-active>div:last-child,
-.sidebar-leave-active>div:last-child {
+.sidebar-enter-active > div:last-child,
+.sidebar-leave-active > div:last-child {
   transition: transform 0.3s ease;
 }
 
@@ -806,8 +886,8 @@ export default defineComponent({
   opacity: 0;
 }
 
-.sidebar-enter-from>div:last-child,
-.sidebar-leave-to>div:last-child {
+.sidebar-enter-from > div:last-child,
+.sidebar-leave-to > div:last-child {
   transform: translateX(100%);
 }
 </style>
