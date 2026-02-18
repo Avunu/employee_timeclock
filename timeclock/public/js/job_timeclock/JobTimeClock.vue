@@ -199,6 +199,7 @@
           name="job_cards_comp"
           :operations="operations"
           :activeTimer="activeTimer"
+          :workstations="workstations"
           v-if="selectedWorkOrder"
           :workOrder="selectedWorkOrder!.name"
           @start-task="handleStartTask"

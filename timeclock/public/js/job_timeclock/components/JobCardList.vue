@@ -4,6 +4,15 @@
     description="Select a job card to start the timer"
     class="w-1/2"
   >
+    <template #actions>
+      <Switch
+        v-if="workstations.length > 0"
+        v-model="filterByWorkstation"
+        label="My Station"
+        size="sm"
+      />
+    </template>
+
     <!-- Overall Work Order Progress -->
     <div v-if="totalPlannedMins > 0" class="mb-4">
       <Progress :value="progressPercent" size="lg" :hint="true">
@@ -19,7 +28,7 @@
     <div id="JobCards">
       <JobCardWidget
         name="job_card_widget"
-        v-for="op in operations"
+        v-for="op in filteredOperations"
         :key="op.name"
         :operation="op"
         :activeTimer="activeTimer"
@@ -37,7 +46,7 @@
 import { defineComponent, computed } from "vue";
 import type { PropType } from "vue";
 
-import { Progress } from "frappe-ui";
+import { Progress, Switch } from "frappe-ui";
 import Column from "./Column.vue";
 import JobCardWidget from "./JobCardWidget.vue";
 import type { Operation, ActiveTimer } from "../types/JobCard";
@@ -48,10 +57,15 @@ export default defineComponent({
     JobCardWidget,
     Column,
     Progress,
+    Switch,
   },
   props: {
     operations: {
       type: Array as PropType<Operation[]>,
+      default: () => [],
+    },
+    workstations: {
+      type: Array as PropType<string[]>,
       default: () => [],
     },
     activeTimer: {
@@ -65,7 +79,21 @@ export default defineComponent({
   },
   emits: ["start-task", "stop-task", "start-rework", "stop-rework"],
 
+  data(): { filterByWorkstation: boolean } {
+    return {
+      filterByWorkstation: true,
+    };
+  },
+
   computed: {
+    filteredOperations(): Operation[] {
+      if (!this.filterByWorkstation || this.workstations.length === 0) {
+        return this.operations;
+      }
+      return this.operations.filter((op) =>
+        this.workstations.includes(op.workstation),
+      );
+    },
     totalPlannedMins(): number {
       return this.operations.reduce(
         (sum, op) => sum + (op.planned_time_mins || 0),
