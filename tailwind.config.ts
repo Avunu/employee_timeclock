@@ -1,9 +1,9 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
-  // presets: [
-  //   require('frappe-ui/src/utils/tailwind.config')
-  // ],
+  presets: [
+    require('./node_modules/frappe-ui/tailwind/preset.js'),
+  ],
   content: [
     "./timeclock/public/js/**/*.{html,vue,js,ts,jsx,tsx}",
     "./timeclock/www/**/*.{html,vue,js,ts,jsx,tsx}",

@@ -27,7 +27,7 @@ defineOptions({ name: "Button", inheritAttrs: false });
 const props = defineProps<ButtonProps>();
 
 const localClasses = computed(() => {
-  const classes: string[] = ["font-semibold", "min-h-[3rem]"];
+  const classes: string[] = ["font-semibold", "min-h-[3rem]", "px-6", "py-3"];
 
   if (props.variant === "outline") {
     classes.push("!border-2");

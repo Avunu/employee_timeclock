@@ -111,7 +111,7 @@
               {{ reworkElapsedTime }}
             </span>
             <span
-              class="text-orange-400 text-xs ml-2"
+              class="text-orange-400 text-lg ml-2"
               v-if="operation.corrective_employee_time_mins > 0"
             >
               Your total:
