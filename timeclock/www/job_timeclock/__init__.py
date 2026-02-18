@@ -169,8 +169,8 @@ def refresh_token(employee_id: str) -> str:
 	return token
 
 
-@frappe.whitelist(allow_guest=True)
 @rate_limit(limit=1, seconds=1)
+@frappe.whitelist(allow_guest=True)
 def authenticate_employee(rfid: str) -> dict[str, Any]:
 	"""
 	Authenticate an employee using their RFID badge.
@@ -370,8 +370,8 @@ def log_out_employee(token: str, time: str) -> dict[str, Any]:
 		return {"status": "unsuccessful", "log": new_log}
 
 
-@frappe.whitelist(allow_guest=True)
 @rate_limit(limit=1, seconds=1)
+@frappe.whitelist(allow_guest=True)
 def get_work_orders(token: str) -> dict[str, Any]:
 	"""
 	Retrieve all active work orders for display in the job timeclock.
@@ -411,8 +411,8 @@ def get_work_orders(token: str) -> dict[str, Any]:
 	return {"status": "success", "token": token, "work_orders": work_orders}
 
 
-@frappe.whitelist(allow_guest=True)
 @rate_limit(limit=4, seconds=1)
+@frappe.whitelist(allow_guest=True)
 def get_operations(token: str, work_order: str, workstations: str = "[]") -> dict[str, Any]:
 	"""
 	Retrieve all operations for a work order with aggregated time totals.
@@ -798,8 +798,8 @@ def check_for_erp_log_in() -> dict[str, Any]:
 		return {"user_id": frappe.session.user}
 
 
-@frappe.whitelist(allow_guest=True)
 @rate_limit(limit=4, seconds=1)
+@frappe.whitelist(allow_guest=True)
 def get_workstations() -> dict[str, Any]:
 	"""
 	Retrieve all workstations for the workstation selector dropdown.

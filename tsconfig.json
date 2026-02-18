@@ -30,6 +30,7 @@
   },
   "include": [
     "*.ts",
+    "*.d.ts",
     "timeclock/public/js/**/*.ts",
     "timeclock/public/js/**/*.d.ts",
     "timeclock/public/js/**/*.vue"
