@@ -75,18 +75,18 @@
         >
           <div>
             <span
-              class="text-gray-500 w-full"
+              class="text-green-600 w-full"
               v-if="operation.actual_time_mins > 0"
             >
               {{ formatMins(operation.actual_time_mins) }} logged
             </span>
           </div>
           <div class="text-right">
-            <span class="text-gray-700 font-mono text-lg" v-if="taskStarted">
+            <span class="text-green-700 font-mono text-lg" v-if="taskStarted">
               {{ elapsedTime }}
             </span>
             <span
-              class="text-gray-400 text-lg ml-2"
+              class="text-green-500 text-lg ml-2"
               v-if="operation.employee_time_mins > 0"
             >
               Your total: {{ formatMins(operation.employee_time_mins) }}
