@@ -58,10 +58,32 @@
           </div>
         </div>
       </div>
-      <!-- Subtitle -->
-      <p class="mt-1.5 text-base text-gray-600" v-if="operation.workstation">
-        {{ operation.workstation }}
-      </p>
+      <!-- Progress bar -->
+      <div v-if="operation.planned_time_mins > 0" class="mt-3 space-y-1">
+        <div class="flex justify-between text-lg" :class="progressHintClass">
+          <span
+            >Estimated Time: {{ formatMins(operation.planned_time_mins) }}</span
+          >
+          <span v-if="isOverrun"
+            >+{{
+              formatMins(totalLoggedMins - operation.planned_time_mins)
+            }}
+            overrun</span
+          >
+        </div>
+        <div class="h-2 w-full rounded-full bg-gray-200 overflow-hidden flex">
+          <div
+            class="h-full bg-green-500 transition-all duration-300"
+            :class="{ 'rounded-full': !isOverrun, 'rounded-l-full': isOverrun }"
+            :style="{ width: progressPercent + '%' }"
+          />
+          <div
+            v-if="isOverrun"
+            class="h-full rounded-r-full bg-red-500 transition-all duration-300"
+            :style="{ width: overrunPercent + '%' }"
+          />
+        </div>
+      </div>
       <!-- Time data body -->
       <div class="mt-4 flex flex-col gap-2 text-lg" v-if="hasTimeData">
         <!-- Regular Time Row -->
@@ -193,6 +215,36 @@ export default defineComponent({
         this.operation.employee_time_mins > 0 ||
         this.operation.corrective_employee_time_mins > 0
       );
+    },
+    totalLoggedMins(): number {
+      return (
+        (this.operation.actual_time_mins || 0) +
+        (this.operation.corrective_total_time_mins || 0)
+      );
+    },
+    progressPercent(): number {
+      if (this.operation.planned_time_mins <= 0) return 0;
+      if (this.totalLoggedMins <= this.operation.planned_time_mins) {
+        return Math.round(
+          (this.totalLoggedMins / this.operation.planned_time_mins) * 100,
+        );
+      }
+      // On overrun: green shows planned as proportion of total logged
+      return Math.round(
+        (this.operation.planned_time_mins / this.totalLoggedMins) * 100,
+      );
+    },
+    overrunPercent(): number {
+      if (!this.isOverrun) return 0;
+      return 100 - this.progressPercent;
+    },
+    isOverrun(): boolean {
+      return this.totalLoggedMins > this.operation.planned_time_mins;
+    },
+    progressHintClass(): string {
+      if (this.isOverrun) return "text-red-600";
+      if (this.progressPercent >= 80) return "text-orange-600";
+      return "text-ink-gray-5";
     },
   },
 

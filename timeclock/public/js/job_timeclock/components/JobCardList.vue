@@ -16,18 +16,24 @@
     <!-- Overall Work Order Progress -->
     <div v-if="totalPlannedMins > 0" class="mb-4 space-y-1.5">
       <!-- Time summary -->
-      <p class="text-sm font-mono font-medium" :class="progressHintClass">
-        {{ formatMins(totalLoggedMins) }} / {{ formatMins(totalPlannedMins) }}
+      <p class="text-lg font-medium" :class="progressHintClass">
+        {{ formatMins(totalLoggedMins) }} logged of
+        {{ formatMins(totalPlannedMins) }} estimated
         <span v-if="isOverrun">
           · +{{ formatMins(totalLoggedMins - totalPlannedMins) }} overrun
         </span>
       </p>
-      <!-- Custom progress bar: green normally, red on overrun -->
-      <div class="h-2 w-full rounded-full bg-gray-200 overflow-hidden">
+      <!-- Custom progress bar: green normally, green+red split on overrun -->
+      <div class="h-2 w-full rounded-full bg-gray-200 overflow-hidden flex">
         <div
-          class="h-full rounded-full transition-all duration-300"
-          :class="isOverrun ? 'bg-red-500' : 'bg-green-500'"
+          class="h-full bg-green-500 transition-all duration-300"
+          :class="{ 'rounded-full': !isOverrun, 'rounded-l-full': isOverrun }"
           :style="{ width: progressPercent + '%' }"
+        />
+        <div
+          v-if="isOverrun"
+          class="h-full rounded-r-full bg-red-500 transition-all duration-300"
+          :style="{ width: overrunPercent + '%' }"
         />
       </div>
     </div>
@@ -117,10 +123,15 @@ export default defineComponent({
     },
     progressPercent(): number {
       if (this.totalPlannedMins <= 0) return 0;
-      return Math.min(
-        Math.round((this.totalLoggedMins / this.totalPlannedMins) * 100),
-        100,
-      );
+      if (this.totalLoggedMins <= this.totalPlannedMins) {
+        return Math.round((this.totalLoggedMins / this.totalPlannedMins) * 100);
+      }
+      // On overrun: green shows planned as proportion of total logged
+      return Math.round((this.totalPlannedMins / this.totalLoggedMins) * 100);
+    },
+    overrunPercent(): number {
+      if (!this.isOverrun) return 0;
+      return 100 - this.progressPercent;
     },
     isOverrun(): boolean {
       return this.totalLoggedMins > this.totalPlannedMins;
