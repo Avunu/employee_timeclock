@@ -2,6 +2,7 @@ import datetime
 from typing import Any, cast
 
 import frappe
+import getmac
 import jwt
 from erpnext.manufacturing.doctype.job_card.job_card import JobCard
 from erpnext.manufacturing.doctype.job_card_time_log.job_card_time_log import (
@@ -14,7 +15,8 @@ from frappe.rate_limiter import rate_limit
 from frappe.utils.data import get_datetime
 
 from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
-from timeclock.timeclock.www.job_time_tracker.models import (
+from timeclock.www.job_time_tracker.models import (
+	ActiveTimer,
 	AuthenticateEmployeeResponse,
 	CheckErpLoginResponse,
 	EmployeeCheckinResponse,
@@ -23,9 +25,11 @@ from timeclock.timeclock.www.job_time_tracker.models import (
 	GetOperationsResponse,
 	GetWorkOrdersResponse,
 	GetWorkstationsResponse,
+	Operation,
 	StartTimerResponse,
 	StopTimerResponse,
 	SubmitJobCardResponse,
+	WorkOrder,
 )
 
 # import secret key from site_config.json
@@ -184,7 +188,7 @@ def refresh_token(employee_id: str) -> str:
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=1, seconds=1)
-def authenticate_employee(rfid: str) -> dict:
+def authenticate_employee(rfid: str) -> AuthenticateEmployeeResponse:
 	"""
 	Authenticate an employee using their RFID badge.
 
@@ -297,7 +301,7 @@ def get_employee_for_user() -> str | None:
 
 
 @frappe.whitelist(allow_guest=True)
-def log_in_employee(time: str, token: str | None = None) -> dict:
+def log_in_employee(time: str, token: str | None = None) -> EmployeeCheckinResponse:
 	"""
 	Log an employee's clock-in (IN) time.
 
@@ -344,7 +348,7 @@ def log_in_employee(time: str, token: str | None = None) -> dict:
 
 # Issue with logout. The log is made but _unsaved = True. so its not passing to workday management
 @frappe.whitelist(allow_guest=True)
-def log_out_employee(token: str, time: str) -> dict:
+def log_out_employee(token: str, time: str) -> EmployeeCheckinResponse:
 	"""
 	Log an employee's clock-out (OUT) time.
 
@@ -384,7 +388,7 @@ def log_out_employee(token: str, time: str) -> dict:
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=1, seconds=1)
-def get_work_orders(token: str) -> dict:
+def get_work_orders(token: str) -> GetWorkOrdersResponse:
 	"""
 	Retrieve all active work orders for display in the job timeclock.
 
@@ -451,16 +455,25 @@ def get_work_orders(token: str) -> dict:
 		.where(WorkOrders.status.isin(["Submitted", "Not Started", "In Process"]))
 	).run(as_dict=True)
 
-	for wo in work_orders:
-		wo["planned_time_mins"] = float(wo.get("planned_time_mins", 0))
-		wo["logged_time_mins"] = float(wo.get("logged_time_mins", 0))
-
-	return GetWorkOrdersResponse(status="success", token=token, work_orders=work_orders).model_dump()
+	return GetWorkOrdersResponse(
+		status="success",
+		token=token,
+		work_orders=[
+			WorkOrder(
+				name=wo["name"],
+				production_item=wo["production_item"],
+				status=wo["status"],
+				planned_time_mins=float(wo.get("planned_time_mins", 0)),
+				logged_time_mins=float(wo.get("logged_time_mins", 0)),
+			)
+			for wo in work_orders
+		],
+	).model_dump()
 
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=4, seconds=1)
-def get_operations(token: str, work_order: str, workstations: str = "[]") -> dict:
+def get_operations(token: str, work_order: str, workstations: str = "[]") -> GetOperationsResponse:
 	"""
 	Retrieve all operations for a work order with aggregated time totals.
 
@@ -554,18 +567,18 @@ def get_operations(token: str, work_order: str, workstations: str = "[]") -> dic
 		.orderby(WOOp.idx)
 	).run(as_dict=True)
 
-	operations: list[dict[str, Any]] = [
-		{
-			"name": row["work_order_operation"],
-			"operation": row["operation"],
-			"workstation": row.get("workstation", ""),
-			"planned_time_mins": float(row.get("planned_time_mins", 0)),
-			"actual_time_mins": float(row.get("actual_time_mins", 0)),
-			"employee_time_mins": float(row.get("employee_time_mins", 0)),
-			"corrective_total_time_mins": float(row.get("corrective_total_time_mins", 0)),
-			"corrective_employee_time_mins": float(row.get("corrective_employee_time_mins", 0)),
-			"is_submitted": int(row.get("regular_docstatus", 0)) == 1,
-		}
+	operations = [
+		Operation(
+			name=row["work_order_operation"],
+			operation=row["operation"],
+			workstation=row.get("workstation", ""),
+			planned_time_mins=float(row.get("planned_time_mins", 0)),
+			actual_time_mins=float(row.get("actual_time_mins", 0)),
+			employee_time_mins=float(row.get("employee_time_mins", 0)),
+			corrective_total_time_mins=float(row.get("corrective_total_time_mins", 0)),
+			corrective_employee_time_mins=float(row.get("corrective_employee_time_mins", 0)),
+			is_submitted=int(row.get("regular_docstatus", 0)) == 1,
+		)
 		for row in results
 	]
 
@@ -623,7 +636,7 @@ def _close_open_time_logs(employee_id: str, close_time: str) -> int:
 
 
 @frappe.whitelist(allow_guest=True)
-def get_active_timer(token: str) -> dict:
+def get_active_timer(token: str) -> GetActiveTimerResponse:
 	"""
 	Get the currently running timer for the authenticated employee.
 
@@ -674,12 +687,12 @@ def get_active_timer(token: str) -> dict:
 	active_timer = None
 	if result:
 		row = result[0]
-		active_timer = {
-			"work_order": row["work_order"],
-			"operation": row["operation"],
-			"from_time": row["from_time"],
-			"is_corrective": bool(row["is_corrective_job_card"]),
-		}
+		active_timer = ActiveTimer(
+			work_order=row["work_order"],
+			operation=row["operation"],
+			from_time=row["from_time"],
+			is_corrective=bool(row["is_corrective_job_card"]),
+		)
 
 	return GetActiveTimerResponse(status="success", token=token, active_timer=active_timer).model_dump()
 
@@ -691,7 +704,7 @@ def start_timer(
 	operation: str,
 	start_time: str,
 	is_corrective: bool = False,
-) -> dict:
+) -> StartTimerResponse:
 	"""
 	Start a timer on a job card (regular or corrective).
 
@@ -784,7 +797,7 @@ def stop_timer(
 	employee_id: str,
 	end_time: str,
 	**_kwargs: Any,
-) -> dict:
+) -> StopTimerResponse:
 	"""
 	Stop all running timers for an employee.
 
@@ -819,7 +832,7 @@ def stop_timer(
 
 
 @frappe.whitelist(allow_guest=True)
-def check_for_erp_log_in() -> dict:
+def check_for_erp_log_in() -> CheckErpLoginResponse:
 	"""
 	Check if a user is logged into the ERP system.
 
@@ -838,18 +851,18 @@ def check_for_erp_log_in() -> dict:
 	Raises:
 		None
 	"""
-	if frappe.session.user != "Guest":
+	user_id: str = frappe.session.user or "Guest"
+	if user_id != "Guest":
 		return CheckErpLoginResponse(
-			user_id=frappe.session.user,
-			employee_id=frappe.get_value("Employee", {"user_id": frappe.session.user}, "name"),
+			user_id=user_id,
+			employee_id=frappe.get_value("Employee", {"user_id": user_id}, "name"),
 		).model_dump()
-	else:
-		return CheckErpLoginResponse(user_id=frappe.session.user).model_dump()
+	return CheckErpLoginResponse(user_id=user_id).model_dump()
 
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=4, seconds=1)
-def get_workstations() -> dict:
+def get_workstations() -> GetWorkstationsResponse:
 	"""
 	Retrieve all workstations for the workstation selector dropdown.
 
@@ -867,7 +880,7 @@ def get_workstations() -> dict:
 
 
 @frappe.whitelist(allow_guest=True)
-def get_device_info() -> dict:
+def get_device_info() -> GetDeviceInfoResponse:
 	"""Return the requesting client's IP address and MAC address.
 
 	The IP is read from the incoming request.  The MAC address is resolved
@@ -883,8 +896,6 @@ def get_device_info() -> dict:
 	ip: str = frappe.local.request_ip or ""
 	mac: str = ""
 	try:
-		import getmac  # type: ignore[import]
-
 		mac = getmac.get_mac_address(ip=ip) or ""
 	except Exception:
 		pass
@@ -893,7 +904,7 @@ def get_device_info() -> dict:
 
 
 @frappe.whitelist(allow_guest=True)
-def submit_jobcard(jobCard: dict[str, Any], complete_time: str, employee_id: str) -> dict:
+def submit_jobcard(jobCard: dict[str, Any], complete_time: str, employee_id: str) -> SubmitJobCardResponse:
 	"""
 	Complete and submit a job card by closing all open time logs.
 

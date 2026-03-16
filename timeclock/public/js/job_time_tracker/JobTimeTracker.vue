@@ -239,18 +239,19 @@ declare global {
 import AuthorizationMessage from "./components/AuthorizationMessage.vue";
 import SessionTimer from "./components/SessionTimer.vue";
 import WorkOrderList from "./components/WorkOrderList.vue";
-import type { WorkOrder } from "./types/WorkOrder";
 import JobCardList from "./components/JobCardList.vue";
-import type { Operation, ActiveTimer } from "./types/JobCard";
-import type { Employee } from "./types/Employee";
 import Button from "./components/Button.vue";
 import { Checkbox, toast, Toast, Sidebar } from "frappe-ui";
-import type { GetWorkstationsResponse } from "./types/api";
+import type { GetWorkstationsResponse } from "./types";
 import IconSettings from "~icons/lucide/settings";
 import IconLogOut from "~icons/lucide/log-out";
 
-import { dateToFrappeDateTimeString } from "./types/FrappeDateTime";
+import { dateToFrappeDateTimeString } from "./utils";
 import type {
+  Employee,
+  WorkOrder,
+  Operation,
+  ActiveTimer,
   AuthenticateEmployeeResponse,
   CheckErpLoginResponse,
   EmployeeCheckinResponse,
@@ -260,7 +261,7 @@ import type {
   StartTimerResponse,
   StopTimerResponse,
   GetDeviceInfoResponse,
-} from "./types/api";
+} from "./types";
 
 export default defineComponent({
   name: "JobTimeTracker",
