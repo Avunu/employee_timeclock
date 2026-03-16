@@ -1,6 +1,6 @@
 /**
  * API Response types for the Job Timeclock backend.
- * These interfaces match the return types from timeclock.www.job_timeclock
+ * These interfaces match the return types from timeclock.www.job_time_tracker
  */
 
 import type { Operation, JobCardTimeLog, ActiveTimer } from './JobCard';
@@ -70,6 +70,7 @@ export interface StopTimerResponse extends BaseResponse {
 /** check_for_erp_log_in response */
 export interface CheckErpLoginResponse {
     user_id: string;
+    employee_id?: string;
 }
 
 /** submit_jobcard response */

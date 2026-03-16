@@ -3,7 +3,7 @@
     "target": "ESNext",
     "useDefineForClassFields": true,
     "module": "ESNext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "strict": false,
     "strictNullChecks": false,
     "jsx": "preserve",
@@ -21,7 +21,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["timeclock/public/js/*"],
-      "@job_timeclock/*": ["timeclock/public/js/job_timeclock/*"],
+      "@job_time_tracker/*": ["timeclock/public/js/job_time_tracker/*"],
       "@timeclock/*": ["timeclock/public/js/timeclock/*"],
       "frappe-ui/src/*": ["node_modules/frappe-ui/src/*"]
     }

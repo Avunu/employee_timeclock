@@ -57,7 +57,7 @@ export default defineComponent({
     async submit_login(email: string, password: string) {
       // Needs to be built out and fully verified.
       const response = await frappeCall<VerifyLoginResponse>(
-        "timeclock.www.job_timeclock.verify_login",
+        "timeclock.www.job_time_tracker.verify_login",
         { email, password },
       );
       if (response.status === "success") {

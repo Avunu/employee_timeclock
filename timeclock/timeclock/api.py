@@ -241,17 +241,17 @@ def submit_checkin(web_form: Any, data: str) -> LogType:
 	if checkin_exists:
 		checkin = cast(EmployeeCheckin, frappe.get_doc("Employee Checkin", checkin_exists[0]["name"]))
 		# update the checkin
-		checkin.time = checkin_time  # type: ignore[assignment]
+		checkin.time = checkin_time
 		checkin.save(ignore_permissions=True)
 		frappe.db.commit()
 	else:
 		# create the checkin
 		checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
-		checkin.employee = parsed_data["employee"]  # type: ignore[assignment]
-		checkin.time = checkin_time  # type: ignore[assignment]
+		checkin.employee = parsed_data["employee"]
+		checkin.time = checkin_time
 		checkin.log_type = parsed_data["log_type"]
-		checkin.manual_override = parsed_data["manual_override"]  # type: ignore[assignment]
-		checkin.device_id = parsed_data["device_id"]  # type: ignore[assignment]
+		checkin.manual_override = parsed_data["manual_override"]
+		checkin.device_id = parsed_data["device_id"]
 		checkin.insert(ignore_permissions=True)
 		# update the workday
 		update_workday_from_checkin(checkin)
@@ -269,7 +269,7 @@ def enqueue_update_workday_from_checkin(checkin: EmployeeCheckin, method: str | 
 @frappe.whitelist(allow_guest=True)
 def workday_update_total_hours(workday: Workday, method: str | None = None) -> Workday:
 	_ = method  # Explicitly mark as intentionally unused
-	workday.last_modified = now()  # type: ignore[assignment]
+	workday.last_modified = now()
 	date = workday.date
 	date_str: str
 	if isinstance(date, datetime.datetime):
@@ -366,26 +366,26 @@ def update_checkins_from_workday(workday: Workday, method: str | None = None) ->
 					checkin = cast(
 						EmployeeCheckin, frappe.get_doc("Employee Checkin", existing_checkins[i - 1]["name"])
 					)
-					checkin.workday = workday.name  # type: ignore[assignment]
+					checkin.workday = workday.name
 					# check to see if the checkin needs to be updated by comparing the times
 					if checkin.time != check_in_out_time:
 						if checkin.workday_override == 0:
 							checkin.workday_override = 1
-							checkin.overridden_time = checkin.time  # type: ignore[assignment]
-						checkin.time = check_in_out_time  # type: ignore[assignment]
-						checkin.workday_modified = now()  # type: ignore[assignment]
+							checkin.overridden_time = checkin.time
+						checkin.time = check_in_out_time
+						checkin.workday_modified = now()
 						checkin.db_update()
 						frappe.db.commit()
 				else:
 					# create a new checkin
 					new_checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
-					new_checkin.employee = employee  # type: ignore[assignment]
-					new_checkin.time = check_in_out_time  # type: ignore[assignment]
+					new_checkin.employee = employee
+					new_checkin.time = check_in_out_time
 					# Cast log_type.upper() to the expected Literal type
 					new_checkin.log_type = cast(LogType, log_type.upper())
 					new_checkin.device_id = "Workday Management"
-					new_checkin.workday = workday.name  # type: ignore[assignment]
-					new_checkin.workday_modified = now()  # type: ignore[assignment]
+					new_checkin.workday = workday.name
+					new_checkin.workday_modified = now()
 					new_checkin.db_insert(ignore_if_duplicate=True)
 			else:
 				# if the check in time is blank delete the corresponding check in
@@ -415,16 +415,16 @@ def submit_checkin2(data: str) -> None:
 		# DO WE NEED THIS? THE EMPLOYEE AND TIME ARE ALREADY IN...
 		checkin = cast(EmployeeCheckin, frappe.get_doc("Employee Checkin", checkin_exists[0]["name"]))
 		# update the checkin
-		checkin.time = checkin_time  # type: ignore[assignment]
+		checkin.time = checkin_time
 		checkin.save(ignore_permissions=True)
 		frappe.db.commit()
 	else:
 		# create the checkin
 		checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
-		checkin.employee = parsed_data["employee"]  # type: ignore[assignment]
-		checkin.time = checkin_time  # type: ignore[assignment]
+		checkin.employee = parsed_data["employee"]
+		checkin.time = checkin_time
 		checkin.log_type = parsed_data["log_type"]
-		checkin.manual_override = parsed_data["manual_override"]  # type: ignore[assignment]
+		checkin.manual_override = parsed_data["manual_override"]
 		checkin.device_id = parsed_data["device_id"]
 		checkin.insert(ignore_permissions=True)
 		# update the workday

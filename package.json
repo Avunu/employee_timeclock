@@ -46,10 +46,10 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "VITE_APP=timeclock vite build && VITE_APP=job_timeclock vite build",
-    "build:job_timeclock": "VITE_APP=job_timeclock vite build",
+    "build": "VITE_APP=timeclock vite build && VITE_APP=job_time_tracker vite build",
+    "build:job_time_tracker": "VITE_APP=job_time_tracker vite build",
     "build:timeclock": "VITE_APP=timeclock vite build",
-    "dev:job_timeclock": "VITE_APP=job_timeclock vite build --watch",
+    "dev:job_time_tracker": "VITE_APP=job_time_tracker vite build --watch",
     "dev:timeclock": "VITE_APP=timeclock vite build --watch",
     "npx:upgrade": "npx npm-check-updates -u && yarn install"
   },

@@ -278,6 +278,17 @@ def extract_employee_from_token(token: str) -> tuple[str, str]:
 		frappe.throw(_("Invalid token. Please re-authenticate."), exc=frappe.AuthenticationError)
 		raise  # This line will never be reached but satisfies type checker
 
+
+def get_employee_for_user() -> str | None:
+	"""Get the Employee ID linked to the current session user
+
+	Returns:
+		The linked Employee ID, or None if no link exists
+	"""
+	if not frappe.session.user or frappe.session.user == "Guest":
+		return None
+	return frappe.get_value("Employee", {"user_id": frappe.session.user}, "name")
+
 	# return {
 	#     "status": "success",
 	#     "last_checkin": last_checkin[0] if last_checkin else None,
@@ -286,7 +297,7 @@ def extract_employee_from_token(token: str) -> tuple[str, str]:
 
 
 @frappe.whitelist(allow_guest=True)
-def log_in_employee(token: str, time: str) -> dict[str, Any]:
+def log_in_employee(time: str, token: str | None = None) -> dict[str, Any]:
 	"""
 	Log an employee's clock-in (IN) time.
 
@@ -306,9 +317,14 @@ def log_in_employee(token: str, time: str) -> dict[str, Any]:
 		None: Catches exceptions and returns unsuccessful status
 	"""
 
-	employee_id, token = extract_employee_from_token(token)
+	if token:
+		employee_id, token = extract_employee_from_token(token)
+	else:
+		employee_id = get_employee_for_user()
+		if not employee_id:
+			return {"status": "error", "message": ("No employee linked to current user")}
 
-	new_log = EmployeeCheckin("Employee Checkin", {})
+	new_log = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
 	new_log.employee = employee_id
 	new_log.time = time
 	new_log.log_type = "IN"
@@ -353,7 +369,7 @@ def log_out_employee(token: str, time: str) -> dict[str, Any]:
 	"""
 	employee_id, token = extract_employee_from_token(token)
 
-	new_log = EmployeeCheckin("Employee Checkin", {})
+	new_log = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
 	new_log.employee = employee_id
 	new_log.time = time
 	new_log.log_type = "OUT"
@@ -818,6 +834,8 @@ def check_for_erp_log_in() -> dict[str, Any]:
 	Determines whether the current session belongs to an authenticated user
 	or a guest visitor by examining the frappe session.
 
+	If a session user is authenticated, returns their user ID; and any associated Employee ID
+
 	Args:
 		None
 
@@ -829,7 +847,10 @@ def check_for_erp_log_in() -> dict[str, Any]:
 		None
 	"""
 	if frappe.session.user != "Guest":
-		return {"user_id": frappe.session.user}
+		return {
+			"user_id": frappe.session.user,
+			"employee_id": frappe.get_value("Employee", {"user_id": frappe.session.user}, "name"),
+		}
 	else:
 		return {"user_id": frappe.session.user}
 

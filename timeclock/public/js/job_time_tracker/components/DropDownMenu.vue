@@ -53,7 +53,7 @@ export default defineComponent({
     async fetchWorkstations(): Promise<void> {
       try {
         const response = await frappeCall<GetWorkstationsResponse>(
-          "timeclock.timeclock.www.job_timeclock.get_workstations",
+          "timeclock.timeclock.www.job_time_tracker.get_workstations",
         );
         if (response.status === "success" && response.workstations) {
           this.workstations = response.workstations;

@@ -37,7 +37,7 @@ import { useStorage } from "@vueuse/core";
 import { jwtDecode } from "jwt-decode";
 import onScan from "onscan.js";
 import { frappeCall } from "../FrappeCall";
-import { dateToFrappeDateTimeString } from "../job_timeclock/types/FrappeDateTime";
+import { dateToFrappeDateTimeString } from "../job_time_tracker/types/FrappeDateTime";
 
 // import sub components
 import AuthorizationMessage from "./components/AuthorizationMessage.vue";
