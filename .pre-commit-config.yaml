@@ -25,7 +25,7 @@ repos:
         exclude: '/doctype/[^/]+/[^/]+\.py$'
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.1
+    rev: v0.15.6
     hooks:
       - id: ruff
         name: "Run ruff import sorter"
@@ -53,7 +53,7 @@ repos:
             )$
 
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v10.0.0
+    rev: v10.0.3
     hooks:
       - id: eslint
         types_or: [javascript]
