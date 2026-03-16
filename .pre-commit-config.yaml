@@ -1,0 +1,87 @@
+exclude: 'node_modules|.git'
+default_stages: [pre-commit]
+fail_fast: false
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        files: "timeclock.*"
+        exclude: ".*json$|.*txt$|.*csv|.*md|.*svg"
+      - id: check-merge-conflict
+      - id: check-ast
+      - id: check-json
+      - id: check-toml
+      - id: check-yaml
+      - id: debug-statements
+
+  # ssort to sort methods source files
+  - repo: https://github.com/bwhmather/ssort
+    rev: 0.16.0
+    hooks:
+      - id: ssort
+        # Exclude auto-generated Frappe DocType files
+        exclude: '/doctype/[^/]+/[^/]+\.py$'
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.6
+    hooks:
+      - id: ruff
+        name: "Run ruff import sorter"
+        args: ["--select=I", "--fix"]
+        # exclude the legacy job_timeclock files
+        exclude: '^timeclock/www/job_timeclock/.*$'
+
+      - id: ruff
+        name: "Run ruff linter"
+        # exclude the legacy job_timeclock files
+        exclude: '^timeclock/www/job_timeclock/.*$'
+
+      - id: ruff-format
+        name: "Run ruff formatter"
+        # exclude the legacy job_timeclock files
+        exclude: '^timeclock/www/job_timeclock/.*$'
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        files: "timeclock.*"
+        types_or: [javascript, vue, scss]
+        exclude: |
+            (?x)^(
+                timeclock/public/dist/.*|
+                .*node_modules.*|
+                .*boilerplate.*|
+                timeclock/templates/includes/.*|
+                timeclock/public/js/lib/.*
+            )$
+
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v10.0.3
+    hooks:
+      - id: eslint
+        types_or: [javascript]
+        args: ['--quiet']
+        additional_dependencies: 
+          - eslint
+          - jiti
+          - globals
+          - typescript
+          - typescript-eslint
+        exclude: |
+            (?x)^(
+                .*job_timeclock.*|
+                timeclock/public/dist/.*|
+                cypress/.*|
+                .*node_modules.*|
+                .*boilerplate.*|
+                timeclock/templates/includes/.*|
+                timeclock/public/js/lib/.*|
+            )$
+
+ci:
+    autoupdate_schedule: weekly
+    skip: []
+    submodules: false

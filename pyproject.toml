@@ -5,7 +5,15 @@ description = "Timeclock app for ERPNext"
 requires-python = ">=3.10"
 readme = "README.md"
 dynamic = ["version"]
-dependencies = ["getmac"]
+dependencies = [
+    "getmac",
+    "pydantic>=2.12.5",
+]
+
+[dependency-groups]
+dev = [
+    "pydantic-to-typescript>=2.0.0",
+]
 
 [build-system]
 requires = ["flit_core >=3.4,<4"]
@@ -14,3 +22,28 @@ build-backend = "flit_core.buildapi"
 # These dependencies are only installed when developer mode is enabled
 [tool.bench.dev-dependencies]
 # package_name = "~=1.1.0"
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "F",
+    "E",
+    "W",
+    "I",
+    "UP",
+    "B",
+]
+ignore = [
+    "B017", # assertRaises(Exception) - should be more specific
+    "E501", # line too long
+    "W191", # indentation contains tabs
+]
+typing-modules = ["frappe.types.DF"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "tab"
+docstring-code-format = true

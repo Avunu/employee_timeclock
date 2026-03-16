@@ -4,11 +4,9 @@
 <head>
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.png" />
-	{% if colocated_css -%}
-        <style>{{ colocated_css }}</style>
-    {%- endif %}
+    <link rel="stylesheet" href="/assets/timeclock/dist/js/timeclock/index.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Jobs Timeclock App</title>
+    <title>Timeclock App</title>
 </head>
 
 <body>
@@ -17,7 +15,7 @@
     <div id="popovers"></div>
 
     <script>window.csrf_token = '{{ csrf_token }}'</script>
-    <script>{{ colocated_js }}</script>
+    <script type="module" src="/assets/timeclock/dist/js/timeclock/index.js"></script>
 </body>
 
 </html>
