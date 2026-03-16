@@ -16,7 +16,7 @@ import { defineComponent } from "vue";
 import { useStorage } from "@vueuse/core";
 import { Dropdown } from "frappe-ui";
 import { frappeCall } from "../../FrappeCall";
-import type { GetWorkstationsResponse } from "../types/api";
+import type { GetWorkstationsResponse } from "../types";
 
 export default defineComponent({
   name: "DropDownMenu",

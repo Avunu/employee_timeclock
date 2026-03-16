@@ -1,9 +1,12 @@
+.devenv
+.direnv
 .DS_Store
 *.egg-info
 *.pyc
 *.swp
 dist
 node_modules
+package-lock.json
+result
 tags
 timeclock/docs/current
-package-lock.json

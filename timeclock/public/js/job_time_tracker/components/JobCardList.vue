@@ -62,7 +62,7 @@ import type { PropType } from "vue";
 import { Switch } from "frappe-ui";
 import Column from "./Column.vue";
 import JobCardWidget from "./JobCardWidget.vue";
-import type { Operation, ActiveTimer } from "../types/JobCard";
+import type { Operation, ActiveTimer } from "../types";
 
 export default defineComponent({
   name: "JobCards",

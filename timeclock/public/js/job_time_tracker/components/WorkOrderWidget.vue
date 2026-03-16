@@ -47,7 +47,7 @@
 <script lang="ts">
 import { defineComponent } from "vue";
 import type { PropType } from "vue";
-import type { WorkOrder } from "../types/WorkOrder";
+import type { WorkOrder } from "../types";
 import { Badge } from "frappe-ui";
 import VuePlotly from "vue3-plotly-ts";
 

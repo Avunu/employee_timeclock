@@ -26,7 +26,7 @@
 import { defineComponent } from "vue";
 import { Card, Button } from "frappe-ui";
 import { frappeCall } from "../../FrappeCall";
-import type { VerifyLoginResponse } from "../types/api";
+import type { VerifyLoginResponse } from "../types";
 
 export default defineComponent({
   name: "LogInModule",

@@ -14,6 +14,19 @@ from frappe.rate_limiter import rate_limit
 from frappe.utils.data import get_datetime
 
 from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
+from timeclock.timeclock.www.job_time_tracker.models import (
+	AuthenticateEmployeeResponse,
+	CheckErpLoginResponse,
+	EmployeeCheckinResponse,
+	GetActiveTimerResponse,
+	GetDeviceInfoResponse,
+	GetOperationsResponse,
+	GetWorkOrdersResponse,
+	GetWorkstationsResponse,
+	StartTimerResponse,
+	StopTimerResponse,
+	SubmitJobCardResponse,
+)
 
 # import secret key from site_config.json
 SECRET_KEY = frappe.get_site_config().get("encryption_key")
@@ -171,7 +184,7 @@ def refresh_token(employee_id: str) -> str:
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=1, seconds=1)
-def authenticate_employee(rfid: str) -> dict[str, Any]:
+def authenticate_employee(rfid: str) -> dict:
 	"""
 	Authenticate an employee using their RFID badge.
 
@@ -196,7 +209,7 @@ def authenticate_employee(rfid: str) -> dict[str, Any]:
 	employee_id = frappe.get_value("Attendance Device ID", {"id": rfid}, "parent")
 
 	if not employee_id:
-		return {"status": "error", "message": ("Invalid RFID")}
+		return AuthenticateEmployeeResponse(status="error", message="Invalid RFID").model_dump()
 
 	# If valid, generate a JWT
 	token = refresh_token(str(employee_id))
@@ -212,26 +225,13 @@ def authenticate_employee(rfid: str) -> dict[str, Any]:
 		.run(pluck="log_type")
 	)
 
-	# get the last Job Card Time Log where there is no to_time to see if a timer is running
-	# open_job_card_time_log = frappe.get_list("Job Card Time Log",
-	#                                             filters={"employee": employee_id,
-	#                                                      "to_time": None},
-	#                                             order_by="modified desc",
-	#                                             limit=1,
-	#                                             ignore_permissions=True,
-	#                                             pluck="name")
-
-	# if (open_job_card_time_log):
-	#     open_job_card_name = frappe.get_value("Job Card Time Log", open_job_card_time_log, "parent")
-	#     open_job_card = frappe.get_doc("Job Card", open_job_card_name)
-
 	# check to see if there is any Job Card Time Log that was started but not ended
 
-	return {
-		"status": "success",
-		"last_checkin": last_checkin[0] if last_checkin else None,
-		"token": token,
-	}
+	return AuthenticateEmployeeResponse(
+		status="success",
+		last_checkin=last_checkin[0] if last_checkin else None,
+		token=token,
+	).model_dump()
 
 
 def extract_employee_from_token(token: str) -> tuple[str, str]:
@@ -297,7 +297,7 @@ def get_employee_for_user() -> str | None:
 
 
 @frappe.whitelist(allow_guest=True)
-def log_in_employee(time: str, token: str | None = None) -> dict[str, Any]:
+def log_in_employee(time: str, token: str | None = None) -> dict:
 	"""
 	Log an employee's clock-in (IN) time.
 
@@ -322,7 +322,9 @@ def log_in_employee(time: str, token: str | None = None) -> dict[str, Any]:
 	else:
 		employee_id = get_employee_for_user()
 		if not employee_id:
-			return {"status": "error", "message": ("No employee linked to current user")}
+			return EmployeeCheckinResponse(
+				status="error", message="No employee linked to current user"
+			).model_dump()
 
 	new_log = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
 	new_log.employee = employee_id
@@ -335,20 +337,14 @@ def log_in_employee(time: str, token: str | None = None) -> dict[str, Any]:
 	except Exception as _e:
 		pass
 	if new_log:
-		return {"status": "success", "log": new_log}
+		return EmployeeCheckinResponse(status="success", log=new_log).model_dump()
 	else:
-		return {"status": "unsuccessful", "log": new_log}
-
-	# try:
-	#     new_log.insert(ignore_permissions= True)
-	#     return {"status":"success", "log": new_log}
-	# except:
-	#     return {"status":"unsuccessful", "log": new_log}
+		return EmployeeCheckinResponse(status="unsuccessful", log=new_log).model_dump()
 
 
 # Issue with logout. The log is made but _unsaved = True. so its not passing to workday management
 @frappe.whitelist(allow_guest=True)
-def log_out_employee(token: str, time: str) -> dict[str, Any]:
+def log_out_employee(token: str, time: str) -> dict:
 	"""
 	Log an employee's clock-out (OUT) time.
 
@@ -381,14 +377,14 @@ def log_out_employee(token: str, time: str) -> dict[str, Any]:
 	except Exception as _e:
 		pass
 	if new_log:
-		return {"status": "success", "log": new_log}
+		return EmployeeCheckinResponse(status="success", log=new_log).model_dump()
 	else:
-		return {"status": "unsuccessful", "log": new_log}
+		return EmployeeCheckinResponse(status="unsuccessful", log=new_log).model_dump()
 
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=1, seconds=1)
-def get_work_orders(token: str) -> dict[str, Any]:
+def get_work_orders(token: str) -> dict:
 	"""
 	Retrieve all active work orders for display in the job timeclock.
 
@@ -413,7 +409,7 @@ def get_work_orders(token: str) -> dict[str, Any]:
 	try:
 		employee_id, token = extract_employee_from_token(token)
 	except Exception as e:
-		return {"status": "error", "message": str(e)}
+		return GetWorkOrdersResponse(status="error", message=str(e)).model_dump()
 
 	# Get work orders with aggregated planned and logged times in a single query
 	WorkOrders = DocType("Work Order")
@@ -459,12 +455,12 @@ def get_work_orders(token: str) -> dict[str, Any]:
 		wo["planned_time_mins"] = float(wo.get("planned_time_mins", 0))
 		wo["logged_time_mins"] = float(wo.get("logged_time_mins", 0))
 
-	return {"status": "success", "token": token, "work_orders": work_orders}
+	return GetWorkOrdersResponse(status="success", token=token, work_orders=work_orders).model_dump()
 
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=4, seconds=1)
-def get_operations(token: str, work_order: str, workstations: str = "[]") -> dict[str, Any]:
+def get_operations(token: str, work_order: str, workstations: str = "[]") -> dict:
 	"""
 	Retrieve all operations for a work order with aggregated time totals.
 
@@ -492,7 +488,7 @@ def get_operations(token: str, work_order: str, workstations: str = "[]") -> dic
 	try:
 		employee_id, token = extract_employee_from_token(token)
 	except Exception as e:
-		return {"status": "error", "message": str(e)}
+		return GetOperationsResponse(status="error", message=str(e)).model_dump()
 
 	import json as _json
 
@@ -573,11 +569,7 @@ def get_operations(token: str, work_order: str, workstations: str = "[]") -> dic
 		for row in results
 	]
 
-	return {
-		"status": "success",
-		"token": token,
-		"operations": operations,
-	}
+	return GetOperationsResponse(status="success", token=token, operations=operations).model_dump()
 
 
 def _close_open_time_logs(employee_id: str, close_time: str) -> int:
@@ -631,7 +623,7 @@ def _close_open_time_logs(employee_id: str, close_time: str) -> int:
 
 
 @frappe.whitelist(allow_guest=True)
-def get_active_timer(token: str) -> dict[str, Any]:
+def get_active_timer(token: str) -> dict:
 	"""
 	Get the currently running timer for the authenticated employee.
 
@@ -654,7 +646,7 @@ def get_active_timer(token: str) -> dict[str, Any]:
 	try:
 		employee_id, token = extract_employee_from_token(token)
 	except Exception as e:
-		return {"status": "error", "message": str(e)}
+		return GetActiveTimerResponse(status="error", message=str(e)).model_dump()
 
 	JC = DocType("Job Card")
 	TL = DocType("Job Card Time Log")
@@ -679,7 +671,7 @@ def get_active_timer(token: str) -> dict[str, Any]:
 		.limit(1)
 	).run(as_dict=True)
 
-	active_timer: dict[str, Any] | None = None
+	active_timer = None
 	if result:
 		row = result[0]
 		active_timer = {
@@ -689,7 +681,7 @@ def get_active_timer(token: str) -> dict[str, Any]:
 			"is_corrective": bool(row["is_corrective_job_card"]),
 		}
 
-	return {"status": "success", "token": token, "active_timer": active_timer}
+	return GetActiveTimerResponse(status="success", token=token, active_timer=active_timer).model_dump()
 
 
 @frappe.whitelist(allow_guest=True)
@@ -699,7 +691,7 @@ def start_timer(
 	operation: str,
 	start_time: str,
 	is_corrective: bool = False,
-) -> dict[str, Any]:
+) -> dict:
 	"""
 	Start a timer on a job card (regular or corrective).
 
@@ -726,7 +718,7 @@ def start_timer(
 	# Resolve the original (non-corrective) job card
 	jobcard_name = _resolve_job_card_name(work_order, operation) or ""
 	if not jobcard_name:
-		return {"status": "failed", "error": "Job card not found for this operation"}
+		return StartTimerResponse(status="failed", error="Job card not found for this operation").model_dump()
 
 	# Determine effective employee (machine ops use machine employee)
 	log_employee = employee_id
@@ -780,11 +772,11 @@ def start_timer(
 			job_card.append("time_logs", {"from_time": start_time, "employee": log_employee})
 			job_card.save(ignore_permissions=True)
 
-		return {"status": "success"}
+		return StartTimerResponse(status="success").model_dump()
 
 	except Exception as e:
 		frappe.log_error("Error in start_timer", e)
-		return {"status": "failed", "error": str(e)}
+		return StartTimerResponse(status="failed", error=str(e)).model_dump()
 
 
 @frappe.whitelist(allow_guest=True)
@@ -792,7 +784,7 @@ def stop_timer(
 	employee_id: str,
 	end_time: str,
 	**_kwargs: Any,
-) -> dict[str, Any]:
+) -> dict:
 	"""
 	Stop all running timers for an employee.
 
@@ -818,16 +810,16 @@ def stop_timer(
 	try:
 		closed = _close_open_time_logs(employee_id, end_time)
 		if closed == 0:
-			return {"status": "failed", "error": "No active time log found"}
-		return {"status": "success"}
+			return StopTimerResponse(status="failed", error="No active time log found").model_dump()
+		return StopTimerResponse(status="success").model_dump()
 
 	except Exception as e:
 		frappe.log_error("Error in stop_timer", e)
-		return {"status": "failed", "error": str(e)}
+		return StopTimerResponse(status="failed", error=str(e)).model_dump()
 
 
 @frappe.whitelist(allow_guest=True)
-def check_for_erp_log_in() -> dict[str, Any]:
+def check_for_erp_log_in() -> dict:
 	"""
 	Check if a user is logged into the ERP system.
 
@@ -847,17 +839,17 @@ def check_for_erp_log_in() -> dict[str, Any]:
 		None
 	"""
 	if frappe.session.user != "Guest":
-		return {
-			"user_id": frappe.session.user,
-			"employee_id": frappe.get_value("Employee", {"user_id": frappe.session.user}, "name"),
-		}
+		return CheckErpLoginResponse(
+			user_id=frappe.session.user,
+			employee_id=frappe.get_value("Employee", {"user_id": frappe.session.user}, "name"),
+		).model_dump()
 	else:
-		return {"user_id": frappe.session.user}
+		return CheckErpLoginResponse(user_id=frappe.session.user).model_dump()
 
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=4, seconds=1)
-def get_workstations() -> dict[str, Any]:
+def get_workstations() -> dict:
 	"""
 	Retrieve all workstations for the workstation selector dropdown.
 
@@ -871,11 +863,11 @@ def get_workstations() -> dict[str, Any]:
 	WS = DocType("Workstation")
 	workstations: list[str] = (frappe.qb.from_(WS).select(WS.name).orderby(WS.name)).run(pluck="name")
 
-	return {"status": "success", "workstations": workstations}
+	return GetWorkstationsResponse(status="success", workstations=workstations).model_dump()
 
 
 @frappe.whitelist(allow_guest=True)
-def get_device_info() -> dict[str, Any]:
+def get_device_info() -> dict:
 	"""Return the requesting client's IP address and MAC address.
 
 	The IP is read from the incoming request.  The MAC address is resolved
@@ -897,11 +889,11 @@ def get_device_info() -> dict[str, Any]:
 	except Exception:
 		pass
 
-	return {"status": "success", "ip": ip, "mac": mac}
+	return GetDeviceInfoResponse(status="success", ip=ip, mac=mac).model_dump()
 
 
 @frappe.whitelist(allow_guest=True)
-def submit_jobcard(jobCard: dict[str, Any], complete_time: str, employee_id: str) -> dict[str, Any]:
+def submit_jobcard(jobCard: dict[str, Any], complete_time: str, employee_id: str) -> dict:
 	"""
 	Complete and submit a job card by closing all open time logs.
 
@@ -945,8 +937,7 @@ def submit_jobcard(jobCard: dict[str, Any], complete_time: str, employee_id: str
 
 		doc.save(ignore_permissions=True)
 		doc.submit()
-		return {"status": "success", "job_card": doc}
+		return SubmitJobCardResponse(status="success", job_card=doc).model_dump()
 
 	else:
-		error_message: str = "Log has unfinished times."
-		return {"status": "failed", "error_message": error_message}
+		return SubmitJobCardResponse(status="failed", error_message="Log has unfinished times.").model_dump()

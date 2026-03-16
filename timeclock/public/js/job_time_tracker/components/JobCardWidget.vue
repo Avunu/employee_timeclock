@@ -156,7 +156,7 @@
 import { defineComponent, watch } from "vue";
 import type { PropType } from "vue";
 import Button from "./Button.vue";
-import type { Operation, ActiveTimer } from "../types/JobCard";
+import type { Operation, ActiveTimer } from "../types";
 
 export default defineComponent({
   name: "JobCardWidget",

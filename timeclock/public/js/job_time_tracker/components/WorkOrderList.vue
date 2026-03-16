@@ -26,7 +26,7 @@
 import { defineComponent } from "vue";
 import type { PropType } from "vue";
 import WorkOrderWidget from "./WorkOrderWidget.vue";
-import type { WorkOrder } from "../types/WorkOrder";
+import type { WorkOrder } from "../types";
 import Column from "./Column.vue";
 
 export default defineComponent({

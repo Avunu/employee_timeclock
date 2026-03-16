@@ -5,7 +5,15 @@ description = "Timeclock app for ERPNext"
 requires-python = ">=3.10"
 readme = "README.md"
 dynamic = ["version"]
-dependencies = ["getmac"]
+dependencies = [
+    "getmac",
+    "pydantic>=2.12.5",
+]
+
+[dependency-groups]
+dev = [
+    "pydantic-to-typescript>=2.0.0",
+]
 
 [build-system]
 requires = ["flit_core >=3.4,<4"]
