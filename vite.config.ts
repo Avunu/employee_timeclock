@@ -83,10 +83,10 @@ const appConfigs: Record<string, AppConfig> = {
 		outDir: 'timeclock/public/dist/js/timeclock',
 		srcDir: 'timeclock/public/js/timeclock'
 	},
-	job_time_tracker: {
-		entry: 'job_time_tracker.ts',
-		outDir: 'timeclock/public/dist/js/job_time_tracker',
-		srcDir: 'timeclock/public/js/job_time_tracker'
+	project_tracker: {
+		entry: 'project_tracker.ts',
+		outDir: 'timeclock/public/dist/js/project_tracker',
+		srcDir: 'timeclock/public/js/project_tracker'
 	}
 }
 

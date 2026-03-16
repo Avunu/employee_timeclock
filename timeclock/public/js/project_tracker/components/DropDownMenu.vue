@@ -15,8 +15,7 @@
 import { defineComponent } from "vue";
 import { useStorage } from "@vueuse/core";
 import { Dropdown } from "frappe-ui";
-import { frappeCall } from "../../FrappeCall";
-import type { GetWorkstationsResponse } from "../types";
+import { api } from "../client";
 
 export default defineComponent({
   name: "DropDownMenu",
@@ -52,11 +51,9 @@ export default defineComponent({
 
     async fetchWorkstations(): Promise<void> {
       try {
-        const response = await frappeCall<GetWorkstationsResponse>(
-          "timeclock.timeclock.www.job_time_tracker.get_workstations",
-        );
-        if (response.status === "success" && response.workstations) {
-          this.workstations = response.workstations;
+        const workstations = await api.getWorkstations();
+        if (workstations.status === "success" && workstations.workstations) {
+          this.workstations = workstations.workstations;
         }
       } catch (error) {
         console.error("Failed to fetch workstations:", error);

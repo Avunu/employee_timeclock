@@ -69,6 +69,7 @@
           (
             { pkgs, ... }:
             {
+              packages = [ pkgs.yarn ];
               scripts = {
                 generate-types = {
                   exec = ''
@@ -76,8 +77,8 @@
                     set -e
                     cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
                     ${pydantic2tsEnv}/bin/pydantic2ts \
-                      --module timeclock/www/job_time_tracker/models.py \
-                      --output timeclock/public/js/job_time_tracker/types.ts \
+                      --module timeclock/www/project_tracker/models.py \
+                      --output timeclock/public/js/project_tracker/types.ts \
                       --json2ts-cmd "npx json2ts"
                   '';
                   packages = [ pkgs.nodejs_22 ];

@@ -346,7 +346,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that a valid RFID returns a success status and a JWT token
 		for subsequent authenticated requests.
 		"""
-		from timeclock.www.job_time_tracker import authenticate_employee
+		from timeclock.www.project_tracker.project_tracker import authenticate_employee
 
 		result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
 
@@ -361,7 +361,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that an unrecognized RFID returns an error status with
 		an appropriate error message.
 		"""
-		from timeclock.www.job_time_tracker import authenticate_employee
+		from timeclock.www.project_tracker.project_tracker import authenticate_employee
 
 		result: dict[str, Any] = authenticate_employee("INVALID_RFID_12345")
 
@@ -375,7 +375,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that after logging in, subsequent authentication calls
 		return the correct last_checkin status ("IN" or "OUT").
 		"""
-		from timeclock.www.job_time_tracker import authenticate_employee, log_in_employee
+		from timeclock.www.project_tracker.project_tracker import authenticate_employee, log_in_employee
 
 		# First authenticate to get a token
 		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
@@ -397,7 +397,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that log_in_employee creates an Employee Checkin record
 		with log_type "IN" for the authenticated employee.
 		"""
-		from timeclock.www.job_time_tracker import authenticate_employee, log_in_employee
+		from timeclock.www.project_tracker.project_tracker import authenticate_employee, log_in_employee
 
 		assert self._test_employee is not None
 
@@ -421,7 +421,11 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that log_out_employee creates an Employee Checkin record
 		with log_type "OUT" for the authenticated employee.
 		"""
-		from timeclock.www.job_time_tracker import authenticate_employee, log_in_employee, log_out_employee
+		from timeclock.www.project_tracker.project_tracker import (
+			authenticate_employee,
+			log_in_employee,
+			log_out_employee,
+		)
 
 		assert self._test_employee is not None
 
@@ -448,7 +452,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that get_work_orders returns a list of work orders
 		with status "Submitted", "Not Started", or "In Process".
 		"""
-		from timeclock.www.job_time_tracker import authenticate_employee, get_work_orders
+		from timeclock.www.project_tracker.project_tracker import authenticate_employee, get_work_orders
 
 		assert self._test_work_order is not None
 
@@ -475,7 +479,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that get_job_cards returns job cards associated with
 		the specified work order, including time log information.
 		"""
-		from timeclock.www.job_time_tracker import authenticate_employee, get_job_cards
+		from timeclock.www.project_tracker.project_tracker import authenticate_employee, get_job_cards
 
 		assert self._test_work_order is not None
 
@@ -499,7 +503,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that get_job_cards returns an empty list when the
 		specified work order has no associated job cards.
 		"""
-		from timeclock.www.job_time_tracker import authenticate_employee, get_job_cards
+		from timeclock.www.project_tracker.project_tracker import authenticate_employee, get_job_cards
 
 		# Get a valid token
 		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
@@ -518,7 +522,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that log_start_time_of_jobcard creates a new Job Card
 		Time Log entry with from_time set and to_time as None.
 		"""
-		from timeclock.www.job_time_tracker import log_start_time_of_jobcard
+		from timeclock.www.project_tracker.project_tracker import log_start_time_of_jobcard
 
 		assert self._test_employee is not None
 
@@ -556,7 +560,10 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that log_end_time_of_jobcard updates the last time log
 		entry with a to_time value, completing the time tracking.
 		"""
-		from timeclock.www.job_time_tracker import log_end_time_of_jobcard, log_start_time_of_jobcard
+		from timeclock.www.project_tracker.project_tracker import (
+			log_end_time_of_jobcard,
+			log_start_time_of_jobcard,
+		)
 
 		assert self._test_employee is not None
 
@@ -588,7 +595,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that when an employee starts time on a new job card,
 		any open time logs on other job cards are automatically closed.
 		"""
-		from timeclock.www.job_time_tracker import log_start_time_of_jobcard
+		from timeclock.www.project_tracker.project_tracker import log_start_time_of_jobcard
 
 		assert self._test_employee is not None
 		assert self._test_work_order is not None
@@ -645,7 +652,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that sort_jobcard_by_workstation correctly prioritizes
 		job cards whose operations match the specified workstation.
 		"""
-		from timeclock.www.job_time_tracker import sort_jobcard_by_workstation
+		from timeclock.www.project_tracker.project_tracker import sort_jobcard_by_workstation
 
 		job_cards: list[dict[str, str]] = [
 			{"operation": "Hand Sanding", "name": "JC-001"},
@@ -668,7 +675,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that sort_jobcard_by_workstation returns the original
 		list unchanged when no operations match the specified workstation.
 		"""
-		from timeclock.www.job_time_tracker import sort_jobcard_by_workstation
+		from timeclock.www.project_tracker.project_tracker import sort_jobcard_by_workstation
 
 		job_cards: list[dict[str, str]] = [
 			{"operation": "Unknown Operation", "name": "JC-001"},
@@ -688,7 +695,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that refresh_token generates a valid JWT token and that
 		extract_employee_from_token can decode it and return a new token.
 		"""
-		from timeclock.www.job_time_tracker import extract_employee_from_token, refresh_token
+		from timeclock.www.project_tracker.project_tracker import extract_employee_from_token, refresh_token
 
 		assert self._test_employee is not None
 
@@ -711,7 +718,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that extract_employee_from_token raises an
 		AuthenticationError when presented with an expired JWT token.
 		"""
-		from timeclock.www.job_time_tracker import SECRET_KEY, extract_employee_from_token
+		from timeclock.www.project_tracker.project_tracker import SECRET_KEY, extract_employee_from_token
 
 		assert self._test_employee is not None
 
@@ -738,7 +745,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that extract_employee_from_token raises an
 		AuthenticationError when presented with a malformed token.
 		"""
-		from timeclock.www.job_time_tracker import extract_employee_from_token
+		from timeclock.www.project_tracker.project_tracker import extract_employee_from_token
 
 		# Should raise authentication error for invalid token
 		with self.assertRaises(frappe.AuthenticationError):
@@ -751,7 +758,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that check_for_erp_log_in returns "Guest" as the
 		user_id when no user is logged into the ERP system.
 		"""
-		from timeclock.www.job_time_tracker import check_for_erp_log_in
+		from timeclock.www.project_tracker.project_tracker import check_for_erp_log_in
 
 		frappe.set_user("Guest")
 		result: dict[str, str] = check_for_erp_log_in()
@@ -765,7 +772,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that check_for_erp_log_in returns the correct
 		user_id when a user is logged into the ERP system.
 		"""
-		from timeclock.www.job_time_tracker import check_for_erp_log_in
+		from timeclock.www.project_tracker.project_tracker import check_for_erp_log_in
 
 		frappe.set_user("Administrator")
 		result: dict[str, str] = check_for_erp_log_in()
@@ -779,7 +786,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that submit_jobcard marks a job card as "Completed"
 		after all time logs have been properly closed.
 		"""
-		from timeclock.www.job_time_tracker import (
+		from timeclock.www.project_tracker.project_tracker import (
 			log_end_time_of_jobcard,
 			log_start_time_of_jobcard,
 			submit_jobcard,
@@ -850,7 +857,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that submit_jobcard automatically fills in missing to_time
 		values when a job card is submitted with open time logs.
 		"""
-		from timeclock.www.job_time_tracker import log_start_time_of_jobcard, submit_jobcard
+		from timeclock.www.project_tracker.project_tracker import log_start_time_of_jobcard, submit_jobcard
 
 		assert self._test_employee is not None
 		assert self._test_work_order is not None
@@ -909,7 +916,7 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that when logging time on machine operations (e.g., CNC Machine Time),
 		the time log uses the machine's employee ID instead of the human operator.
 		"""
-		from timeclock.www.job_time_tracker import log_start_time_of_jobcard
+		from timeclock.www.project_tracker.project_tracker import log_start_time_of_jobcard
 
 		assert self._test_employee is not None
 		assert self._test_work_order is not None

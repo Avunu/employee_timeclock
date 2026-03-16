@@ -15,10 +15,9 @@ from frappe.rate_limiter import rate_limit
 from frappe.utils.data import get_datetime
 
 from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
-from timeclock.www.job_time_tracker.models import (
+from timeclock.www.project_tracker.models import (
 	ActiveTimer,
 	AuthenticateEmployeeResponse,
-	CheckErpLoginResponse,
 	EmployeeCheckinResponse,
 	GetActiveTimerResponse,
 	GetDeviceInfoResponse,
@@ -29,6 +28,7 @@ from timeclock.www.job_time_tracker.models import (
 	StartTimerResponse,
 	StopTimerResponse,
 	SubmitJobCardResponse,
+	UserSessionEmployee,
 	WorkOrder,
 )
 
@@ -293,11 +293,34 @@ def get_employee_for_user() -> str | None:
 		return None
 	return frappe.get_value("Employee", {"user_id": frappe.session.user}, "name")
 
-	# return {
-	#     "status": "success",
-	#     "last_checkin": last_checkin[0] if last_checkin else None,
-	#     "open_job_card": open_job_card.name if open_job_card_time_log else None,
-	#     "token": token}
+
+def _resolve_employee(token: str | None = None) -> tuple[str, str | None]:
+	"""Resolve the current employee from Frappe session or JWT token.
+
+	Tries the Frappe session first (logged-in user with linked Employee).
+	Falls back to JWT token authentication if no session employee is found.
+
+	Args:
+		token: Optional JWT token for NFC/RFID authentication.
+
+	Returns:
+		Tuple of (employee_id, refreshed_token).  ``refreshed_token`` is
+		``None`` when authenticated via Frappe session.
+
+	Raises:
+		frappe.AuthenticationError: When neither mechanism can resolve an employee.
+	"""
+	# 1. Try Frappe session
+	employee_id = get_employee_for_user()
+	if employee_id:
+		return employee_id, None
+
+	# 2. Fall back to JWT token
+	if token:
+		return extract_employee_from_token(token)
+
+	frappe.throw(_("Authentication required."), exc=frappe.AuthenticationError)
+	raise  # unreachable but satisfies type checker
 
 
 @frappe.whitelist(allow_guest=True)
@@ -321,14 +344,12 @@ def log_in_employee(time: str, token: str | None = None) -> EmployeeCheckinRespo
 		None: Catches exceptions and returns unsuccessful status
 	"""
 
-	if token:
-		employee_id, token = extract_employee_from_token(token)
-	else:
-		employee_id = get_employee_for_user()
-		if not employee_id:
-			return EmployeeCheckinResponse(
-				status="error", message="No employee linked to current user"
-			).model_dump()
+	try:
+		employee_id, _token = _resolve_employee(token)
+	except Exception:
+		return EmployeeCheckinResponse(
+			status="error", message="No employee linked to current user"
+		).model_dump()
 
 	new_log = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
 	new_log.employee = employee_id
@@ -348,7 +369,7 @@ def log_in_employee(time: str, token: str | None = None) -> EmployeeCheckinRespo
 
 # Issue with logout. The log is made but _unsaved = True. so its not passing to workday management
 @frappe.whitelist(allow_guest=True)
-def log_out_employee(token: str, time: str) -> EmployeeCheckinResponse:
+def log_out_employee(time: str, token: str | None = None) -> EmployeeCheckinResponse:
 	"""
 	Log an employee's clock-out (OUT) time.
 
@@ -356,8 +377,8 @@ def log_out_employee(token: str, time: str) -> EmployeeCheckinResponse:
 	The checkin is created from the Job Timeclock Scanner device.
 
 	Args:
-		token: JWT authentication token for the employee
 		time: Timestamp string for the check-out time
+		token: Optional JWT authentication token for NFC auth
 
 	Returns:
 		Dict containing:
@@ -367,7 +388,10 @@ def log_out_employee(token: str, time: str) -> EmployeeCheckinResponse:
 	Raises:
 		None: Catches exceptions and returns unsuccessful status
 	"""
-	employee_id, token = extract_employee_from_token(token)
+	try:
+		employee_id, _token = _resolve_employee(token)
+	except Exception:
+		return EmployeeCheckinResponse(status="error", message="Authentication required").model_dump()
 
 	new_log = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
 	new_log.employee = employee_id
@@ -388,20 +412,20 @@ def log_out_employee(token: str, time: str) -> EmployeeCheckinResponse:
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=1, seconds=1)
-def get_work_orders(token: str) -> GetWorkOrdersResponse:
+def get_work_orders(token: str | None = None) -> GetWorkOrdersResponse:
 	"""
 	Retrieve all active work orders for display in the job timeclock.
 
 	Fetches work orders with status of "Submitted", "Not Started", or "In Process".
-	Authenticates the employee via JWT token before retrieving work orders.
+	Authenticates the employee via Frappe session or JWT token.
 
 	Args:
-		token: JWT authentication token for the employee
+		token: Optional JWT authentication token (NFC auth)
 
 	Returns:
 		Dict containing:
 			- status: "success" or "error"
-			- token: Refreshed JWT token
+			- token: Refreshed JWT token (None for session auth)
 			- work_orders: List of work order dicts with name, production_item, and status
 			- message: Error message if authentication failed
 
@@ -411,7 +435,7 @@ def get_work_orders(token: str) -> GetWorkOrdersResponse:
 	frappe.publish_realtime("test", "aye yooooo")
 
 	try:
-		employee_id, token = extract_employee_from_token(token)
+		employee_id, token = _resolve_employee(token)
 	except Exception as e:
 		return GetWorkOrdersResponse(status="error", message=str(e)).model_dump()
 
@@ -473,7 +497,9 @@ def get_work_orders(token: str) -> GetWorkOrdersResponse:
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=4, seconds=1)
-def get_operations(token: str, work_order: str, workstations: str = "[]") -> GetOperationsResponse:
+def get_operations(
+	work_order: str, workstations: str = "[]", token: str | None = None
+) -> GetOperationsResponse:
 	"""
 	Retrieve all operations for a work order with aggregated time totals.
 
@@ -485,21 +511,21 @@ def get_operations(token: str, work_order: str, workstations: str = "[]") -> Get
 	operations in their natural idx order.
 
 	Args:
-		token: JWT authentication token for the employee
 		work_order: Name/ID of the work order
 		workstations: JSON-encoded list of workstation names to prioritize
+		token: Optional JWT authentication token (NFC auth)
 
 	Returns:
 		Dict containing:
 			- status: "success" or "error"
-			- token: Refreshed JWT token
+			- token: Refreshed JWT token (None for session auth)
 			- operations: List of operation dicts with time totals
 
 	Raises:
 		None: Returns error dict on exception
 	"""
 	try:
-		employee_id, token = extract_employee_from_token(token)
+		employee_id, token = _resolve_employee(token)
 	except Exception as e:
 		return GetOperationsResponse(status="error", message=str(e)).model_dump()
 
@@ -636,7 +662,7 @@ def _close_open_time_logs(employee_id: str, close_time: str) -> int:
 
 
 @frappe.whitelist(allow_guest=True)
-def get_active_timer(token: str) -> GetActiveTimerResponse:
+def get_active_timer(token: str | None = None) -> GetActiveTimerResponse:
 	"""
 	Get the currently running timer for the authenticated employee.
 
@@ -644,12 +670,12 @@ def get_active_timer(token: str) -> GetActiveTimerResponse:
 	belonging to this employee or any of their machine employee IDs.
 
 	Args:
-		token: JWT authentication token for the employee
+		token: Optional JWT authentication token (NFC auth)
 
 	Returns:
 		Dict containing:
 			- status: "success" or "error"
-			- token: Refreshed JWT token
+			- token: Refreshed JWT token (None for session auth)
 			- active_timer: Dict with work_order, operation, from_time,
 				is_corrective (or None if no timer running)
 
@@ -657,7 +683,7 @@ def get_active_timer(token: str) -> GetActiveTimerResponse:
 		None: Returns error dict on exception
 	"""
 	try:
-		employee_id, token = extract_employee_from_token(token)
+		employee_id, token = _resolve_employee(token)
 	except Exception as e:
 		return GetActiveTimerResponse(status="error", message=str(e)).model_dump()
 
@@ -699,11 +725,11 @@ def get_active_timer(token: str) -> GetActiveTimerResponse:
 
 @frappe.whitelist(allow_guest=True)
 def start_timer(
-	employee_id: str,
 	work_order: str,
 	operation: str,
 	start_time: str,
 	is_corrective: bool = False,
+	token: str | None = None,
 ) -> StartTimerResponse:
 	"""
 	Start a timer on a job card (regular or corrective).
@@ -714,11 +740,11 @@ def start_timer(
 	Automatically clocks out the employee from any other active timers.
 
 	Args:
-		employee_id: The employee starting work
 		work_order: Work order name
 		operation: Operation name
 		start_time: Timestamp string for when work begins
 		is_corrective: Whether this is a corrective (rework) timer
+		token: Optional JWT authentication token (NFC auth)
 
 	Returns:
 		Dict containing:
@@ -728,6 +754,11 @@ def start_timer(
 	Raises:
 		None: Catches and logs exceptions
 	"""
+	try:
+		employee_id, _token = _resolve_employee(token)
+	except Exception as e:
+		return StartTimerResponse(status="failed", error=str(e)).model_dump()
+
 	# Resolve the original (non-corrective) job card
 	jobcard_name = _resolve_job_card_name(work_order, operation) or ""
 	if not jobcard_name:
@@ -794,8 +825,8 @@ def start_timer(
 
 @frappe.whitelist(allow_guest=True)
 def stop_timer(
-	employee_id: str,
 	end_time: str,
+	token: str | None = None,
 	**_kwargs: Any,
 ) -> StopTimerResponse:
 	"""
@@ -809,8 +840,8 @@ def stop_timer(
 	continue to work without error.
 
 	Args:
-		employee_id: The employee stopping work
 		end_time: Timestamp string for when work ends
+		token: Optional JWT authentication token (NFC auth)
 
 	Returns:
 		Dict containing:
@@ -820,6 +851,11 @@ def stop_timer(
 	Raises:
 		None: Catches and logs exceptions
 	"""
+	try:
+		employee_id, _token = _resolve_employee(token)
+	except Exception as e:
+		return StopTimerResponse(status="failed", error=str(e)).model_dump()
+
 	try:
 		closed = _close_open_time_logs(employee_id, end_time)
 		if closed == 0:
@@ -832,32 +868,47 @@ def stop_timer(
 
 
 @frappe.whitelist(allow_guest=True)
-def check_for_erp_log_in() -> CheckErpLoginResponse:
+def get_user_session_employee() -> UserSessionEmployee:
 	"""
 	Check if a user is logged into the ERP system.
 
 	Determines whether the current session belongs to an authenticated user
 	or a guest visitor by examining the frappe session.
 
-	If a session user is authenticated, returns their user ID; and any associated Employee ID
-
-	Args:
-		None
+	If a session user is authenticated, returns their user ID, any associated
+	Employee ID, the employee's display name, and last check-in status.
 
 	Returns:
 		Dict containing:
 			- user_id: The current user's ID or "Guest" if not logged in
-
-	Raises:
-		None
+			- employee_id: The linked Employee ID, if any
+			- employee_name: The employee's display name, if any
+			- last_checkin: The last check-in type ("IN" or "OUT"), if any
 	"""
 	user_id: str = frappe.session.user or "Guest"
 	if user_id != "Guest":
-		return CheckErpLoginResponse(
+		employee_id = frappe.get_value("Employee", {"user_id": user_id}, "name")
+		employee_name: str | None = None
+		last_checkin: str | None = None
+		if employee_id:
+			employee_name = frappe.get_value("Employee", employee_id, "employee_name")
+			EmployeeCheckinDT = DocType("Employee Checkin")
+			checkin_result: list[str] = (
+				frappe.qb.from_(EmployeeCheckinDT)
+				.select(EmployeeCheckinDT.log_type)
+				.where(EmployeeCheckinDT.employee == employee_id)
+				.orderby(EmployeeCheckinDT.modified, order=frappe.qb.desc)
+				.limit(1)
+				.run(pluck="log_type")
+			)
+			last_checkin = checkin_result[0] if checkin_result else None
+		return UserSessionEmployee(
 			user_id=user_id,
-			employee_id=frappe.get_value("Employee", {"user_id": user_id}, "name"),
+			employee_id=employee_id,
+			employee_name=employee_name,
+			last_checkin=last_checkin,
 		).model_dump()
-	return CheckErpLoginResponse(user_id=user_id).model_dump()
+	return UserSessionEmployee(user_id=user_id).model_dump()
 
 
 @frappe.whitelist(allow_guest=True)
@@ -904,7 +955,9 @@ def get_device_info() -> GetDeviceInfoResponse:
 
 
 @frappe.whitelist(allow_guest=True)
-def submit_jobcard(jobCard: dict[str, Any], complete_time: str, employee_id: str) -> SubmitJobCardResponse:
+def submit_jobcard(
+	jobCard: dict[str, Any], complete_time: str, token: str | None = None
+) -> SubmitJobCardResponse:
 	"""
 	Complete and submit a job card by closing all open time logs.
 
@@ -914,7 +967,7 @@ def submit_jobcard(jobCard: dict[str, Any], complete_time: str, employee_id: str
 	Args:
 		jobCard: Dictionary containing job card data including name and operation
 		complete_time: Timestamp string for when the job was completed
-		employee_id: The employee completing the job card
+		token: Optional JWT authentication token (NFC auth)
 
 	Returns:
 		Dict containing:

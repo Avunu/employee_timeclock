@@ -20,18 +20,23 @@
     "noImplicitAny": false,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["timeclock/public/js/*"],
-      "@job_time_tracker/*": ["timeclock/public/js/job_time_tracker/*"],
-      "@timeclock/*": ["timeclock/public/js/timeclock/*"],
-      "frappe-ui/src/*": ["node_modules/frappe-ui/src/*"]
+      "@/*": [
+        "timeclock/public/js/*"
+      ],
+      "@project_tracker/*": [
+        "timeclock/public/js/project_tracker/*"
+      ],
+      "@timeclock/*": [
+        "timeclock/public/js/timeclock/*"
+      ],
+      "frappe-ui/src/*": [
+        "node_modules/frappe-ui/src/*"
+      ]
     }
   },
   "include": [
     "*.ts",
-    "*.d.ts",
-    "timeclock/public/js/**/*.ts",
-    "timeclock/public/js/**/*.d.ts",
-    "timeclock/public/js/**/*.vue"
+    "*.d.ts"
   ],
   "exclude": [
     "node_modules",

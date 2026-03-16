@@ -225,7 +225,7 @@ import { defineComponent, provide, watch, computed } from "vue";
 import { useStorage } from "@vueuse/core";
 import { jwtDecode } from "jwt-decode";
 import onScan from "onscan.js";
-import { frappeCall } from "../FrappeCall";
+import { api } from "./client";
 
 // Extend Window interface for TypeScript
 declare global {
@@ -242,26 +242,11 @@ import WorkOrderList from "./components/WorkOrderList.vue";
 import JobCardList from "./components/JobCardList.vue";
 import Button from "./components/Button.vue";
 import { Checkbox, toast, Toast, Sidebar } from "frappe-ui";
-import type { GetWorkstationsResponse } from "./types";
 import IconSettings from "~icons/lucide/settings";
 import IconLogOut from "~icons/lucide/log-out";
 
 import { dateToFrappeDateTimeString } from "./utils";
-import type {
-  Employee,
-  WorkOrder,
-  Operation,
-  ActiveTimer,
-  AuthenticateEmployeeResponse,
-  CheckErpLoginResponse,
-  EmployeeCheckinResponse,
-  GetOperationsResponse,
-  GetActiveTimerResponse,
-  GetWorkOrdersResponse,
-  StartTimerResponse,
-  StopTimerResponse,
-  GetDeviceInfoResponse,
-} from "./types";
+import type { Employee, WorkOrder, Operation, ActiveTimer } from "./types";
 
 export default defineComponent({
   name: "JobTimeTracker",
@@ -305,7 +290,7 @@ export default defineComponent({
       employeeId: "",
       employeeLoggedIn: false,
       employeeName: "",
-      header: "Job Time Tracker",
+      header: "Project Tracker",
       headerElapsedTime: "00:00:00",
       headerTimerInterval: null,
       isSidebarOpen: false,
@@ -340,20 +325,20 @@ export default defineComponent({
 
   methods: {
     async check_for_erp_log_in() {
-      const response = await frappeCall<CheckErpLoginResponse>(
-        "timeclock.www.job_time_tracker.check_for_erp_log_in",
-        {},
-      );
-      if (response.user_id === "Guest") {
-        console.log(response.user_id);
+      const erpLogInStatus = await api.userSessionEmployee();
+      if (erpLogInStatus.user_id !== "Guest" && erpLogInStatus.employee_id) {
+        // Session auth — activate directly without NFC/token
+        this.employeeId = erpLogInStatus.employee_id;
+        this.employeeName = erpLogInStatus.employee_name ?? "";
+        this.activeSession = true;
+        this.token = null;
+        this.getWorkOrders();
+        this.getActiveTimer();
+        this.fetchWorkstations();
+        console.log("Session authenticated as", erpLogInStatus.employee_name);
       } else {
-        console.log("Session logged in", response.user_id);
+        console.log("No session employee — waiting for NFC scan");
       }
-      // if (frappe.session.user ! == 'Guest'){
-      //     console.log('User ID:', frappe.session.user);
-      // } else {
-      //     console.log('Please log in to access the ERP.')
-      // }
     },
 
     async authenticateEmployee(sCode: string) {
@@ -366,10 +351,7 @@ export default defineComponent({
       this.employeeId = "";
       this.employeeName = "";
 
-      const response = await frappeCall<AuthenticateEmployeeResponse>(
-        "timeclock.www.job_time_tracker.authenticate_employee",
-        { rfid: sCode },
-      );
+      const response = await api.authenticateEmployee(sCode);
 
       if (response.status === "success" && response.token) {
         this.token = response.token;
@@ -406,19 +388,11 @@ export default defineComponent({
     },
 
     async getWorkOrders() {
-      const response = await frappeCall<GetWorkOrdersResponse>(
-        "timeclock.www.job_time_tracker.get_work_orders",
-        { token: this.token },
-      );
+      const response = await api.getWorkOrders(this.token);
 
-      if (
-        response.status === "success" &&
-        response.work_orders &&
-        response.token
-      ) {
-        this.token = response.token;
+      if (response.status === "success" && response.work_orders) {
+        if (response.token) this.token = response.token;
         this.workOrders = response.work_orders;
-        // console.log(this.workOrders);
       } else {
         this.workOrders = [];
         this.activeSession = false;
@@ -468,20 +442,13 @@ export default defineComponent({
     },
 
     async getOperations(workOrderName: string) {
-      const response = await frappeCall<GetOperationsResponse>(
-        "timeclock.www.job_time_tracker.get_operations",
-        {
-          token: this.token,
-          work_order: workOrderName,
-          workstations: JSON.stringify(this.workstations),
-        },
+      const response = await api.getOperations(
+        workOrderName,
+        JSON.stringify(this.workstations),
+        this.token,
       );
-      if (
-        response.status === "success" &&
-        response.operations &&
-        response.token
-      ) {
-        this.token = response.token;
+      if (response.status === "success" && response.operations) {
+        if (response.token) this.token = response.token;
         this.operations = response.operations;
       } else {
         this.operations = [];
@@ -490,12 +457,9 @@ export default defineComponent({
     },
 
     async getActiveTimer() {
-      const response = await frappeCall<GetActiveTimerResponse>(
-        "timeclock.www.job_time_tracker.get_active_timer",
-        { token: this.token },
-      );
-      if (response.status === "success" && response.token) {
-        this.token = response.token;
+      const response = await api.getActiveTimer(this.token);
+      if (response.status === "success") {
+        if (response.token) this.token = response.token;
         this.activeTimer = response.active_timer ?? null;
       }
     },
@@ -513,15 +477,12 @@ export default defineComponent({
       const startTime = new Date();
       const startTimeFrappe = dateToFrappeDateTimeString(startTime, 5);
 
-      const response = await frappeCall<StartTimerResponse>(
-        "timeclock.www.job_time_tracker.start_timer",
-        {
-          employee_id: this.employeeId,
-          work_order: this.selectedWorkOrder!.name,
-          operation: operationName,
-          start_time: startTimeFrappe,
-          is_corrective: false,
-        },
+      const response = await api.startTimer(
+        this.selectedWorkOrder!.name,
+        operationName,
+        startTimeFrappe,
+        false,
+        this.token,
       );
 
       if (response.status === "success") {
@@ -540,19 +501,8 @@ export default defineComponent({
     async handleStopTask(operationName: string) {
       const endTime = new Date();
       const endTimeFrappe = dateToFrappeDateTimeString(endTime, 5);
-      const workOrderName =
-        this.activeTimer?.work_order ?? this.selectedWorkOrder?.name ?? "";
 
-      const response = await frappeCall<StopTimerResponse>(
-        "timeclock.www.job_time_tracker.stop_timer",
-        {
-          employee_id: this.employeeId,
-          work_order: workOrderName,
-          operation: operationName,
-          end_time: endTimeFrappe,
-          is_corrective: false,
-        },
-      );
+      const response = await api.stopTimer(endTimeFrappe, this.token);
 
       if (response.status === "success") {
         this.activeTimer = null;
@@ -579,15 +529,12 @@ export default defineComponent({
       const startTime = new Date();
       const startTimeFrappe = dateToFrappeDateTimeString(startTime, 5);
 
-      const response = await frappeCall<StartTimerResponse>(
-        "timeclock.www.job_time_tracker.start_timer",
-        {
-          employee_id: this.employeeId,
-          work_order: this.selectedWorkOrder!.name,
-          operation: operationName,
-          start_time: startTimeFrappe,
-          is_corrective: true,
-        },
+      const response = await api.startTimer(
+        this.selectedWorkOrder!.name,
+        operationName,
+        startTimeFrappe,
+        true,
+        this.token,
       );
 
       if (response.status === "success") {
@@ -607,19 +554,8 @@ export default defineComponent({
     async handleStopRework(operationName: string) {
       const endTime = new Date();
       const endTimeFrappe = dateToFrappeDateTimeString(endTime, 5);
-      const workOrderName =
-        this.activeTimer?.work_order ?? this.selectedWorkOrder?.name ?? "";
 
-      const response = await frappeCall<StopTimerResponse>(
-        "timeclock.www.job_time_tracker.stop_timer",
-        {
-          employee_id: this.employeeId,
-          work_order: workOrderName,
-          operation: operationName,
-          end_time: endTimeFrappe,
-          is_corrective: true,
-        },
-      );
+      const response = await api.stopTimer(endTimeFrappe, this.token);
 
       if (response.status === "success") {
         this.activeTimer = null;
@@ -661,33 +597,15 @@ export default defineComponent({
       this.startTimer(timeout);
     },
 
-    // This is not currently working.
-    async log_employee_in(token: string) {
-      // console.log('You are not clocked in.');
+    async log_employee_in() {
+      const current_time = dateToFrappeDateTimeString(new Date());
 
-      // Calculate current time to log in.
-      const date = new Date();
-      const year = date.getUTCFullYear();
-      const month = date.getUTCMonth() + 1; // Months are zero-based
-      const day = date.getUTCDate();
-      const hour = date.getUTCHours();
-      const minute = date.getUTCMinutes();
-      const second = date.getUTCSeconds();
-      const pad = (num: number) => (num < 10 ? "0" + num : num);
-      const current_time = `${year}-${pad(month)}-${pad(day)} ${pad(hour - 4)}:${pad(minute)}`;
-      // console.log(current_time);
-
-      // Log Call
-      const response = await frappeCall<EmployeeCheckinResponse>(
-        "timeclock.www.job_time_tracker.log_in_employee",
-        { time: current_time, token: token },
-      );
+      const response = await api.logInEmployee(current_time, this.token);
 
       if (response.status === "success") {
         console.log("You are now logged in.");
       } else {
-        console.log("did not work. You are still logged out:");
-        // console.log(response.log)
+        console.log("Clock-in failed:", response.message);
       }
     },
 
@@ -707,25 +625,10 @@ export default defineComponent({
       this.employeeLoggedIn = false;
     },
 
-    // This does not currently work. Comes from button that is cancelled out.
-    async log_out_employee(token: string | null) {
-      // Calculate current time to log in.
-      const date = new Date();
-      const year = date.getUTCFullYear();
-      const month = date.getUTCMonth() + 1; // Months are zero-based
-      const day = date.getUTCDate();
-      const hour = date.getUTCHours();
-      const minute = date.getUTCMinutes();
-      const second = date.getUTCSeconds();
-      const pad = (num: number) => (num < 10 ? "0" + num : num);
-      const current_time = `${year}-${pad(month)}-${pad(day)} ${pad(hour - 4)}:${pad(minute)}`;
-      // console.log(current_time);
+    async log_out_employee() {
+      const current_time = dateToFrappeDateTimeString(new Date());
 
-      // Log Call
-      const response = await frappeCall<EmployeeCheckinResponse>(
-        "timeclock.www.job_time_tracker.log_out_employee",
-        { token: token, time: current_time },
-      );
+      const response = await api.logOutEmployee(current_time, this.token);
 
       if (response.status === "success") {
         toast.success(`${this.employeeName} has punched out.`);
@@ -740,7 +643,7 @@ export default defineComponent({
         this.employeeName = "";
       } else {
         toast.error(`${this.employeeName} was not properly signed out.`);
-        console.log("Did not work. You are still logged in:", response.log);
+        console.log("Clock-out failed:", response.message);
       }
     },
 
@@ -774,9 +677,7 @@ export default defineComponent({
 
     async fetchWorkstations(): Promise<void> {
       try {
-        const response = await frappeCall<GetWorkstationsResponse>(
-          "timeclock.www.job_time_tracker.get_workstations",
-        );
+        const response = await api.getWorkstations();
         if (response.status === "success" && response.workstations) {
           this.availableWorkstations = response.workstations;
         }
@@ -787,9 +688,7 @@ export default defineComponent({
 
     async getDeviceInfo(): Promise<void> {
       try {
-        const response = await frappeCall<GetDeviceInfoResponse>(
-          "timeclock.www.job_time_tracker.get_device_info",
-        );
+        const response = await api.getDeviceInfo();
         if (response.status === "success") {
           this.deviceIp = response.ip;
           this.deviceMac = response.mac;
@@ -801,13 +700,18 @@ export default defineComponent({
   },
 
   mounted() {
-    if (this.token) {
-      // Initialize getting token and then work orders.
-      this.getWorkOrders();
-      this.getActiveTimer();
-    }
-    this.check_for_erp_log_in();
-    this.getDeviceInfo();
+    // check_for_erp_log_in will activate the session if there is an ERP
+    // user with a linked Employee.  If the user also has a stale token in
+    // localStorage the session-auth path takes priority (token is cleared).
+    this.check_for_erp_log_in().then(() => {
+      // Only restore from token if session auth did not already activate
+      if (!this.activeSession && this.token) {
+        this.activeSession = true;
+        this.getWorkOrders();
+        this.getActiveTimer();
+        this.fetchWorkstations();
+      }
+    });
 
     // Attach onScan to document for barcode scanning
     // attachTo returns void, so we just call it and track attachment state

@@ -37,7 +37,7 @@ import { useStorage } from "@vueuse/core";
 import { jwtDecode } from "jwt-decode";
 import onScan from "onscan.js";
 import { frappeCall } from "../FrappeCall";
-import { dateToFrappeDateTimeString } from "../job_time_tracker/types/FrappeDateTime";
+import { dateToFrappeDateTimeString } from "../project_tracker/utils";
 
 // import sub components
 import AuthorizationMessage from "./components/AuthorizationMessage.vue";
@@ -198,7 +198,6 @@ export default defineComponent({
     // Attach onScan to document for barcode scanning
     onScan.attachTo(document, {
       onScan: this.authenticateEmployee,
-      ignoreIfFocusOn: ".frappe-input",
     });
 
     // Track that onScan is attached (useful for cleanup)

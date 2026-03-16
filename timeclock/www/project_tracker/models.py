@@ -130,9 +130,11 @@ class StopTimerResponse(BaseModel):
 	error: str | None = None
 
 
-class CheckErpLoginResponse(BaseModel):
+class UserSessionEmployee(BaseModel):
 	user_id: str
 	employee_id: str | None = None
+	employee_name: str | None = None
+	last_checkin: Literal["IN", "OUT"] | None = None
 
 
 class SubmitJobCardResponse(BaseModel):

@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.png" />
-    <link rel="stylesheet" href="/assets/timeclock/dist/js/job_time_tracker/index.css" />
+    <link rel="stylesheet" href="/assets/timeclock/dist/js/project_tracker/index.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Jobs Timeclock App</title>
+    <title>Project Tracker</title>
 </head>
 
 <body>
@@ -15,13 +15,13 @@
     <div id="popovers"></div>
 
     <script>window.csrf_token = '{{ csrf_token }}'</script>
-    <script type="module" src="/assets/timeclock/dist/js/job_time_tracker/index.js"></script>
+    <script type="module" src="/assets/timeclock/dist/js/project_tracker/index.js"></script>
     {% if developer_mode %}
     <script>
     (function () {
       var last = null;
       function poll() {
-        fetch('/assets/timeclock/dist/js/job_time_tracker/build-stamp.json?_=' + Date.now(), { cache: 'no-store' })
+        fetch('/assets/timeclock/dist/js/project_tracker/build-stamp.json?_=' + Date.now(), { cache: 'no-store' })
           .then(function (r) { return r.json(); })
           .then(function (d) {
             if (last !== null && d.ts !== last) { window.location.reload(); }

@@ -20,10 +20,6 @@ export interface AuthenticateEmployeeResponse {
   last_checkin?: ("IN" | "OUT") | null;
   token?: string | null;
 }
-export interface CheckErpLoginResponse {
-  user_id: string;
-  employee_id?: string | null;
-}
 /**
  * Authenticated employee using the timeclock.
  */
@@ -111,6 +107,12 @@ export interface SubmitJobCardResponse {
   status: "success" | "failed";
   job_card?: unknown;
   error_message?: string | null;
+}
+export interface UserSessionEmployee {
+  user_id: string;
+  employee_id?: string | null;
+  employee_name?: string | null;
+  last_checkin?: ("IN" | "OUT") | null;
 }
 export interface VerifyLoginResponse {
   status: "success" | "failed";
