@@ -20,6 +20,12 @@
     "noImplicitAny": false,
     "baseUrl": ".",
     "paths": {
+      "@tiptap/pm/*": [
+        "node_modules/@tiptap/pm/*/index.ts"
+      ],
+      "@tiptap/*": [
+        "node_modules/@tiptap/*/src/index.ts"
+      ],
       "@/*": [
         "timeclock/public/js/*"
       ],

@@ -3,11 +3,39 @@ import vue from '@vitejs/plugin-vue'
 import Icons from 'unplugin-icons/vite'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { writeFileSync } from 'fs'
+import { existsSync, writeFileSync } from 'fs'
 import type { Plugin, ResolvedConfig } from 'vite'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
+
+// @tiptap v3 ships source-only (no dist/). This plugin resolves all @tiptap/*
+// imports to their TypeScript source so Rolldown can compile them directly.
+function tiptapSourcePlugin(): Plugin {
+	return {
+		name: 'tiptap-source-resolve',
+		enforce: 'pre',
+		resolveId(id) {
+			if (!id.startsWith('@tiptap/')) return
+			const m = id.match(/^(@tiptap\/[^/]+)(\/.*)?$/)
+			if (!m) return
+			const [, pkg, subpath] = m
+			const pkgRoot = resolve(__dirname, `node_modules/${pkg}`)
+			if (!existsSync(pkgRoot)) return
+			const hasSrc = existsSync(resolve(pkgRoot, 'src'))
+			const srcRoot = hasSrc ? resolve(pkgRoot, 'src') : pkgRoot
+			if (subpath) {
+				const candidate = resolve(srcRoot, subpath.slice(1))
+				if (existsSync(`${candidate}.ts`)) return `${candidate}.ts`
+				const index = resolve(candidate, 'index.ts')
+				if (existsSync(index)) return index
+			} else {
+				const index = resolve(srcRoot, 'index.ts')
+				if (existsSync(index)) return index
+			}
+		},
+	}
+}
 
 function frappeNotifyPlugin(changedFiles: string[]): Plugin {
 	let isFirstBuild = true
@@ -97,6 +125,7 @@ if (!config) {
 
 export default defineConfig({
 	plugins: [
+		tiptapSourcePlugin(),
 		vue(),
 		Icons({
 			compiler: 'vue3',
