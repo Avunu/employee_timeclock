@@ -33,11 +33,11 @@ from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_to_date, now_datetime, random_string
 
 
-class TestTimeclock(FrappeTestCase):
+class TestProjectTracker(FrappeTestCase):
 	"""
-	Test cases for the Timeclock page functions.
+	Test cases for the Project Tracker page functions.
 
-	This test class provides comprehensive coverage for all timeclock-related
+	This test class provides comprehensive coverage for all project tracker-related
 	functionality including authentication, logging, and job card management.
 
 	Attributes:
@@ -153,7 +153,7 @@ class TestTimeclock(FrappeTestCase):
 						"item_code": f"Test Item {unique_id}",
 						"item_name": f"Test Item {unique_id}",
 						"item_group": "Products",
-						"stock_uom": "Nos",
+						"stock_uom": "Pieces",
 						"is_stock_item": 1,
 					}
 				).insert(ignore_permissions=True),
@@ -204,7 +204,7 @@ class TestTimeclock(FrappeTestCase):
 					"item_code": rm_item_code,
 					"item_name": rm_item_code,
 					"item_group": "Products",
-					"stock_uom": "Nos",
+					"stock_uom": "Pieces",
 					"is_stock_item": 1,
 				}
 			).insert(ignore_permissions=True)
@@ -260,6 +260,9 @@ class TestTimeclock(FrappeTestCase):
 				}
 			).insert(ignore_permissions=True),
 		)
+		# Populate operations and required items from BOM (mirrors UI behaviour)
+		cls._test_work_order.get_items_and_operations_from_bom()
+		cls._test_work_order.save(ignore_permissions=True)
 		cls._test_work_order.submit()
 
 		# Create job cards for the work order
@@ -809,8 +812,52 @@ class TestTimeclock(FrappeTestCase):
 		assert self._test_workstation is not None
 		assert self._test_bom is not None
 
-		# Create a fresh job card for this test
-		job_card: JobCard = cast(
+		# Use the existing fixture job card
+		job_card: JobCard = self._test_job_cards[0]
+
+		# Get a valid token
+		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
+		token: str = auth_result["token"]
+
+		# Start timer (resolves to the fixture job card)
+		start_time = now_datetime()
+		start_timer(
+			work_order=str(self._test_work_order.name),
+			operation=str(self._test_operation.name),
+			start_time=str(start_time),
+			token=token,
+		)
+
+		# Stop timer
+		end_time = add_to_date(start_time, minutes=30)
+		auth_result = authenticate_employee(self._test_device_id.id)
+		token = auth_result["token"]
+		stop_timer(end_time=str(end_time), token=token)
+
+		# Submit the job card
+		job_card.reload()
+		job_card_dict: dict[str, Any] = {
+			"name": job_card.name,
+			"operation": job_card.operation,
+		}
+		complete_time = add_to_date(end_time, minutes=5)
+		auth_result = authenticate_employee(self._test_device_id.id)
+		token = auth_result["token"]
+		result: dict[str, Any] = submit_jobcard(job_card_dict, str(complete_time), token=token)
+
+		self.assertEqual(result["status"], "success")
+		self.assertIn("job_card", result)
+
+		# Verify job card status
+		job_card.reload()
+		self.assertEqual(job_card.status, "Completed")
+
+		# Restore the job card for other tests: cancel and recreate
+		job_card.reload()
+		if job_card.docstatus == 1:
+			job_card.cancel()
+		frappe.delete_doc("Job Card", job_card.name, ignore_permissions=True, force=True)
+		new_job_card: JobCard = cast(
 			JobCard,
 			frappe.get_doc(
 				{
@@ -822,55 +869,11 @@ class TestTimeclock(FrappeTestCase):
 					"wip_warehouse": self._test_work_order.wip_warehouse,
 					"bom_no": self._test_bom.name,
 					"status": "Open",
-					"sequence_id": 10,
+					"sequence_id": 1,
 				}
 			).insert(ignore_permissions=True),
 		)
-
-		try:
-			# Get a valid token
-			auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
-			token: str = auth_result["token"]
-
-			# Start timer
-			start_time = now_datetime()
-			start_timer(
-				work_order=str(self._test_work_order.name),
-				operation=str(self._test_operation.name),
-				start_time=str(start_time),
-				token=token,
-			)
-
-			# Stop timer
-			end_time = add_to_date(start_time, minutes=30)
-			auth_result = authenticate_employee(self._test_device_id.id)
-			token = auth_result["token"]
-			stop_timer(end_time=str(end_time), token=token)
-
-			# Submit the job card
-			job_card.reload()
-			job_card_dict: dict[str, Any] = {
-				"name": job_card.name,
-				"operation": job_card.operation,
-			}
-			complete_time = add_to_date(end_time, minutes=5)
-			auth_result = authenticate_employee(self._test_device_id.id)
-			token = auth_result["token"]
-			result: dict[str, Any] = submit_jobcard(job_card_dict, str(complete_time), token=token)
-
-			self.assertEqual(result["status"], "success")
-			self.assertIn("job_card", result)
-
-			# Verify job card status
-			job_card.reload()
-			self.assertEqual(job_card.status, "Completed")
-
-		finally:
-			# Clean up - cancel if submitted before deleting
-			job_card.reload()
-			if job_card.docstatus == 1:
-				job_card.cancel()
-			frappe.delete_doc("Job Card", job_card.name, ignore_permissions=True, force=True)
+		self._test_job_cards[0] = new_job_card
 
 	def test_submit_jobcard_with_unfinished_times(self) -> None:
 		"""
@@ -891,8 +894,42 @@ class TestTimeclock(FrappeTestCase):
 		assert self._test_workstation is not None
 		assert self._test_bom is not None
 
-		# Create a fresh job card for this test
-		job_card: JobCard = cast(
+		# Use the existing fixture job card
+		job_card: JobCard = self._test_job_cards[0]
+
+		# Get a valid token
+		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
+		token: str = auth_result["token"]
+
+		# Start timer but don't stop it
+		start_time = now_datetime()
+		start_timer(
+			work_order=str(self._test_work_order.name),
+			operation=str(self._test_operation.name),
+			start_time=str(start_time),
+			token=token,
+		)
+
+		# Try to submit - should handle the unfinished time
+		job_card.reload()
+		job_card_dict: dict[str, Any] = {
+			"name": job_card.name,
+			"operation": job_card.operation,
+		}
+		complete_time = add_to_date(start_time, minutes=30)
+		auth_result = authenticate_employee(self._test_device_id.id)
+		token = auth_result["token"]
+		result: dict[str, Any] = submit_jobcard(job_card_dict, str(complete_time), token=token)
+
+		# The function should complete and fill in the to_time
+		self.assertEqual(result["status"], "success")
+
+		# Restore the job card for other tests: cancel and recreate
+		job_card.reload()
+		if job_card.docstatus == 1:
+			job_card.cancel()
+		frappe.delete_doc("Job Card", job_card.name, ignore_permissions=True, force=True)
+		new_job_card: JobCard = cast(
 			JobCard,
 			frappe.get_doc(
 				{
@@ -904,51 +941,17 @@ class TestTimeclock(FrappeTestCase):
 					"wip_warehouse": self._test_work_order.wip_warehouse,
 					"bom_no": self._test_bom.name,
 					"status": "Open",
-					"sequence_id": 11,
+					"sequence_id": 1,
 				}
 			).insert(ignore_permissions=True),
 		)
-
-		try:
-			# Get a valid token
-			auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
-			token: str = auth_result["token"]
-
-			# Start timer but don't stop it
-			start_time = now_datetime()
-			start_timer(
-				work_order=str(self._test_work_order.name),
-				operation=str(self._test_operation.name),
-				start_time=str(start_time),
-				token=token,
-			)
-
-			# Try to submit - should handle the unfinished time
-			job_card.reload()
-			job_card_dict: dict[str, Any] = {
-				"name": job_card.name,
-				"operation": job_card.operation,
-			}
-			complete_time = add_to_date(start_time, minutes=30)
-			auth_result = authenticate_employee(self._test_device_id.id)
-			token = auth_result["token"]
-			result: dict[str, Any] = submit_jobcard(job_card_dict, str(complete_time), token=token)
-
-			# The function should complete and fill in the to_time
-			self.assertEqual(result["status"], "success")
-
-		finally:
-			# Clean up - cancel if submitted before deleting
-			job_card.reload()
-			if job_card.docstatus == 1:
-				job_card.cancel()
-			frappe.delete_doc("Job Card", job_card.name, ignore_permissions=True, force=True)
+		self._test_job_cards[0] = new_job_card
 
 	def test_machine_operations_use_machine_employee(self) -> None:
 		"""
 		Test that machine operations use machine employee IDs.
 
-		Verifies that when starting a timer on machine operations (e.g., CNC Machine Time),
+		Verifies that when starting a timer on machine operations,
 		the time log uses the machine's employee ID instead of the human operator.
 		"""
 		from timeclock.www.project_tracker.project_tracker import authenticate_employee, start_timer
@@ -958,20 +961,59 @@ class TestTimeclock(FrappeTestCase):
 		assert self._test_workstation is not None
 		assert self._test_bom is not None
 
-		# Create a job card with a machine operation
+		unique_id: str = random_string(6)
+
+		# Create a machine employee
+		machine_employee: Employee = cast(
+			Employee,
+			frappe.get_doc(
+				{
+					"doctype": "Employee",
+					"first_name": f"Machine {unique_id}",
+					"company": get_defaults().get("company"),
+					"status": "Active",
+					"gender": "Other",
+					"date_of_birth": "2000-01-01",
+					"date_of_joining": "2020-01-01",
+				}
+			).insert(ignore_permissions=True),
+		)
+
+		# Create an Employee Group with the machine employee
+		employee_group = frappe.get_doc(
+			{
+				"doctype": "Employee Group",
+				"employee_group_name": f"Test Machine Group {unique_id}",
+				"employee_list": [{"employee": machine_employee.name}],
+			}
+		).insert(ignore_permissions=True)
+
+		# Create a machine operation
+		machine_op_name = f"Test Machine Op {unique_id}"
+		machine_op = frappe.get_doc(
+			{
+				"doctype": "Operation",
+				"name": machine_op_name,
+				"workstation": self._test_workstation.name,
+				"is_machine_time": 1,
+				"employee_group": employee_group.name,
+			}
+		).insert(ignore_permissions=True)
+
+		# Create a job card with the machine operation
 		job_card: JobCard = cast(
 			JobCard,
 			frappe.get_doc(
 				{
 					"doctype": "Job Card",
 					"work_order": self._test_work_order.name,
-					"operation": "CNC Machine Time",  # This should use machine employee
+					"operation": machine_op.name,
 					"workstation": self._test_workstation.name,
 					"for_quantity": 1,
 					"wip_warehouse": self._test_work_order.wip_warehouse,
 					"bom_no": self._test_bom.name,
 					"status": "Open",
-					"sequence_id": 12,
+					"sequence_id": 1,
 				}
 			).insert(ignore_permissions=True),
 		)
@@ -984,7 +1026,7 @@ class TestTimeclock(FrappeTestCase):
 			start_time = now_datetime()
 			result: dict[str, Any] = start_timer(
 				work_order=str(self._test_work_order.name),
-				operation="CNC Machine Time",
+				operation=machine_op.name,
 				start_time=str(start_time),
 				token=token,
 			)
@@ -993,13 +1035,17 @@ class TestTimeclock(FrappeTestCase):
 
 			# Verify the time log uses the machine employee ID
 			job_card.reload()
-			if job_card.time_logs:
-				last_log = job_card.time_logs[-1]
-				# Should be the CNC machine ID, not the human employee
-				self.assertEqual(last_log.employee, "HR-MACH-CNC-00051")
+			self.assertGreater(len(job_card.time_logs), 0)
+			last_log = job_card.time_logs[-1]
+			# Should be the machine employee, not the human employee
+			self.assertEqual(last_log.employee, machine_employee.name)
+			self.assertNotEqual(last_log.employee, self._test_employee.name)
 
 		finally:
 			frappe.delete_doc("Job Card", job_card.name, ignore_permissions=True, force=True)
+			frappe.delete_doc("Operation", machine_op.name, ignore_permissions=True, force=True)
+			frappe.delete_doc("Employee Group", employee_group.name, ignore_permissions=True, force=True)
+			frappe.delete_doc("Employee", machine_employee.name, ignore_permissions=True, force=True)
 
 	def tearDown(self) -> None:
 		"""
