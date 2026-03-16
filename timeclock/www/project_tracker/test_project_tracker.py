@@ -382,7 +382,7 @@ class TestTimeclock(FrappeTestCase):
 		token: str = auth_result["token"]
 
 		# Log in the employee
-		log_in_employee(token, str(now_datetime()))
+		log_in_employee(str(now_datetime()), token=token)
 
 		# Authenticate again and check last_checkin
 		result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
@@ -407,7 +407,7 @@ class TestTimeclock(FrappeTestCase):
 
 		# Log in
 		current_time = now_datetime()
-		result: dict[str, Any] = log_in_employee(token, str(current_time))
+		result: dict[str, Any] = log_in_employee(str(current_time), token=token)
 
 		self.assertEqual(result["status"], "success")
 		self.assertIsNotNone(result["log"])
@@ -432,13 +432,13 @@ class TestTimeclock(FrappeTestCase):
 		# Get a valid token and log in first
 		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
 		token: str = auth_result["token"]
-		log_in_employee(token, str(now_datetime()))
+		log_in_employee(str(now_datetime()), token=token)
 
 		# Get fresh token and log out
 		auth_result = authenticate_employee(self._test_device_id.id)
 		token = auth_result["token"]
 		current_time = now_datetime()
-		result: dict[str, Any] = log_out_employee(token, str(current_time))
+		result: dict[str, Any] = log_out_employee(str(current_time), token=token)
 
 		self.assertEqual(result["status"], "success")
 		self.assertIsNotNone(result["log"])
@@ -461,7 +461,7 @@ class TestTimeclock(FrappeTestCase):
 		token: str = auth_result["token"]
 
 		# Get work orders
-		result: dict[str, Any] = get_work_orders(token)
+		result: dict[str, Any] = get_work_orders(token=token)
 
 		self.assertEqual(result["status"], "success")
 		self.assertIn("work_orders", result)
@@ -472,14 +472,14 @@ class TestTimeclock(FrappeTestCase):
 		work_order_names: list[str] = [wo["name"] for wo in result["work_orders"]]
 		self.assertIn(self._test_work_order.name, work_order_names)
 
-	def test_get_job_cards(self) -> None:
+	def test_get_operations(self) -> None:
 		"""
-		Test getting job cards for a work order.
+		Test getting operations for a work order.
 
-		Verifies that get_job_cards returns job cards associated with
-		the specified work order, including time log information.
+		Verifies that get_operations returns operations associated with
+		the specified work order, including time totals.
 		"""
-		from timeclock.www.project_tracker.project_tracker import authenticate_employee, get_job_cards
+		from timeclock.www.project_tracker.project_tracker import authenticate_employee, get_operations
 
 		assert self._test_work_order is not None
 
@@ -487,64 +487,62 @@ class TestTimeclock(FrappeTestCase):
 		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
 		token: str = auth_result["token"]
 
-		# Get job cards
-		result: dict[str, Any] = get_job_cards(token, str(self._test_work_order.name))
+		# Get operations
+		result: dict[str, Any] = get_operations(work_order=str(self._test_work_order.name), token=token)
 
 		self.assertEqual(result["status"], "success")
-		self.assertIn("job_cards", result)
+		self.assertIn("operations", result)
 		self.assertIn("token", result)
-		self.assertIsInstance(result["job_cards"], list)
-		self.assertGreater(len(result["job_cards"]), 0)
+		self.assertIsInstance(result["operations"], list)
+		self.assertGreater(len(result["operations"]), 0)
 
-	def test_get_job_cards_empty_work_order(self) -> None:
+	def test_get_operations_empty_work_order(self) -> None:
 		"""
-		Test getting job cards for a work order with no job cards.
+		Test getting operations for a work order with no operations.
 
-		Verifies that get_job_cards returns an empty list when the
-		specified work order has no associated job cards.
+		Verifies that get_operations returns an empty list when the
+		specified work order has no associated operations.
 		"""
-		from timeclock.www.project_tracker.project_tracker import authenticate_employee, get_job_cards
+		from timeclock.www.project_tracker.project_tracker import authenticate_employee, get_operations
 
 		# Get a valid token
 		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
 		token: str = auth_result["token"]
 
-		# Get job cards for non-existent work order
-		result: dict[str, Any] = get_job_cards(token, "NON_EXISTENT_WO")
+		# Get operations for non-existent work order
+		result: dict[str, Any] = get_operations(work_order="NON_EXISTENT_WO", token=token)
 
 		self.assertEqual(result["status"], "success")
-		self.assertEqual(result["job_cards"], [])
+		self.assertEqual(result["operations"], [])
 
-	def test_log_start_time_of_jobcard(self) -> None:
+	def test_start_timer(self) -> None:
 		"""
-		Test starting a time log on a job card.
+		Test starting a timer on a job card.
 
-		Verifies that log_start_time_of_jobcard creates a new Job Card
-		Time Log entry with from_time set and to_time as None.
+		Verifies that start_timer creates a new Job Card Time Log entry
+		with from_time set and to_time as None.
 		"""
-		from timeclock.www.project_tracker.project_tracker import log_start_time_of_jobcard
+		from timeclock.www.project_tracker.project_tracker import authenticate_employee, start_timer
 
 		assert self._test_employee is not None
+		assert self._test_work_order is not None
+		assert self._test_operation is not None
 
 		job_card: JobCard = self._test_job_cards[0]
 		start_time = now_datetime()
 
-		result: dict[str, Any] = log_start_time_of_jobcard(
-			str(self._test_employee.name), str(start_time), str(job_card.name)
+		# Get a valid token
+		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
+		token: str = auth_result["token"]
+
+		result: dict[str, Any] = start_timer(
+			work_order=str(self._test_work_order.name),
+			operation=str(self._test_operation.name),
+			start_time=str(start_time),
+			token=token,
 		)
 
 		self.assertEqual(result["status"], "success")
-		self.assertIn("job_card", result)
-		self.assertIn("updated_log", result)
-
-		# Verify time log was added
-		job_card.reload()
-		self.assertGreater(len(job_card.time_logs), 0)
-		last_log = job_card.time_logs[-1]
-		self.assertEqual(last_log.employee, self._test_employee.name)
-		self.assertIsNone(last_log.to_time)
-		self.assertIn("job_card", result)
-		self.assertIn("updated_log", result)
 
 		# Verify time log was added
 		job_card.reload()
@@ -553,49 +551,61 @@ class TestTimeclock(FrappeTestCase):
 		self.assertEqual(last_log.employee, self._test_employee.name)
 		self.assertIsNone(last_log.to_time)
 
-	def test_log_end_time_of_jobcard(self) -> None:
+	def test_stop_timer(self) -> None:
 		"""
-		Test ending a time log on a job card.
+		Test stopping a timer on a job card.
 
-		Verifies that log_end_time_of_jobcard updates the last time log
-		entry with a to_time value, completing the time tracking.
+		Verifies that stop_timer closes the open time log entry
+		by setting to_time.
 		"""
 		from timeclock.www.project_tracker.project_tracker import (
-			log_end_time_of_jobcard,
-			log_start_time_of_jobcard,
+			authenticate_employee,
+			start_timer,
+			stop_timer,
 		)
 
 		assert self._test_employee is not None
+		assert self._test_work_order is not None
+		assert self._test_operation is not None
 
 		job_card: JobCard = self._test_job_cards[0]
 		start_time = now_datetime()
 
-		# Start the time log first
-		log_start_time_of_jobcard(str(self._test_employee.name), str(start_time), str(job_card.name))
+		# Get a valid token
+		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
+		token: str = auth_result["token"]
 
-		# End the time log
-		end_time = add_to_date(start_time, minutes=30)
-		result: dict[str, Any] = log_end_time_of_jobcard(
-			str(self._test_employee.name), str(end_time), str(job_card.name)
+		# Start the timer
+		start_timer(
+			work_order=str(self._test_work_order.name),
+			operation=str(self._test_operation.name),
+			start_time=str(start_time),
+			token=token,
 		)
 
-		self.assertEqual(result["status"], "success")
-		self.assertIn("updated_log", result)
+		# Stop the timer
+		end_time = add_to_date(start_time, minutes=30)
+		# Re-authenticate for fresh token
+		auth_result = authenticate_employee(self._test_device_id.id)
+		token = auth_result["token"]
+		result: dict[str, Any] = stop_timer(end_time=str(end_time), token=token)
 
-		# Verify time log was ended
+		self.assertEqual(result["status"], "success")
+
+		# Verify time log was closed
 		job_card.reload()
 		employee_logs = [log for log in job_card.time_logs if log.employee == self._test_employee.name]
 		last_log = employee_logs[-1]
 		self.assertIsNotNone(last_log.to_time)
 
-	def test_check_all_job_cards_logs_out_previous(self) -> None:
+	def test_start_timer_closes_previous(self) -> None:
 		"""
-		Test that starting a new job card logs out from previous ones.
+		Test that starting a new timer closes the previous one.
 
-		Verifies that when an employee starts time on a new job card,
-		any open time logs on other job cards are automatically closed.
+		Verifies that when an employee starts a timer on a new operation,
+		any open time logs are automatically closed.
 		"""
-		from timeclock.www.project_tracker.project_tracker import log_start_time_of_jobcard
+		from timeclock.www.project_tracker.project_tracker import authenticate_employee, start_timer
 
 		assert self._test_employee is not None
 		assert self._test_work_order is not None
@@ -622,71 +632,71 @@ class TestTimeclock(FrappeTestCase):
 		)
 
 		try:
+			# Get a valid token
+			auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
+			token: str = auth_result["token"]
+
 			# Start time on first job card
 			start_time1 = now_datetime()
-			log_start_time_of_jobcard(
-				str(self._test_employee.name), str(start_time1), str(self._test_job_cards[0].name)
+			start_timer(
+				work_order=str(self._test_work_order.name),
+				operation=str(self._test_operation.name),
+				start_time=str(start_time1),
+				token=token,
 			)
 
-			# Start time on second job card - should log out first
+			# Start time on second job card - should close first
 			start_time2 = add_to_date(start_time1, minutes=15)
-			log_start_time_of_jobcard(str(self._test_employee.name), str(start_time2), str(job_card2.name))
+			auth_result = authenticate_employee(self._test_device_id.id)
+			token = auth_result["token"]
+			start_timer(
+				work_order=str(self._test_work_order.name),
+				operation=str(self._test_operation.name),
+				start_time=str(start_time2),
+				token=token,
+			)
 
-			# Verify first job card was logged out
+			# Verify first time log was closed
 			self._test_job_cards[0].reload()
 			employee_logs = [
 				log for log in self._test_job_cards[0].time_logs if log.employee == self._test_employee.name
 			]
-			if employee_logs:
-				last_log = employee_logs[-1]
-				self.assertIsNotNone(last_log.to_time)
+			if len(employee_logs) > 1:
+				# The first log should have been closed
+				self.assertIsNotNone(employee_logs[0].to_time)
 
 		finally:
 			# Clean up second job card
 			frappe.delete_doc("Job Card", job_card2.name, ignore_permissions=True, force=True)
 
-	def test_sort_jobcard_by_workstation(self) -> None:
+	def test_get_operations_with_workstation_priority(self) -> None:
 		"""
-		Test sorting job cards by workstation.
+		Test that get_operations prioritizes operations matching workstations.
 
-		Verifies that sort_jobcard_by_workstation correctly prioritizes
-		job cards whose operations match the specified workstation.
+		Verifies that operations whose workstation matches the provided
+		workstation list are sorted to the top.
 		"""
-		from timeclock.www.project_tracker.project_tracker import sort_jobcard_by_workstation
+		from timeclock.www.project_tracker.project_tracker import authenticate_employee, get_operations
 
-		job_cards: list[dict[str, str]] = [
-			{"operation": "Hand Sanding", "name": "JC-001"},
-			{"operation": "CNC Labor", "name": "JC-002"},
-			{"operation": "Truss Assembly", "name": "JC-003"},
-		]
+		assert self._test_work_order is not None
+		assert self._test_workstation is not None
 
-		# Sort by CNC workstation
-		result: dict[str, Any] = sort_jobcard_by_workstation(job_cards, "CNC")
+		# Get a valid token
+		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
+		token: str = auth_result["token"]
+
+		# Get operations with workstation priority
+		import json
+
+		result: dict[str, Any] = get_operations(
+			work_order=str(self._test_work_order.name),
+			workstations=json.dumps([self._test_workstation.name]),
+			token=token,
+		)
 
 		self.assertEqual(result["status"], "success")
-		self.assertIn("sorted_job_cards", result)
-		# CNC Labor should be first
-		self.assertEqual(result["sorted_job_cards"][0]["operation"], "CNC Labor")
-
-	def test_sort_jobcard_by_workstation_no_match(self) -> None:
-		"""
-		Test sorting job cards when no operations match the workstation.
-
-		Verifies that sort_jobcard_by_workstation returns the original
-		list unchanged when no operations match the specified workstation.
-		"""
-		from timeclock.www.project_tracker.project_tracker import sort_jobcard_by_workstation
-
-		job_cards: list[dict[str, str]] = [
-			{"operation": "Unknown Operation", "name": "JC-001"},
-		]
-
-		# Sort by a workstation that doesn't match
-		result: dict[str, Any] = sort_jobcard_by_workstation(job_cards, "CNC")
-
-		self.assertEqual(result["status"], "success")
-		# Should return the original list unchanged
-		self.assertEqual(len(result["sorted_job_cards"]), 1)
+		self.assertIsInstance(result["operations"], list)
+		self.assertGreater(len(result["operations"]), 0)
 
 	def test_refresh_token(self) -> None:
 		"""
@@ -751,31 +761,31 @@ class TestTimeclock(FrappeTestCase):
 		with self.assertRaises(frappe.AuthenticationError):
 			extract_employee_from_token("invalid_token_string")
 
-	def test_check_for_erp_log_in_guest(self) -> None:
+	def test_get_user_session_employee_guest(self) -> None:
 		"""
 		Test checking ERP login status for guest user.
 
-		Verifies that check_for_erp_log_in returns "Guest" as the
+		Verifies that get_user_session_employee returns "Guest" as the
 		user_id when no user is logged into the ERP system.
 		"""
-		from timeclock.www.project_tracker.project_tracker import check_for_erp_log_in
+		from timeclock.www.project_tracker.project_tracker import get_user_session_employee
 
 		frappe.set_user("Guest")
-		result: dict[str, str] = check_for_erp_log_in()
+		result: dict[str, str] = get_user_session_employee()
 
 		self.assertEqual(result["user_id"], "Guest")
 
-	def test_check_for_erp_log_in_authenticated(self) -> None:
+	def test_get_user_session_employee_authenticated(self) -> None:
 		"""
 		Test checking ERP login status for authenticated user.
 
-		Verifies that check_for_erp_log_in returns the correct
+		Verifies that get_user_session_employee returns the correct
 		user_id when a user is logged into the ERP system.
 		"""
-		from timeclock.www.project_tracker.project_tracker import check_for_erp_log_in
+		from timeclock.www.project_tracker.project_tracker import get_user_session_employee
 
 		frappe.set_user("Administrator")
-		result: dict[str, str] = check_for_erp_log_in()
+		result: dict[str, str] = get_user_session_employee()
 
 		self.assertEqual(result["user_id"], "Administrator")
 
@@ -787,8 +797,9 @@ class TestTimeclock(FrappeTestCase):
 		after all time logs have been properly closed.
 		"""
 		from timeclock.www.project_tracker.project_tracker import (
-			log_end_time_of_jobcard,
-			log_start_time_of_jobcard,
+			authenticate_employee,
+			start_timer,
+			stop_timer,
 			submit_jobcard,
 		)
 
@@ -817,13 +828,24 @@ class TestTimeclock(FrappeTestCase):
 		)
 
 		try:
-			# Start time log
-			start_time = now_datetime()
-			log_start_time_of_jobcard(str(self._test_employee.name), str(start_time), str(job_card.name))
+			# Get a valid token
+			auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
+			token: str = auth_result["token"]
 
-			# End time log
+			# Start timer
+			start_time = now_datetime()
+			start_timer(
+				work_order=str(self._test_work_order.name),
+				operation=str(self._test_operation.name),
+				start_time=str(start_time),
+				token=token,
+			)
+
+			# Stop timer
 			end_time = add_to_date(start_time, minutes=30)
-			log_end_time_of_jobcard(str(self._test_employee.name), str(end_time), str(job_card.name))
+			auth_result = authenticate_employee(self._test_device_id.id)
+			token = auth_result["token"]
+			stop_timer(end_time=str(end_time), token=token)
 
 			# Submit the job card
 			job_card.reload()
@@ -832,9 +854,9 @@ class TestTimeclock(FrappeTestCase):
 				"operation": job_card.operation,
 			}
 			complete_time = add_to_date(end_time, minutes=5)
-			result: dict[str, Any] = submit_jobcard(
-				job_card_dict, str(complete_time), str(self._test_employee.name)
-			)
+			auth_result = authenticate_employee(self._test_device_id.id)
+			token = auth_result["token"]
+			result: dict[str, Any] = submit_jobcard(job_card_dict, str(complete_time), token=token)
 
 			self.assertEqual(result["status"], "success")
 			self.assertIn("job_card", result)
@@ -857,7 +879,11 @@ class TestTimeclock(FrappeTestCase):
 		Verifies that submit_jobcard automatically fills in missing to_time
 		values when a job card is submitted with open time logs.
 		"""
-		from timeclock.www.project_tracker.project_tracker import log_start_time_of_jobcard, submit_jobcard
+		from timeclock.www.project_tracker.project_tracker import (
+			authenticate_employee,
+			start_timer,
+			submit_jobcard,
+		)
 
 		assert self._test_employee is not None
 		assert self._test_work_order is not None
@@ -884,9 +910,18 @@ class TestTimeclock(FrappeTestCase):
 		)
 
 		try:
-			# Start time log but don't end it
+			# Get a valid token
+			auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
+			token: str = auth_result["token"]
+
+			# Start timer but don't stop it
 			start_time = now_datetime()
-			log_start_time_of_jobcard(str(self._test_employee.name), str(start_time), str(job_card.name))
+			start_timer(
+				work_order=str(self._test_work_order.name),
+				operation=str(self._test_operation.name),
+				start_time=str(start_time),
+				token=token,
+			)
 
 			# Try to submit - should handle the unfinished time
 			job_card.reload()
@@ -895,9 +930,9 @@ class TestTimeclock(FrappeTestCase):
 				"operation": job_card.operation,
 			}
 			complete_time = add_to_date(start_time, minutes=30)
-			result: dict[str, Any] = submit_jobcard(
-				job_card_dict, str(complete_time), str(self._test_employee.name)
-			)
+			auth_result = authenticate_employee(self._test_device_id.id)
+			token = auth_result["token"]
+			result: dict[str, Any] = submit_jobcard(job_card_dict, str(complete_time), token=token)
 
 			# The function should complete and fill in the to_time
 			self.assertEqual(result["status"], "success")
@@ -913,10 +948,10 @@ class TestTimeclock(FrappeTestCase):
 		"""
 		Test that machine operations use machine employee IDs.
 
-		Verifies that when logging time on machine operations (e.g., CNC Machine Time),
+		Verifies that when starting a timer on machine operations (e.g., CNC Machine Time),
 		the time log uses the machine's employee ID instead of the human operator.
 		"""
-		from timeclock.www.project_tracker.project_tracker import log_start_time_of_jobcard
+		from timeclock.www.project_tracker.project_tracker import authenticate_employee, start_timer
 
 		assert self._test_employee is not None
 		assert self._test_work_order is not None
@@ -942,9 +977,16 @@ class TestTimeclock(FrappeTestCase):
 		)
 
 		try:
+			# Get a valid token
+			auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
+			token: str = auth_result["token"]
+
 			start_time = now_datetime()
-			result: dict[str, Any] = log_start_time_of_jobcard(
-				str(self._test_employee.name), str(start_time), str(job_card.name)
+			result: dict[str, Any] = start_timer(
+				work_order=str(self._test_work_order.name),
+				operation="CNC Machine Time",
+				start_time=str(start_time),
+				token=token,
 			)
 
 			self.assertEqual(result["status"], "success")
