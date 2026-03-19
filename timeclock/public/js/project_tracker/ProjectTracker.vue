@@ -475,7 +475,7 @@ export default defineComponent({
       }
 
       const startTime = new Date();
-      const startTimeFrappe = dateToFrappeDateTimeString(startTime, 5);
+      const startTimeFrappe = dateToFrappeDateTimeString(startTime);
 
       const response = await api.startTimer(
         this.selectedWorkOrder!.name,
@@ -500,7 +500,7 @@ export default defineComponent({
 
     async handleStopTask(operationName: string) {
       const endTime = new Date();
-      const endTimeFrappe = dateToFrappeDateTimeString(endTime, 5);
+      const endTimeFrappe = dateToFrappeDateTimeString(endTime);
 
       const response = await api.stopTimer(endTimeFrappe, this.token);
 
@@ -527,7 +527,7 @@ export default defineComponent({
       }
 
       const startTime = new Date();
-      const startTimeFrappe = dateToFrappeDateTimeString(startTime, 5);
+      const startTimeFrappe = dateToFrappeDateTimeString(startTime);
 
       const response = await api.startTimer(
         this.selectedWorkOrder!.name,
@@ -553,7 +553,7 @@ export default defineComponent({
 
     async handleStopRework(operationName: string) {
       const endTime = new Date();
-      const endTimeFrappe = dateToFrappeDateTimeString(endTime, 5);
+      const endTimeFrappe = dateToFrappeDateTimeString(endTime);
 
       const response = await api.stopTimer(endTimeFrappe, this.token);
 
@@ -697,6 +697,40 @@ export default defineComponent({
         console.error("Failed to fetch device info:", error);
       }
     },
+
+    handleVisibilityChange() {
+      if (document.visibilityState !== "visible") return;
+
+      // Session auth (ERP login) — just refresh data
+      if (this.activeSession && !this.token) {
+        this.getActiveTimer();
+        this.getWorkOrders();
+        if (this.selectedWorkOrder) {
+          this.getOperations(this.selectedWorkOrder.name);
+        }
+        return;
+      }
+
+      // Token auth — check whether the JWT is still valid
+      if (this.token && this.tokenExpiration > 0) {
+        // Cancel the stale setTimeout that may fire immediately after wake
+        clearTimeout(this.timeoutId);
+
+        const remaining = this.tokenExpiration - Date.now();
+        if (remaining > 0) {
+          // Token still valid — reset timeout and sync data
+          this.startTimer(remaining);
+          this.getActiveTimer();
+          this.getWorkOrders();
+          if (this.selectedWorkOrder) {
+            this.getOperations(this.selectedWorkOrder.name);
+          }
+        } else {
+          // Token expired during sleep — end session
+          this.endTimer();
+        }
+      }
+    },
   },
 
   mounted() {
@@ -723,6 +757,9 @@ export default defineComponent({
     window.onScanAttached = true;
     // Attach onScan to window for global access (useful for debugging)
     window.onScan = onScan;
+
+    // Re-sync session state when the page becomes visible after iPad sleep
+    document.addEventListener("visibilitychange", this.handleVisibilityChange);
 
     watch(
       () => this.token,
@@ -768,6 +805,11 @@ export default defineComponent({
   },
 
   beforeUnmount() {
+    // Clean up visibility change listener
+    document.removeEventListener(
+      "visibilitychange",
+      this.handleVisibilityChange,
+    );
     // Clean up header timer interval
     if (this.headerTimerInterval) {
       clearInterval(this.headerTimerInterval);
