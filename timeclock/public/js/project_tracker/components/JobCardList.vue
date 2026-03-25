@@ -45,6 +45,7 @@
         :key="op.name"
         :operation="op"
         :activeTimer="activeTimer"
+        :machineTimers="machineTimers"
         :workOrder="workOrder"
         @start-task="$emit('start-task', $event)"
         @stop-task="$emit('stop-task', $event)"
@@ -62,7 +63,7 @@ import type { PropType } from "vue";
 import { Switch } from "frappe-ui";
 import Column from "./Column.vue";
 import JobCardWidget from "./JobCardWidget.vue";
-import type { Operation, ActiveTimer } from "../types";
+import type { Operation, ActiveTimer, MachineTimer } from "../types";
 
 export default defineComponent({
   name: "JobCards",
@@ -83,6 +84,10 @@ export default defineComponent({
     activeTimer: {
       type: Object as PropType<ActiveTimer | null>,
       default: null,
+    },
+    machineTimers: {
+      type: Array as PropType<MachineTimer[]>,
+      default: () => [],
     },
     workOrder: {
       type: String,

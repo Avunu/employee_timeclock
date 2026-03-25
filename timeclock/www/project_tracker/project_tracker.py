@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timedelta
 from typing import Any, cast
 
 import frappe
@@ -21,11 +21,14 @@ from timeclock.www.project_tracker.models import (
 	EmployeeCheckinResponse,
 	GetActiveTimerResponse,
 	GetDeviceInfoResponse,
+	GetMachineTimersResponse,
 	GetOperationsResponse,
 	GetWorkOrdersResponse,
 	GetWorkstationsResponse,
+	MachineTimer,
 	Operation,
 	StartTimerResponse,
+	StopMachineTimerResponse,
 	StopTimerResponse,
 	SubmitJobCardResponse,
 	UserSessionEmployee,
@@ -134,6 +137,28 @@ def _build_machine_employee_case(operation_field: Any, fallback_employee_id: str
 	return case.else_(fallback_employee_id)
 
 
+def _is_machine_operation(operation: str) -> bool:
+	"""Return True if the operation has ``is_machine_time`` checked."""
+	Op = DocType("Operation")
+	row = (frappe.qb.from_(Op).select(Op.is_machine_time).where(Op.name == operation).limit(1)).run(
+		as_dict=True
+	)
+	return bool(row and row[0].get("is_machine_time"))
+
+
+def _get_employee_groups_for_employee(employee_id: str) -> list[str]:
+	"""Return the Employee Group names that contain *employee_id*."""
+	EGT = DocType("Employee Group Table")
+	return (
+		frappe.qb.from_(EGT)
+		.select(EGT.parent)
+		.where(EGT.employee == employee_id)
+		.where(EGT.parenttype == "Employee Group")
+		.distinct()
+		.run(pluck="parent")
+	)
+
+
 def _resolve_job_card_name(work_order: str, operation: str, *, corrective: bool = False) -> str | None:
 	"""Resolve work_order + operation to a Job Card name.
 
@@ -172,7 +197,7 @@ def refresh_token(employee_id: str) -> str:
 	"""
 	employee_name = frappe.get_value("Employee", {"employee": employee_id}, "employee_name")
 	# If valid, generate a JWT
-	expires: float = (datetime.datetime.now() + datetime.timedelta(minutes=30)).timestamp()
+	expires: float = (datetime.now() + timedelta(minutes=30)).timestamp()
 	token: str = jwt.encode(
 		payload={
 			"employee_id": employee_id,
@@ -536,61 +561,75 @@ def get_operations(
 	except (ValueError, TypeError):
 		ws_list = [workstations] if workstations else []
 
-	WOOp = DocType("Work Order Operation")
-	JC = DocType("Job Card")
-	TL = DocType("Job Card Time Log")
+	WorkOrderOperations = DocType("Work Order Operation")
+	JobCards = DocType("Job Card")
+	JobCardTimeLogs = DocType("Job Card Time Log")
+	Operations = DocType("Operation")
 
 	# CASE: map operation -> expected employee (machine ops use machine employee)
-	employee_case = _build_machine_employee_case(WOOp.operation, employee_id)
+	employee_case = _build_machine_employee_case(WorkOrderOperations.operation, employee_id)
 
 	results: list[dict[str, Any]] = (
-		frappe.qb.from_(WOOp)
-		.left_join(JC)
-		.on((JC.work_order == WOOp.parent) & (JC.operation == WOOp.operation) & (JC.docstatus < 2))
-		.left_join(TL)
-		.on(TL.parent == JC.name)
+		frappe.qb.from_(WorkOrderOperations)
+		.join(Operations)
+		.on(Operations.name == WorkOrderOperations.operation)
+		.left_join(JobCards)
+		.on(
+			(JobCards.work_order == WorkOrderOperations.parent)
+			& (JobCards.operation == WorkOrderOperations.operation)
+			& (JobCards.docstatus < 2)
+		)
+		.left_join(JobCardTimeLogs)
+		.on(JobCardTimeLogs.parent == JobCards.name)
 		.select(
-			WOOp.name.as_("work_order_operation"),
-			WOOp.operation,
-			WOOp.workstation,
-			WOOp.time_in_mins.as_("planned_time_mins"),
-			Coalesce(Sum(Case().when(JC.is_corrective_job_card == 0, TL.time_in_mins).else_(0)), 0).as_(
-				"actual_time_mins"
-			),
+			WorkOrderOperations.name.as_("work_order_operation"),
+			WorkOrderOperations.operation,
+			WorkOrderOperations.workstation,
+			WorkOrderOperations.time_in_mins.as_("planned_time_mins"),
+			Operations.is_machine_time,
+			Coalesce(
+				Sum(Case().when(JobCards.is_corrective_job_card == 0, JobCardTimeLogs.time_in_mins).else_(0)),
+				0,
+			).as_("actual_time_mins"),
 			Coalesce(
 				Sum(
 					Case()
 					.when(
-						(JC.is_corrective_job_card == 0) & (TL.employee == employee_case),
-						TL.time_in_mins,
+						(JobCards.is_corrective_job_card == 0) & (JobCardTimeLogs.employee == employee_case),
+						JobCardTimeLogs.time_in_mins,
 					)
 					.else_(0)
 				),
 				0,
 			).as_("employee_time_mins"),
-			Coalesce(Sum(Case().when(JC.is_corrective_job_card == 1, TL.time_in_mins).else_(0)), 0).as_(
-				"corrective_total_time_mins"
-			),
+			Coalesce(
+				Sum(Case().when(JobCards.is_corrective_job_card == 1, JobCardTimeLogs.time_in_mins).else_(0)),
+				0,
+			).as_("corrective_total_time_mins"),
 			Coalesce(
 				Sum(
 					Case()
 					.when(
-						(JC.is_corrective_job_card == 1) & (TL.employee == employee_case),
-						TL.time_in_mins,
+						(JobCards.is_corrective_job_card == 1) & (JobCardTimeLogs.employee == employee_case),
+						JobCardTimeLogs.time_in_mins,
 					)
 					.else_(0)
 				),
 				0,
 			).as_("corrective_employee_time_mins"),
-			Coalesce(Max(Case().when(JC.is_corrective_job_card == 0, JC.docstatus).else_(None)), 0).as_(
-				"regular_docstatus"
-			),
+			Coalesce(
+				Max(Case().when(JobCards.is_corrective_job_card == 0, JobCards.docstatus).else_(None)), 0
+			).as_("regular_docstatus"),
 		)
-		.where(WOOp.parent == work_order)
-		.where(WOOp.parenttype == "Work Order")
-		.groupby(WOOp.name)
-		.orderby(Case().when(WOOp.workstation.isin(ws_list), 0).else_(1) if ws_list else WOOp.idx)
-		.orderby(WOOp.idx)
+		.where(WorkOrderOperations.parent == work_order)
+		.where(WorkOrderOperations.parenttype == "Work Order")
+		.groupby(WorkOrderOperations.name)
+		.orderby(
+			Case().when(WorkOrderOperations.workstation.isin(ws_list), 0).else_(1)
+			if ws_list
+			else WorkOrderOperations.idx
+		)
+		.orderby(WorkOrderOperations.idx)
 	).run(as_dict=True)
 
 	operations = [
@@ -604,6 +643,7 @@ def get_operations(
 			corrective_total_time_mins=float(row.get("corrective_total_time_mins", 0)),
 			corrective_employee_time_mins=float(row.get("corrective_employee_time_mins", 0)),
 			is_submitted=int(row.get("regular_docstatus", 0)) == 1,
+			is_machine_time=bool(row.get("is_machine_time")),
 		)
 		for row in results
 	]
@@ -611,13 +651,51 @@ def get_operations(
 	return GetOperationsResponse(status="success", token=token, operations=operations).model_dump()
 
 
-def _close_open_time_logs(employee_id: str, close_time: str) -> int:
-	"""Close all open time logs for an employee across every job card.
+def _close_open_timers_on_operation(operation: str, close_time: datetime) -> int:
+	"""Close all open time logs on a given operation across every job card.
 
-	Queries Job Card Time Log for rows where to_time is NULL belonging
-	to ``employee_id`` or any of the machine employee IDs associated
-	with that employee.  Each affected parent Job Card is loaded, its
-	open logs are stamped with ``close_time``, and the card is saved.
+	Args:
+		operation: The Operation name to close timers on.
+		close_time: Timestamp string to write into to_time.
+
+	Returns:
+		The number of time-log rows that were closed.
+	"""
+	TL = DocType("Job Card Time Log")
+	JC = DocType("Job Card")
+
+	open_logs: list[dict[str, Any]] = (
+		frappe.qb.from_(TL)
+		.inner_join(JC)
+		.on(TL.parent == JC.name)
+		.select(TL.parent, TL.name)
+		.where(TL.to_time.isnull())
+		.where(JC.operation == operation)
+		.where(JC.docstatus == 0)
+	).run(as_dict=True)
+
+	if not open_logs:
+		return 0
+
+	# Group log names by their parent Job Card
+	cards: dict[str, list[str]] = {}
+	for row in open_logs:
+		cards.setdefault(row["parent"], []).append(row["name"])
+
+	closed = 0
+	for card_name, log_names in cards.items():
+		job_card: JobCard = JobCard("Job Card", card_name, ignore_permissions=True)
+		for tl in job_card.time_logs:
+			if tl.name in log_names:
+				tl.to_time = close_time
+				closed += 1
+		job_card.save(ignore_permissions=True)
+
+	return closed
+
+
+def _close_open_timers_on_employee(employee_id: str, close_time: datetime) -> int:
+	"""Close open time logs for an employee across every job card.
 
 	Args:
 		employee_id: The human employee ID.
@@ -629,15 +707,13 @@ def _close_open_time_logs(employee_id: str, close_time: str) -> int:
 	TL = DocType("Job Card Time Log")
 	JC = DocType("Job Card")
 
-	employee_ids: list[str] = [employee_id] + _get_all_machine_employee_ids()
-
 	open_logs: list[dict[str, Any]] = (
 		frappe.qb.from_(TL)
 		.inner_join(JC)
 		.on(TL.parent == JC.name)
 		.select(TL.parent, TL.name)
 		.where(TL.to_time.isnull())
-		.where(TL.employee.isin(employee_ids))
+		.where(TL.employee == employee_id)
 		.where(JC.docstatus == 0)
 	).run(as_dict=True)
 
@@ -664,61 +740,55 @@ def _close_open_time_logs(employee_id: str, close_time: str) -> int:
 @frappe.whitelist(allow_guest=True)
 def get_active_timer(token: str | None = None) -> GetActiveTimerResponse:
 	"""
-	Get the currently running timer for the authenticated employee.
+	Get the currently running labor timer for the authenticated employee.
 
-	Searches across all work orders for an open time log (no to_time)
-	belonging to this employee or any of their machine employee IDs.
+	Only returns the employee's own timer (not machine timers).
+	Machine timers are fetched separately via ``get_machine_timers``.
 
 	Args:
 		token: Optional JWT authentication token (NFC auth)
 
 	Returns:
-		Dict containing:
-			- status: "success" or "error"
-			- token: Refreshed JWT token (None for session auth)
-			- active_timer: Dict with work_order, operation, from_time,
-				is_corrective (or None if no timer running)
-
-	Raises:
-		None: Returns error dict on exception
+		Dict with status, token, and active_timer (or None).
 	"""
 	try:
 		employee_id, token = _resolve_employee(token)
 	except Exception as e:
 		return GetActiveTimerResponse(status="error", message=str(e)).model_dump()
 
-	JC = DocType("Job Card")
-	TL = DocType("Job Card Time Log")
+	JobCards = DocType("Job Card")
+	JobCardTimeLogs = DocType("Job Card Time Log")
 
-	# Employee could be logged under their own ID or a machine employee ID
-	employee_ids: list[str] = [employee_id] + _get_all_machine_employee_ids()
-
+	# Only look for the employee's own logs (labor timers)
 	result: list[dict[str, Any]] = (
-		frappe.qb.from_(TL)
-		.inner_join(JC)
-		.on(TL.parent == JC.name)
+		frappe.qb.from_(JobCardTimeLogs)
+		.inner_join(JobCards)
+		.on(JobCardTimeLogs.parent == JobCards.name)
 		.select(
-			JC.work_order,
-			JC.operation,
-			TL.from_time,
-			JC.is_corrective_job_card,
+			JobCards.work_order,
+			JobCards.operation,
+			JobCardTimeLogs.from_time,
+			JobCards.is_corrective_job_card,
 		)
-		.where(JC.docstatus == 0)
-		.where(TL.time_in_mins == 0)
-		.where(TL.to_time.isnull())
-		.where(TL.employee.isin(employee_ids))
+		.where(JobCards.docstatus == 0)
+		.where(JobCardTimeLogs.time_in_mins == 0)
+		.where(JobCardTimeLogs.from_time.notnull())
+		.where(JobCardTimeLogs.to_time.isnull())
+		.where(JobCardTimeLogs.employee == employee_id)
 		.limit(1)
 	).run(as_dict=True)
 
 	active_timer = None
 	if result:
 		row = result[0]
+		print(row)
 		active_timer = ActiveTimer(
 			work_order=row["work_order"],
 			operation=row["operation"],
 			from_time=row["from_time"],
 			is_corrective=bool(row["is_corrective_job_card"]),
 		)
+		print(active_timer)
 
 	return GetActiveTimerResponse(status="success", token=token, active_timer=active_timer).model_dump()
 
@@ -727,7 +797,7 @@ def get_active_timer(token: str | None = None) -> GetActiveTimerResponse:
 def start_timer(
 	work_order: str,
 	operation: str,
-	start_time: str,
+	start_time: datetime | str,
 	is_corrective: bool = False,
 	token: str | None = None,
 ) -> StartTimerResponse:
@@ -759,6 +829,13 @@ def start_timer(
 	except Exception as e:
 		return StartTimerResponse(status="failed", error=str(e)).model_dump()
 
+	# convert start_time to datetime if it's a string
+	if isinstance(start_time, str):
+		try:
+			start_time = datetime.fromisoformat(start_time)
+		except ValueError:
+			return StartTimerResponse(status="failed", error="Invalid start_time format").model_dump()
+
 	# Resolve the original (non-corrective) job card
 	jobcard_name = _resolve_job_card_name(work_order, operation) or ""
 	if not jobcard_name:
@@ -767,12 +844,17 @@ def start_timer(
 	# Determine effective employee (machine ops use machine employee)
 	log_employee = employee_id
 	machine_employees = _get_machine_employee_ids(operation)
-	if machine_employees:
+	is_machine = bool(machine_employees)
+	if is_machine:
 		log_employee = machine_employees[0]
 
 	try:
-		# Close any open time logs for this employee before starting
-		_close_open_time_logs(employee_id, start_time)
+		if is_machine:
+			# Machine timer: close any open timers on this operation across all employees to prevent overlap
+			_close_open_timers_on_operation(operation, start_time)
+		else:
+			# Labor timer: close any open labor time logs before starting
+			_close_open_timers_on_employee(employee_id, start_time)
 
 		if is_corrective:
 			original_job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
@@ -813,8 +895,39 @@ def start_timer(
 		else:
 			job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
 			job_card.reload()
-			job_card.append("time_logs", {"from_time": start_time, "employee": log_employee})
+			time_log = {}
+			time_log["from_time"] = start_time
+			if is_machine:
+				time_log["machine_operator"] = log_employee
+			else:
+				time_log["employee"] = log_employee
+			job_card.append("time_logs", time_log)
 			job_card.save(ignore_permissions=True)
+
+		# Broadcast machine timer start to all connected clients
+		if is_machine:
+			Operations = DocType("Operation")
+			EmployeeGroups = (
+				frappe.qb.from_(Operations)
+				.select(Operations.employee_group)
+				.where(Operations.name == operation)
+				.limit(1)
+				.run(pluck="employee_group")
+			)
+			frappe.publish_realtime(
+				"machine_timer_update",
+				{
+					"action": "start",
+					"timer": MachineTimer(
+						work_order=work_order,
+						operation=operation,
+						from_time=start_time,
+						employee_group=EmployeeGroups[0] if EmployeeGroups else "",
+					).model_dump(),
+				},
+				room="website",
+				after_commit=True,
+			)
 
 		return StartTimerResponse(status="success").model_dump()
 
@@ -825,39 +938,37 @@ def start_timer(
 
 @frappe.whitelist(allow_guest=True)
 def stop_timer(
-	end_time: str,
+	end_time: datetime | str,
 	token: str | None = None,
 	**_kwargs: Any,
 ) -> StopTimerResponse:
 	"""
-	Stop all running timers for an employee.
+	Stop the running labor timer for an employee.
 
-	Closes every open time log (where to_time is NULL) belonging to
-	this employee or any of their associated machine employee IDs.
-
-	Accepts (and ignores) extra keyword arguments so existing frontend
-	callers that still pass work_order / operation / is_corrective
-	continue to work without error.
+	Closes every open time log (where to_time is NULL) belonging to the
+	employee's own ID only (not machine timers).
 
 	Args:
 		end_time: Timestamp string for when work ends
 		token: Optional JWT authentication token (NFC auth)
 
 	Returns:
-		Dict containing:
-			- status: "success" or "failed"
-			- error: Error message string if failed
-
-	Raises:
-		None: Catches and logs exceptions
+		Dict with status "success" or "failed".
 	"""
 	try:
 		employee_id, _token = _resolve_employee(token)
 	except Exception as e:
 		return StopTimerResponse(status="failed", error=str(e)).model_dump()
 
+	# convert end_time to datetime if it's a string
+	if isinstance(end_time, str):
+		try:
+			end_time = datetime.fromisoformat(end_time)
+		except ValueError:
+			return StopTimerResponse(status="failed", error="Invalid end_time format").model_dump()
+
 	try:
-		closed = _close_open_time_logs(employee_id, end_time)
+		closed = _close_open_timers_on_employee(employee_id, end_time)
 		if closed == 0:
 			return StopTimerResponse(status="failed", error="No active time log found").model_dump()
 		return StopTimerResponse(status="success").model_dump()
@@ -952,6 +1063,170 @@ def get_device_info() -> GetDeviceInfoResponse:
 		pass
 
 	return GetDeviceInfoResponse(status="success", ip=ip, mac=mac).model_dump()
+
+
+@frappe.whitelist(allow_guest=True)
+@rate_limit(limit=4, seconds=1)
+def get_machine_timers(token: str | None = None) -> GetMachineTimersResponse:
+	"""Return all active machine timers visible to the authenticated employee.
+
+	An employee sees machine timers for every Employee Group they belong to.
+
+	Args:
+		token: Optional JWT authentication token (NFC auth).
+
+	Returns:
+		Dict with status and list of MachineTimer objects.
+	"""
+	try:
+		employee_id, token = _resolve_employee(token)
+	except Exception as e:
+		return GetMachineTimersResponse(status="error", message=str(e)).model_dump()
+
+	groups = _get_employee_groups_for_employee(employee_id)
+	if not groups:
+		return GetMachineTimersResponse(status="success", token=token, machine_timers=[]).model_dump()
+
+	Op = DocType("Operation")
+	JC = DocType("Job Card")
+	TL = DocType("Job Card Time Log")
+	EGT = DocType("Employee Group Table")
+
+	# Machine employee IDs from Employee Groups the employee belongs to
+	machine_emp_ids: list[str] = (
+		frappe.qb.from_(EGT)
+		.select(EGT.employee)
+		.where(EGT.parent.isin(groups))
+		.where(EGT.parenttype == "Employee Group")
+		.distinct()
+		.run(pluck="employee")
+	)
+
+	if not machine_emp_ids:
+		return GetMachineTimersResponse(status="success", token=token, machine_timers=[]).model_dump()
+
+	rows: list[dict[str, Any]] = (
+		frappe.qb.from_(TL)
+		.inner_join(JC)
+		.on(TL.parent == JC.name)
+		.inner_join(Op)
+		.on(Op.name == JC.operation)
+		.select(
+			JC.work_order,
+			JC.operation,
+			TL.from_time,
+			Op.employee_group,
+		)
+		.where(JC.docstatus == 0)
+		.where(TL.to_time.isnull())
+		.where(Op.is_machine_time == 1)
+	).run(as_dict=True)
+
+	timers = [
+		MachineTimer(
+			work_order=r["work_order"],
+			operation=r["operation"],
+			from_time=r["from_time"],
+			employee_group=r["employee_group"] or "",
+		)
+		for r in rows
+	]
+
+	return GetMachineTimersResponse(status="success", token=token, machine_timers=timers).model_dump()
+
+
+@frappe.whitelist(allow_guest=True)
+@rate_limit(limit=4, seconds=1)
+def stop_machine_timer(
+	work_order: str,
+	operation: str,
+	end_time: datetime,
+	token: str | None = None,
+) -> StopMachineTimerResponse:
+	"""Stop a specific machine timer.
+
+	Finds the open time log for the machine employee on the given
+	work_order + operation and closes it.  Broadcasts the stop event
+	to all connected clients.
+
+	Args:
+		work_order: Work Order name.
+		operation: Operation name (must be a machine operation).
+		end_time: Timestamp string for when the machine timer ends.
+		token: Optional JWT authentication token (NFC auth).
+
+	Returns:
+		Dict with status "success" or "failed".
+	"""
+	try:
+		_employee_id, _token = _resolve_employee(token)
+	except Exception as e:
+		return StopMachineTimerResponse(status="failed", error=str(e)).model_dump()
+
+	# convert end_time to datetime if it's a string
+	if isinstance(end_time, str):
+		try:
+			end_time = datetime.fromisoformat(end_time)
+		except ValueError:
+			return StopMachineTimerResponse(status="failed", error="Invalid end_time format").model_dump()
+
+	machine_employees = _get_machine_employee_ids(operation)
+	if not machine_employees:
+		return StopMachineTimerResponse(status="failed", error="Not a machine operation").model_dump()
+
+	JobCardTimeLogs = DocType("Job Card Time Log")
+	JobCards = DocType("Job Card")
+
+	open_logs: list[dict[str, Any]] = (
+		frappe.qb.from_(JobCardTimeLogs)
+		.inner_join(JobCards)
+		.on(JobCardTimeLogs.parent == JobCards.name)
+		.select(JobCardTimeLogs.parent, JobCardTimeLogs.name)
+		.where(JobCards.work_order == work_order)
+		.where(JobCards.operation == operation)
+		.where(JobCards.docstatus == 0)
+		.where(JobCardTimeLogs.to_time.isnull())
+	).run(as_dict=True)
+
+	if not open_logs:
+		return StopMachineTimerResponse(status="failed", error="No active machine timer found").model_dump()
+
+	# Group by parent card and close
+	cards: dict[str, list[str]] = {}
+	for row in open_logs:
+		cards.setdefault(row["parent"], []).append(row["name"])
+
+	for card_name, log_names in cards.items():
+		jc: JobCard = JobCard("Job Card", card_name, ignore_permissions=True)
+		for tl in jc.time_logs:
+			if tl.name in log_names:
+				tl.to_time = end_time
+		jc.save(ignore_permissions=True)
+
+	# Broadcast stop event
+	Op = DocType("Operation")
+	eg = (
+		frappe.qb.from_(Op)
+		.select(Op.employee_group)
+		.where(Op.name == operation)
+		.limit(1)
+		.run(pluck="employee_group")
+	)
+	frappe.publish_realtime(
+		"machine_timer_update",
+		{
+			"action": "stop",
+			"timer": MachineTimer(
+				work_order=work_order,
+				operation=operation,
+				employee_group=eg[0] if eg else "",
+			).model_dump(),
+		},
+		room="website",
+		after_commit=True,
+	)
+
+	return StopMachineTimerResponse(status="success").model_dump()
 
 
 @frappe.whitelist(allow_guest=True)

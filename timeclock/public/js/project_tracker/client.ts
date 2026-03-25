@@ -5,10 +5,12 @@ import type {
   EmployeeCheckinResponse,
   GetActiveTimerResponse,
   GetDeviceInfoResponse,
+  GetMachineTimersResponse,
   GetOperationsResponse,
   GetWorkOrdersResponse,
   GetWorkstationsResponse,
   StartTimerResponse,
+  StopMachineTimerResponse,
   StopTimerResponse,
   SubmitJobCardResponse,
   VerifyLoginResponse,
@@ -115,6 +117,30 @@ export const api = {
   getDeviceInfo() {
     return frappeCall<GetDeviceInfoResponse>(
       `${METHOD}.get_device_info`,
+    );
+  },
+
+  getMachineTimers(token?: string | null) {
+    return frappeCall<GetMachineTimersResponse>(
+      `${METHOD}.get_machine_timers`,
+      { token },
+    );
+  },
+
+  stopMachineTimer(
+    workOrder: string,
+    operation: string,
+    endTime: string,
+    token?: string | null,
+  ) {
+    return frappeCall<StopMachineTimerResponse>(
+      `${METHOD}.stop_machine_timer`,
+      {
+        work_order: workOrder,
+        operation,
+        end_time: endTime,
+        token,
+      },
     );
   },
 

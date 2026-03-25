@@ -1,19 +1,18 @@
 <template>
   <div :data-operation="operation.operation">
     <div
-      class="flex flex-col rounded-lg border bg-white px-6 py-5 shadow font-sans text-black text-lg lg:text-4xl mt-2 mb-2"
-      :class="{
-        'ring-2 ring-green-500 !bg-green-50': active_user && !reworkStarted,
-        'ring-2 ring-orange-500 !bg-orange-50': active_user && reworkStarted,
-      }"
+      class="flex flex-col rounded-lg border px-6 py-5 shadow font-sans text-black text-lg lg:text-4xl mt-2 mb-2"
+      :class="cardClasses"
     >
       <!-- Header row: title + actions -->
       <div class="flex items-baseline justify-between">
-        <h2 class="text-xl font-semibold">{{ operation.operation }}</h2>
+        <h2 class="text-xl font-semibold" :class="titleColor">
+          {{ operation.operation }}
+        </h2>
         <div class="flex items-center space-x-2">
           <div class="flex gap-2 items-start">
             <Button
-              theme="green"
+              :theme="isMachine ? 'blue' : 'green'"
               variant="outline"
               size="2xl"
               label="Start Timer"
@@ -30,7 +29,7 @@
               v-if="!taskStarted && operation.is_submitted"
             />
             <Button
-              theme="green"
+              :theme="isMachine ? 'blue' : 'green'"
               variant="outline"
               size="2xl"
               label="Stop Timer"
@@ -42,7 +41,7 @@
               variant="outline"
               size="2xl"
               label="Start Rework"
-              class="!bg-orange-500 !text-white hover:!bg-orange-600"
+              class="!bg-yellow-500 !text-white hover:!bg-yellow-600"
               @click="startRework"
               v-if="!reworkStarted"
             />
@@ -51,7 +50,7 @@
               variant="outline"
               size="2xl"
               label="Stop Rework"
-              class="!text-orange-600 !border-orange-500 hover:!bg-orange-100"
+              class="!text-yellow-700 !border-yellow-500 hover:!bg-yellow-100"
               @click="stopRework"
               v-if="reworkStarted"
             />
@@ -73,8 +72,11 @@
         </div>
         <div class="h-2 w-full rounded-full bg-gray-200 overflow-hidden flex">
           <div
-            class="h-full bg-green-500 transition-all duration-300"
-            :class="{ 'rounded-full': !isOverrun, 'rounded-l-full': isOverrun }"
+            class="h-full transition-all duration-300"
+            :class="[
+              isMachine ? 'bg-blue-500' : 'bg-green-500',
+              { 'rounded-full': !isOverrun, 'rounded-l-full': isOverrun },
+            ]"
             :style="{ width: progressPercent + '%' }"
           />
           <div
@@ -97,18 +99,24 @@
         >
           <div>
             <span
-              class="text-green-600 w-full"
+              :class="isMachine ? 'text-blue-600' : 'text-green-600'"
+              class="w-full"
               v-if="operation.actual_time_mins > 0"
             >
               {{ formatMins(operation.actual_time_mins) }} logged
             </span>
           </div>
           <div class="text-right">
-            <span class="text-green-700 font-mono text-lg" v-if="taskStarted">
+            <span
+              :class="isMachine ? 'text-blue-700' : 'text-green-700'"
+              class="font-mono text-lg"
+              v-if="taskStarted"
+            >
               {{ elapsedTime }}
             </span>
             <span
-              class="text-green-500 text-lg ml-2"
+              :class="isMachine ? 'text-blue-500' : 'text-green-500'"
+              class="text-lg ml-2"
               v-if="operation.employee_time_mins > 0"
             >
               Your total: {{ formatMins(operation.employee_time_mins) }}
@@ -125,7 +133,7 @@
           "
         >
           <span
-            class="text-orange-500"
+            class="text-yellow-600"
             v-if="operation.corrective_total_time_mins > 0"
           >
             {{ formatMins(operation.corrective_total_time_mins) }} rework
@@ -133,13 +141,13 @@
           <span v-else />
           <div class="text-right">
             <span
-              class="text-orange-600 font-mono font-bold"
+              class="text-yellow-700 font-mono font-bold"
               v-if="reworkStarted"
             >
               {{ reworkElapsedTime }}
             </span>
             <span
-              class="text-orange-400 text-lg ml-2"
+              class="text-yellow-600 text-lg ml-2"
               v-if="operation.corrective_employee_time_mins > 0"
             >
               Your total:
@@ -156,7 +164,7 @@
 import { defineComponent, watch } from "vue";
 import type { PropType } from "vue";
 import Button from "./Button.vue";
-import type { Operation, ActiveTimer } from "../types";
+import type { Operation, ActiveTimer, MachineTimer } from "../types";
 
 export default defineComponent({
   name: "JobCardWidget",
@@ -171,6 +179,10 @@ export default defineComponent({
     activeTimer: {
       type: Object as PropType<ActiveTimer | null>,
       default: null,
+    },
+    machineTimers: {
+      type: Array as PropType<MachineTimer[]>,
+      default: () => [],
     },
     workOrder: {
       type: String,
@@ -192,17 +204,58 @@ export default defineComponent({
   },
 
   computed: {
-    isActiveForThis(): boolean {
+    isMachine(): boolean {
+      return !!this.operation.is_machine_time;
+    },
+    /** Active = colored bg + ring; inactive = white bg + colored border. */
+    cardClasses(): string {
+      if (this.active_user && this.reworkStarted) {
+        return "ring-2 ring-yellow-500 bg-yellow-100";
+      }
+      if (this.active_user) {
+        return this.isMachine
+          ? "ring-2 ring-blue-500 bg-blue-100"
+          : "ring-2 ring-green-500 bg-green-100";
+      }
+      // Inactive — white bg, colored border to show type
+      return this.isMachine
+        ? "bg-white border-blue-150"
+        : "bg-white border-green-150";
+    },
+    /** Operation name always in the type color. */
+    titleColor(): string {
+      return this.isMachine ? "text-blue-700" : "text-green-700";
+    },
+    /** The matching machine timer for this operation, if any. */
+    activeMachineTimer(): MachineTimer | undefined {
+      if (!this.isMachine) return undefined;
+      return this.machineTimers.find(
+        (t) =>
+          t.work_order === this.workOrder &&
+          t.operation === this.operation.operation,
+      );
+    },
+    /** True when the labor activeTimer is for this card. */
+    isLaborActiveForThis(): boolean {
+      if (this.isMachine) return false;
       return (
         this.activeTimer?.work_order === this.workOrder &&
         this.activeTimer?.operation === this.operation.operation
       );
     },
+    /** Unified "is active" — machine or labor. */
+    isActiveForThis(): boolean {
+      return this.isMachine
+        ? !!this.activeMachineTimer
+        : this.isLaborActiveForThis;
+    },
     taskStarted(): boolean {
-      return this.isActiveForThis && !this.activeTimer!.is_corrective;
+      if (this.isMachine) return !!this.activeMachineTimer;
+      return this.isLaborActiveForThis && !this.activeTimer!.is_corrective;
     },
     reworkStarted(): boolean {
-      return this.isActiveForThis && !!this.activeTimer!.is_corrective;
+      if (this.isMachine) return false; // machine ops don't have rework via card
+      return this.isLaborActiveForThis && !!this.activeTimer!.is_corrective;
     },
     active_user(): boolean {
       return this.isActiveForThis;
@@ -277,7 +330,15 @@ export default defineComponent({
     },
 
     updateElapsedDisplay(): void {
-      if (!this.isActiveForThis || !this.activeTimer?.from_time) return;
+      if (this.isMachine) {
+        // Machine timer — use machineTimers array
+        const mt = this.activeMachineTimer;
+        if (!mt?.from_time) return;
+        this.elapsedTime = this.formatElapsedTime(new Date(mt.from_time));
+        return;
+      }
+      // Labor timer
+      if (!this.isLaborActiveForThis || !this.activeTimer?.from_time) return;
       const start = new Date(this.activeTimer.from_time);
       const elapsed = this.formatElapsedTime(start);
       if (this.activeTimer.is_corrective) {

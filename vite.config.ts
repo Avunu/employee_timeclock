@@ -1,9 +1,11 @@
 import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
+import Vue from '@vitejs/plugin-vue'
 import Icons from 'unplugin-icons/vite'
+import IconsResolver from 'unplugin-icons/resolver'
+import Components from 'unplugin-vue-components/vite'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { existsSync, writeFileSync } from 'fs'
+import { existsSync } from 'fs'
 import type { Plugin, ResolvedConfig } from 'vite'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -51,22 +53,12 @@ function frappeNotifyPlugin(changedFiles: string[]): Plugin {
 
 			if (isFirstBuild) {
 				isFirstBuild = false
-				// Write initial stamp so the browser has a baseline on first load
-				if (isWatch) writeStamp(resolvedConfig)
 				return
 			}
 
-			if (isWatch) writeStamp(resolvedConfig)
-			notifyFrappeReload(changedFiles)
+			if (isWatch) notifyFrappeReload(changedFiles)
 		},
 	}
-}
-
-function writeStamp(config: ResolvedConfig) {
-	try {
-		const outDir = config.build.outDir
-		writeFileSync(`${outDir}/build-stamp.json`, JSON.stringify({ ts: Date.now() }))
-	} catch (_) {}
 }
 
 async function notifyFrappeReload(changedFiles: string[]) {
@@ -126,10 +118,16 @@ if (!config) {
 export default defineConfig({
 	plugins: [
 		tiptapSourcePlugin(),
-		vue(),
+		Vue(),
 		Icons({
 			compiler: 'vue3',
 			autoInstall: true,
+		}),
+		Components({
+			dts: true,
+			resolvers: [
+				IconsResolver(),
+			],
 		}),
 		frappeNotifyPlugin([`${appName}/index.js`]),
 	],

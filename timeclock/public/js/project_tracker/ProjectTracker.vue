@@ -25,7 +25,7 @@
             class="flex items-center gap-3 rounded-lg px-4 py-2 ring-2 cursor-pointer"
             :class="
               activeTimer.is_corrective
-                ? 'ring-orange-500 bg-orange-50 hover:bg-orange-100'
+                ? 'ring-yellow-500 bg-yellow-50 hover:bg-yellow-100'
                 : 'ring-green-500 bg-green-50 hover:bg-green-100'
             "
             @click="navigateToActiveTimer"
@@ -33,7 +33,7 @@
             <span
               class="font-semibold text-lg lg:text-2xl truncate"
               :class="
-                activeTimer.is_corrective ? 'text-orange-700' : 'text-green-700'
+                activeTimer.is_corrective ? 'text-yellow-700' : 'text-green-700'
               "
             >
               {{ activeTimer.operation }}
@@ -41,14 +41,14 @@
             <span
               class="font-mono text-xl lg:text-2xl font-bold"
               :class="
-                activeTimer.is_corrective ? 'text-orange-800' : 'text-green-800'
+                activeTimer.is_corrective ? 'text-yellow-800' : 'text-green-800'
               "
             >
               {{ headerElapsedTime }}
             </span>
             <span
               v-if="activeTimer.is_corrective"
-              class="text-orange-600 text-sm font-semibold"
+              class="text-yellow-700 text-sm font-semibold"
             >
               REWORK
             </span>
@@ -58,7 +58,7 @@
             class="p-3 rounded-lg transition-colors"
             :class="
               activeTimer.is_corrective
-                ? 'bg-orange-100 hover:bg-orange-200 text-orange-700'
+                ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700'
                 : 'bg-green-100 hover:bg-green-200 text-green-700'
             "
             :title="activeTimer.is_corrective ? 'Stop Rework' : 'Stop Timer'"
@@ -199,6 +199,7 @@
           name="job_cards_comp"
           :operations="operations"
           :activeTimer="activeTimer"
+          :machineTimers="machineTimers"
           :workstations="workstations"
           v-if="selectedWorkOrder"
           :workOrder="selectedWorkOrder!.name"
@@ -209,6 +210,14 @@
         />
       </transition>
     </main>
+
+    <!-- Machine Timer Bottom Bar -->
+    <MachineTimerBar
+      v-if="activeSession"
+      :machineTimers="machineTimers"
+      :workOrders="workOrders"
+      @stop-machine-timer="handleStopMachineTimer"
+    />
 
     <!-- <main v-else: class="bg-white fixed w-auto top-100 z-50 h-24"> -->
     <main v-else: class="flex-1 w-full">
@@ -226,6 +235,7 @@ import { useStorage } from "@vueuse/core";
 import { jwtDecode } from "jwt-decode";
 import onScan from "onscan.js";
 import { api } from "./client";
+import { getSocket } from "./socket";
 
 // Extend Window interface for TypeScript
 declare global {
@@ -237,6 +247,7 @@ declare global {
 
 // import sub components
 import AuthorizationMessage from "./components/AuthorizationMessage.vue";
+import MachineTimerBar from "./components/MachineTimerBar.vue";
 import SessionTimer from "./components/SessionTimer.vue";
 import WorkOrderList from "./components/WorkOrderList.vue";
 import JobCardList from "./components/JobCardList.vue";
@@ -246,7 +257,13 @@ import IconSettings from "~icons/lucide/settings";
 import IconLogOut from "~icons/lucide/log-out";
 
 import { dateToFrappeDateTimeString } from "./utils";
-import type { Employee, WorkOrder, Operation, ActiveTimer } from "./types";
+import type {
+  Employee,
+  WorkOrder,
+  Operation,
+  ActiveTimer,
+  MachineTimer,
+} from "./types";
 
 export default defineComponent({
   name: "JobTimeTracker",
@@ -254,6 +271,7 @@ export default defineComponent({
     AuthorizationMessage,
     Button,
     JobCardList,
+    MachineTimerBar,
     SessionTimer,
     Toast,
     WorkOrderList,
@@ -283,6 +301,7 @@ export default defineComponent({
     availableWorkstations: string[];
     deviceIp: string;
     deviceMac: string;
+    machineTimers: MachineTimer[];
   } {
     return {
       activeTimer: null,
@@ -305,23 +324,11 @@ export default defineComponent({
       availableWorkstations: [],
       deviceIp: "",
       deviceMac: "",
+      machineTimers: [],
     };
   },
 
   computed: {},
-
-  // computed: {
-  //     sorted_jobCards(){
-  //         const cards = this.jobCards
-  //         cards.sort((a) =>{
-  //             const valueA = a["operation"];
-  //             const valueB = b[this.sortValue];
-  //             if (valueA < valueB) return -1;
-  //             if (valueA > valueB) return 1;
-  //             return 0;
-  //         });
-  //     }
-  // },
 
   methods: {
     async check_for_erp_log_in() {
@@ -334,6 +341,7 @@ export default defineComponent({
         this.token = null;
         this.getWorkOrders();
         this.getActiveTimer();
+        this.fetchMachineTimers();
         this.fetchWorkstations();
         console.log("Session authenticated as", erpLogInStatus.employee_name);
       } else {
@@ -345,6 +353,7 @@ export default defineComponent({
       this.token = null;
       this.tokenExpiration = 0;
       this.activeTimer = null;
+      this.machineTimers = [];
       this.operations = [];
       this.selectedWorkOrder = null;
       this.workOrders = [];
@@ -358,6 +367,7 @@ export default defineComponent({
         this.activeSession = true;
         this.getWorkOrders();
         this.getActiveTimer();
+        this.fetchMachineTimers();
         this.fetchWorkstations();
       } else {
         console.log("Sorry! You are not authenticated.");
@@ -465,6 +475,31 @@ export default defineComponent({
     },
 
     async handleStartTask(operationName: string) {
+      const op = this.operations.find((o) => o.operation === operationName);
+
+      if (op?.is_machine_time) {
+        // --- Machine timer: don't touch activeTimer ---
+        const startTime = new Date();
+        const startTimeFrappe = dateToFrappeDateTimeString(startTime);
+
+        const response = await api.startTimer(
+          this.selectedWorkOrder!.name,
+          operationName,
+          startTimeFrappe,
+          false,
+          this.token,
+        );
+
+        if (response.status === "success") {
+          await this.fetchMachineTimers();
+        } else {
+          toast.error(`${operationName} machine timer failed to start.`);
+          console.error("start_timer (machine) failed:", response.error);
+        }
+        return;
+      }
+
+      // --- Labor timer ---
       // If rework is running on the same operation, stop it first
       if (
         this.activeTimer?.is_corrective &&
@@ -499,6 +534,33 @@ export default defineComponent({
     },
 
     async handleStopTask(operationName: string) {
+      const op = this.operations.find((o) => o.operation === operationName);
+
+      if (op?.is_machine_time) {
+        // --- Machine timer: use stopMachineTimer endpoint ---
+        const endTime = new Date();
+        const endTimeFrappe = dateToFrappeDateTimeString(endTime);
+
+        const response = await api.stopMachineTimer(
+          this.selectedWorkOrder!.name,
+          operationName,
+          endTimeFrappe,
+          this.token,
+        );
+
+        if (response.status === "success") {
+          await this.fetchMachineTimers();
+          if (this.selectedWorkOrder) {
+            await this.getOperations(this.selectedWorkOrder.name);
+          }
+        } else {
+          toast.error(`${operationName} machine timer failed to stop.`);
+          console.error("stop_machine_timer failed:", response.error);
+        }
+        return;
+      }
+
+      // --- Labor timer ---
       const endTime = new Date();
       const endTimeFrappe = dateToFrappeDateTimeString(endTime);
 
@@ -583,6 +645,7 @@ export default defineComponent({
       this.setSessionFalse;
       this.activeSession = false;
       this.activeTimer = null;
+      this.machineTimers = [];
       this.token = null;
       this.tokenExpiration = 0;
       this.operations = [];
@@ -614,6 +677,7 @@ export default defineComponent({
 
       this.activeSession = false;
       this.activeTimer = null;
+      this.machineTimers = [];
       this.token = null;
       this.tokenExpiration = 0;
       this.operations = [];
@@ -704,6 +768,7 @@ export default defineComponent({
       // Session auth (ERP login) — just refresh data
       if (this.activeSession && !this.token) {
         this.getActiveTimer();
+        this.fetchMachineTimers();
         this.getWorkOrders();
         if (this.selectedWorkOrder) {
           this.getOperations(this.selectedWorkOrder.name);
@@ -721,6 +786,7 @@ export default defineComponent({
           // Token still valid — reset timeout and sync data
           this.startTimer(remaining);
           this.getActiveTimer();
+          this.fetchMachineTimers();
           this.getWorkOrders();
           if (this.selectedWorkOrder) {
             this.getOperations(this.selectedWorkOrder.name);
@@ -729,6 +795,91 @@ export default defineComponent({
           // Token expired during sleep — end session
           this.endTimer();
         }
+      }
+    },
+
+    async fetchMachineTimers(): Promise<void> {
+      try {
+        const response = await api.getMachineTimers(this.token);
+        if (response.status === "success") {
+          if (response.token) this.token = response.token;
+          this.machineTimers = response.machine_timers ?? [];
+        }
+      } catch (error) {
+        console.error("Failed to fetch machine timers:", error);
+      }
+    },
+
+    async handleStopMachineTimer(timer: MachineTimer): Promise<void> {
+      const endTime = dateToFrappeDateTimeString(new Date());
+      const response = await api.stopMachineTimer(
+        timer.work_order,
+        timer.operation,
+        endTime,
+        this.token,
+      );
+      if (response.status === "success") {
+        // Optimistic removal — realtime event will confirm
+        this.machineTimers = this.machineTimers.filter(
+          (t) =>
+            !(
+              t.work_order === timer.work_order &&
+              t.operation === timer.operation
+            ),
+        );
+        if (this.selectedWorkOrder) {
+          await this.getOperations(this.selectedWorkOrder.name);
+        }
+      } else {
+        toast.error(`Failed to stop machine timer: ${response.error}`);
+      }
+    },
+
+    connectSocket(): void {
+      try {
+        const socket = getSocket();
+        socket.on("machine_timer_update", (data: any) => {
+          if (!data || !data.timer) return;
+          const timer: MachineTimer = data.timer;
+
+          if (data.action === "start") {
+            // Only add if we don't already have it and it belongs to our groups
+            const exists = this.machineTimers.some(
+              (t) =>
+                t.work_order === timer.work_order &&
+                t.operation === timer.operation,
+            );
+            if (!exists) {
+              this.machineTimers = [...this.machineTimers, timer];
+            }
+          } else if (data.action === "stop") {
+            this.machineTimers = this.machineTimers.filter(
+              (t) =>
+                !(
+                  t.work_order === timer.work_order &&
+                  t.operation === timer.operation
+                ),
+            );
+            // Refresh operations if viewing the affected work order
+            if (this.selectedWorkOrder?.name === timer.work_order) {
+              this.getOperations(this.selectedWorkOrder.name);
+            }
+          }
+        });
+
+        // debug, log all socket events
+        socket.onAny((event, ...args) => {
+          console.debug(`Socket event: ${event}`, args);
+        });
+
+        // Live-reload on Vite rebuilds (dev only)
+        if ((window as any).developer_mode) {
+          socket.on("build_event", () => {
+            window.location.reload();
+          });
+        }
+      } catch (error) {
+        console.error("Socket connection failed:", error);
       }
     },
   },
@@ -743,9 +894,13 @@ export default defineComponent({
         this.activeSession = true;
         this.getWorkOrders();
         this.getActiveTimer();
+        this.fetchMachineTimers();
         this.fetchWorkstations();
       }
     });
+
+    // Connect socket.io for machine timer realtime events
+    this.connectSocket();
 
     // Attach onScan to document for barcode scanning
     // attachTo returns void, so we just call it and track attachment state
