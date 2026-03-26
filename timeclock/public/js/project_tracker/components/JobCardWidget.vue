@@ -41,7 +41,7 @@
               variant="outline"
               size="2xl"
               label="Start Rework"
-              class="!bg-yellow-500 !text-white hover:!bg-yellow-600"
+              class="!bg-orange-500 !text-white hover:!bg-orange-600"
               @click="startRework"
               v-if="!reworkStarted"
             />
@@ -50,7 +50,7 @@
               variant="outline"
               size="2xl"
               label="Stop Rework"
-              class="!text-yellow-700 !border-yellow-500 hover:!bg-yellow-100"
+              class="!text-orange-700 !border-orange-500 hover:!bg-orange-100"
               @click="stopRework"
               v-if="reworkStarted"
             />
@@ -133,7 +133,7 @@
           "
         >
           <span
-            class="text-yellow-600"
+            class="text-orange-600"
             v-if="operation.corrective_total_time_mins > 0"
           >
             {{ formatMins(operation.corrective_total_time_mins) }} rework
@@ -141,13 +141,13 @@
           <span v-else />
           <div class="text-right">
             <span
-              class="text-yellow-700 font-mono font-bold"
+              class="text-orange-700 font-mono font-bold"
               v-if="reworkStarted"
             >
               {{ reworkElapsedTime }}
             </span>
             <span
-              class="text-yellow-600 text-lg ml-2"
+              class="text-orange-600 text-lg ml-2"
               v-if="operation.corrective_employee_time_mins > 0"
             >
               Your total:
@@ -210,7 +210,7 @@ export default defineComponent({
     /** Active = colored bg + ring; inactive = white bg + colored border. */
     cardClasses(): string {
       if (this.active_user && this.reworkStarted) {
-        return "ring-2 ring-yellow-500 bg-yellow-100";
+        return "ring-2 ring-orange-500 bg-orange-100";
       }
       if (this.active_user) {
         return this.isMachine
@@ -219,8 +219,8 @@ export default defineComponent({
       }
       // Inactive — white bg, colored border to show type
       return this.isMachine
-        ? "bg-white border-blue-150"
-        : "bg-white border-green-150";
+        ? "bg-white border-blue-200"
+        : "bg-white border-green-200";
     },
     /** Operation name always in the type color. */
     titleColor(): string {

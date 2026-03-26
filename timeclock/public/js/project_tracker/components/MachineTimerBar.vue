@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="machineTimers.length > 0"
-    class="shrink-0 w-full bg-blue-50 border-t-2 border-blue-200 px-4 py-3"
+    class="shrink-0 w-full bg-blue-10 border-t-2 border-blue-200 px-4 py-3"
   >
     <div class="flex items-center gap-3 grow overflow-x-visible">
       <div

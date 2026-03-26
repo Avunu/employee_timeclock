@@ -5,7 +5,7 @@
       :class="{
         '!bg-blue-100': isSelected && !isActive,
         'ring-2 ring-green-500 !bg-green-50': isActive && !isCorrective,
-        'ring-2 ring-yellow-500 !bg-yellow-50': isActive && isCorrective,
+        'ring-2 ring-orange-500 !bg-orange-50': isActive && isCorrective,
       }"
     >
       <!-- Header row: title + status badge -->

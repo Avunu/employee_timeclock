@@ -25,7 +25,7 @@
             class="flex items-center gap-3 rounded-lg px-4 py-2 ring-2 cursor-pointer"
             :class="
               activeTimer.is_corrective
-                ? 'ring-yellow-500 bg-yellow-50 hover:bg-yellow-100'
+                ? 'ring-orange-500 bg-orange-50 hover:bg-orange-100'
                 : 'ring-green-500 bg-green-50 hover:bg-green-100'
             "
             @click="navigateToActiveTimer"
@@ -33,7 +33,7 @@
             <span
               class="font-semibold text-lg lg:text-2xl truncate"
               :class="
-                activeTimer.is_corrective ? 'text-yellow-700' : 'text-green-700'
+                activeTimer.is_corrective ? 'text-orange-700' : 'text-green-700'
               "
             >
               {{ activeTimer.operation }}
@@ -41,14 +41,14 @@
             <span
               class="font-mono text-xl lg:text-2xl font-bold"
               :class="
-                activeTimer.is_corrective ? 'text-yellow-800' : 'text-green-800'
+                activeTimer.is_corrective ? 'text-orange-800' : 'text-green-800'
               "
             >
               {{ headerElapsedTime }}
             </span>
             <span
               v-if="activeTimer.is_corrective"
-              class="text-yellow-700 text-sm font-semibold"
+              class="text-orange-700 text-sm font-semibold"
             >
               REWORK
             </span>
@@ -58,7 +58,7 @@
             class="p-3 rounded-lg transition-colors"
             :class="
               activeTimer.is_corrective
-                ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700'
+                ? 'bg-orange-100 hover:bg-orange-200 text-orange-700'
                 : 'bg-green-100 hover:bg-green-200 text-green-700'
             "
             :title="activeTimer.is_corrective ? 'Stop Rework' : 'Stop Timer'"
