@@ -7,7 +7,8 @@
       <div
         v-for="timer in machineTimers"
         :key="`${timer.work_order}:${timer.operation}`"
-        class="flex flex-col gap-2 rounded-lg px-4 py-2 ring-2 ring-blue-400 bg-blue-100 shrink-0"
+        class="flex flex-col gap-2 rounded-lg px-4 py-2 ring-2 ring-blue-400 bg-blue-100 shrink-0 cursor-pointer hover:bg-blue-200 transition-colors"
+        @click="$emit('navigate-to-timer', timer)"
       >
         <div class="flex items-center gap-2">
           <span
@@ -21,7 +22,7 @@
           <button
             class="ml-1 p-1.5 rounded bg-blue-200 hover:bg-blue-300 text-blue-800 transition-colors"
             title="Stop Machine Timer"
-            @click="$emit('stop-machine-timer', timer)"
+            @click.stop="$emit('stop-machine-timer', timer)"
           >
             <div class="w-4 h-4 rounded-sm bg-current" />
           </button>
@@ -53,7 +54,7 @@ export default defineComponent({
       default: () => [],
     },
   },
-  emits: ["stop-machine-timer"],
+  emits: ["stop-machine-timer", "navigate-to-timer"],
 
   data(): { now: number; tick: ReturnType<typeof setInterval> | null } {
     return { now: Date.now(), tick: null };

@@ -217,6 +217,7 @@
       :machineTimers="machineTimers"
       :workOrders="workOrders"
       @stop-machine-timer="handleStopMachineTimer"
+      @navigate-to-timer="navigateToMachineTimer"
     />
 
     <!-- <main v-else: class="bg-white fixed w-auto top-100 z-50 h-24"> -->
@@ -444,6 +445,32 @@ export default defineComponent({
         // Scroll job card into view
         const jcEl = document.querySelector(
           `[data-operation="${this.activeTimer!.operation}"]`,
+        );
+        if (jcEl) {
+          jcEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      });
+    },
+
+    async navigateToMachineTimer(timer: MachineTimer) {
+      const targetWO = this.workOrders.find(
+        (wo) => wo.name === timer.work_order,
+      );
+      if (!targetWO) return;
+
+      this.selectedWorkOrder = targetWO;
+      await this.getOperations(targetWO.name);
+
+      this.$nextTick(() => {
+        const woEl = document.querySelector(
+          `[data-work-order="${timer.work_order}"]`,
+        );
+        if (woEl) {
+          woEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+
+        const jcEl = document.querySelector(
+          `[data-operation="${timer.operation}"]`,
         );
         if (jcEl) {
           jcEl.scrollIntoView({ behavior: "smooth", block: "center" });
