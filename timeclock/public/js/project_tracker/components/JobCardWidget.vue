@@ -10,6 +10,24 @@
           {{ operation.operation }}
         </h2>
         <div class="flex items-center space-x-2">
+          <button
+            v-if="showPin"
+            @click.stop="
+              $emit('toggle-pin', {
+                workOrder,
+                operationName: operation.operation,
+              })
+            "
+            class="p-1 rounded transition-colors"
+            :class="
+              pinned
+                ? 'text-amber-500 hover:text-amber-600'
+                : 'text-gray-300 hover:text-gray-500'
+            "
+            :title="pinned ? 'Unpin' : 'Pin'"
+          >
+            <IconPin class="w-5 h-5" :class="{ 'fill-current': pinned }" />
+          </button>
           <div class="flex gap-2 items-start">
             <Button
               :theme="isMachine ? 'blue' : 'green'"
@@ -164,12 +182,14 @@
 import { defineComponent, watch } from "vue";
 import type { PropType } from "vue";
 import Button from "./Button.vue";
+import IconPin from "~icons/lucide/pin";
 import type { Operation, ActiveTimer, MachineTimer } from "../types";
 
 export default defineComponent({
   name: "JobCardWidget",
   components: {
     Button,
+    IconPin,
   },
   props: {
     operation: {
@@ -188,8 +208,22 @@ export default defineComponent({
       type: String,
       required: true,
     },
+    pinned: {
+      type: Boolean,
+      default: false,
+    },
+    showPin: {
+      type: Boolean,
+      default: true,
+    },
   },
-  emits: ["start-task", "stop-task", "start-rework", "stop-rework"],
+  emits: [
+    "start-task",
+    "stop-task",
+    "start-rework",
+    "stop-rework",
+    "toggle-pin",
+  ],
 
   data(): {
     elapsedTime: string;

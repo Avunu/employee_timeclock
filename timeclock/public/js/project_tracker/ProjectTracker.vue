@@ -89,11 +89,39 @@
         <!-- Settings Icon Button -->
         <button
           v-if="activeSession"
-          @click="isSidebarOpen = true"
+          @click="
+            isSidebarOpen = true;
+            isPinnedSidebarOpen = false;
+          "
           class="p-3 rounded-lg hover:bg-gray-200 transition-colors"
           title="Settings"
         >
           <IconSettings class="w-8 h-8 text-gray-700" />
+        </button>
+        <!-- Pinned Jobs Icon Button -->
+        <button
+          v-if="activeSession"
+          @click="
+            isPinnedSidebarOpen = true;
+            isSidebarOpen = false;
+          "
+          class="relative p-3 rounded-lg hover:bg-gray-200 transition-colors"
+          title="Pinned Jobs"
+        >
+          <IconPin
+            class="w-8 h-8 transition-colors"
+            :class="
+              myPinnedKeys.length > 0
+                ? 'text-amber-500 fill-current'
+                : 'text-gray-700'
+            "
+          />
+          <span
+            v-if="myPinnedKeys.length > 0"
+            class="absolute top-1.5 right-1.5 w-4 h-4 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center font-bold leading-none"
+          >
+            {{ myPinnedKeys.length }}
+          </span>
         </button>
       </div>
     </header>
@@ -201,15 +229,56 @@
           :activeTimer="activeTimer"
           :machineTimers="machineTimers"
           :workstations="workstations"
+          :pinnedKeys="myPinnedKeys"
           v-if="selectedWorkOrder"
           :workOrder="selectedWorkOrder!.name"
           @start-task="handleStartTask"
           @stop-task="handleStopTask"
           @start-rework="handleStartRework"
           @stop-rework="handleStopRework"
+          @toggle-pin="togglePin"
         />
       </transition>
     </main>
+
+    <!-- Pinned Jobs Sidebar -->
+    <PinnedJobsSidebar
+      :isOpen="isPinnedSidebarOpen"
+      :activeSession="activeSession"
+      :pinnedCards="pinnedCards"
+      :activeTimer="activeTimer"
+      :machineTimers="machineTimers"
+      @close="isPinnedSidebarOpen = false"
+      @toggle-pin="togglePin"
+      @start-task="
+        handlePinAction({
+          action: 'start',
+          workOrder: $event.workOrder,
+          operationName: $event.operationName,
+        })
+      "
+      @stop-task="
+        handlePinAction({
+          action: 'stop',
+          workOrder: $event.workOrder,
+          operationName: $event.operationName,
+        })
+      "
+      @start-rework="
+        handlePinAction({
+          action: 'start-rework',
+          workOrder: $event.workOrder,
+          operationName: $event.operationName,
+        })
+      "
+      @stop-rework="
+        handlePinAction({
+          action: 'stop-rework',
+          workOrder: $event.workOrder,
+          operationName: $event.operationName,
+        })
+      "
+    />
 
     <!-- Machine Timer Bottom Bar -->
     <MachineTimerBar
@@ -231,7 +300,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, provide, watch, computed } from "vue";
+import { defineComponent, watch } from "vue";
 import { useStorage } from "@vueuse/core";
 import { jwtDecode } from "jwt-decode";
 import onScan from "onscan.js";
@@ -249,6 +318,8 @@ declare global {
 // import sub components
 import AuthorizationMessage from "./components/AuthorizationMessage.vue";
 import MachineTimerBar from "./components/MachineTimerBar.vue";
+import PinnedJobsSidebar from "./components/PinnedJobsSidebar.vue";
+import type { PinnedCard } from "./components/PinnedJobsSidebar.vue";
 import SessionTimer from "./components/SessionTimer.vue";
 import WorkOrderList from "./components/WorkOrderList.vue";
 import JobCardList from "./components/JobCardList.vue";
@@ -256,6 +327,7 @@ import Button from "./components/Button.vue";
 import { Checkbox, toast, Toast, Sidebar } from "frappe-ui";
 import IconSettings from "~icons/lucide/settings";
 import IconLogOut from "~icons/lucide/log-out";
+import IconPin from "~icons/lucide/pin";
 
 import { dateToFrappeDateTimeString } from "./utils";
 import type {
@@ -273,6 +345,7 @@ export default defineComponent({
     Button,
     JobCardList,
     MachineTimerBar,
+    PinnedJobsSidebar,
     SessionTimer,
     Toast,
     WorkOrderList,
@@ -280,6 +353,14 @@ export default defineComponent({
     Sidebar,
     IconSettings,
     IconLogOut,
+    IconPin,
+  },
+  setup() {
+    const pinnedCardStorage = useStorage<Record<string, string[]>>(
+      "pinnedCards",
+      {},
+    );
+    return { pinnedCardStorage };
   },
   data(): {
     activeTimer: ActiveTimer | null;
@@ -291,6 +372,8 @@ export default defineComponent({
     headerElapsedTime: string;
     headerTimerInterval: ReturnType<typeof setInterval> | null;
     isSidebarOpen: boolean;
+    isPinnedSidebarOpen: boolean;
+    operationsCache: Record<string, Operation[]>;
     operations: Operation[];
     selectedWorkOrder: WorkOrder | null;
     showAuthMessage: boolean;
@@ -314,6 +397,8 @@ export default defineComponent({
       headerElapsedTime: "00:00:00",
       headerTimerInterval: null,
       isSidebarOpen: false,
+      isPinnedSidebarOpen: false,
+      operationsCache: {},
       operations: [],
       selectedWorkOrder: null,
       showAuthMessage: false,
@@ -329,7 +414,25 @@ export default defineComponent({
     };
   },
 
-  computed: {},
+  computed: {
+    myPinnedKeys(): string[] {
+      if (!this.employeeId) return [];
+      return this.pinnedCardStorage[this.employeeId] ?? [];
+    },
+    pinnedCards(): PinnedCard[] {
+      return this.myPinnedKeys.flatMap((key) => {
+        const sep = key.indexOf("::");
+        if (sep === -1) return [];
+        const workOrder = key.slice(0, sep);
+        const operationName = key.slice(sep + 2);
+        const ops = this.operationsCache[workOrder];
+        if (!ops) return [];
+        const op = ops.find((o) => o.operation === operationName);
+        if (!op) return [];
+        return [{ workOrder, operation: op }];
+      });
+    },
+  },
 
   methods: {
     async check_for_erp_log_in() {
@@ -487,6 +590,10 @@ export default defineComponent({
       if (response.status === "success" && response.operations) {
         if (response.token) this.token = response.token;
         this.operations = response.operations;
+        this.operationsCache = {
+          ...this.operationsCache,
+          [workOrderName]: response.operations,
+        };
       } else {
         this.operations = [];
         this.activeSession = false;
@@ -766,6 +873,69 @@ export default defineComponent({
       useStorage<string[]>("workstations", []).value = this.workstations;
     },
 
+    togglePin(payload: { workOrder: string; operationName: string }): void {
+      const { workOrder, operationName } = payload;
+      const key = `${workOrder}::${operationName}`;
+      const current = this.pinnedCardStorage[this.employeeId] ?? [];
+      if (current.includes(key)) {
+        this.pinnedCardStorage[this.employeeId] = current.filter(
+          (k) => k !== key,
+        );
+      } else {
+        this.pinnedCardStorage[this.employeeId] = [...current, key];
+      }
+    },
+
+    async fetchPinnedOperations(): Promise<void> {
+      const workOrders = new Set(
+        this.myPinnedKeys
+          .map((k) => k.slice(0, k.indexOf("::")))
+          .filter(Boolean),
+      );
+      const missing = [...workOrders].filter((wo) => !this.operationsCache[wo]);
+      await Promise.all(
+        missing.map(async (wo) => {
+          try {
+            const response = await api.getOperations(
+              wo,
+              JSON.stringify(this.workstations),
+              this.token,
+            );
+            if (response.status === "success" && response.operations) {
+              if (response.token) this.token = response.token;
+              this.operationsCache = {
+                ...this.operationsCache,
+                [wo]: response.operations,
+              };
+            }
+          } catch (e) {
+            console.error("Failed to load operations for pinned WO:", wo, e);
+          }
+        }),
+      );
+    },
+
+    async handlePinAction(payload: {
+      action: "start" | "stop" | "start-rework" | "stop-rework";
+      workOrder: string;
+      operationName: string;
+    }): Promise<void> {
+      const { action, workOrder, operationName } = payload;
+      // Navigate to the correct work order so handlers have context
+      const targetWO = this.workOrders.find((wo) => wo.name === workOrder);
+      if (targetWO) {
+        this.selectedWorkOrder = targetWO;
+        await this.getOperations(workOrder);
+      }
+      this.isPinnedSidebarOpen = false;
+      if (action === "start") await this.handleStartTask(operationName);
+      else if (action === "stop") await this.handleStopTask(operationName);
+      else if (action === "start-rework")
+        await this.handleStartRework(operationName);
+      else if (action === "stop-rework")
+        await this.handleStopRework(operationName);
+    },
+
     async fetchWorkstations(): Promise<void> {
       try {
         const response = await api.getWorkstations();
@@ -870,6 +1040,15 @@ export default defineComponent({
           const timer: MachineTimer = data.timer;
 
           if (data.action === "start") {
+            // Fallback: remove any running timer with the same operation on a
+            // different work order — the backend has switched it over.
+            this.machineTimers = this.machineTimers.filter(
+              (t) =>
+                !(
+                  t.operation === timer.operation &&
+                  t.work_order !== timer.work_order
+                ),
+            );
             // Only add if we don't already have it and it belongs to our groups
             const exists = this.machineTimers.some(
               (t) =>
@@ -983,6 +1162,14 @@ export default defineComponent({
         }
       },
       { immediate: true },
+    );
+
+    // Fetch operations for pinned cards that aren't yet cached when sidebar opens
+    watch(
+      () => this.isPinnedSidebarOpen,
+      (open) => {
+        if (open) this.fetchPinnedOperations();
+      },
     );
   },
 

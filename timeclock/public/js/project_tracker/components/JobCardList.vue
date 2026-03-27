@@ -47,10 +47,12 @@
         :activeTimer="activeTimer"
         :machineTimers="machineTimers"
         :workOrder="workOrder"
+        :pinned="pinnedKeys.includes(`${workOrder}::${op.operation}`)"
         @start-task="$emit('start-task', $event)"
         @stop-task="$emit('stop-task', $event)"
         @start-rework="$emit('start-rework', $event)"
         @stop-rework="$emit('stop-rework', $event)"
+        @toggle-pin="$emit('toggle-pin', $event)"
       />
     </div>
   </Column>
@@ -93,8 +95,18 @@ export default defineComponent({
       type: String,
       required: true,
     },
+    pinnedKeys: {
+      type: Array as PropType<string[]>,
+      default: () => [],
+    },
   },
-  emits: ["start-task", "stop-task", "start-rework", "stop-rework"],
+  emits: [
+    "start-task",
+    "stop-task",
+    "start-rework",
+    "stop-rework",
+    "toggle-pin",
+  ],
 
   data(): { filterByWorkstation: boolean } {
     return {
