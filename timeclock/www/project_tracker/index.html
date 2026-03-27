@@ -15,25 +15,11 @@
     <div id="popovers"></div>
 
     <script>window.csrf_token = '{{ csrf_token }}'</script>
-    <script type="module" src="/assets/timeclock/dist/js/project_tracker/index.js"></script>
+    <script>window.sitename = '{{ sitename }}'</script>
     {% if developer_mode %}
-    <script>
-    (function () {
-      var last = null;
-      function poll() {
-        fetch('/assets/timeclock/dist/js/project_tracker/build-stamp.json?_=' + Date.now(), { cache: 'no-store' })
-          .then(function (r) { return r.json(); })
-          .then(function (d) {
-            if (last !== null && d.ts !== last) { window.location.reload(); }
-            last = d.ts;
-          })
-          .catch(function () {})
-          .finally(function () { setTimeout(poll, 1500); });
-      }
-      poll();
-    })();
-    </script>
+    <script>window.developer_mode = true</script>
     {% endif %}
+    <script type="module" src="/assets/timeclock/dist/js/project_tracker/index.js"></script>
 </body>
 
 </html>

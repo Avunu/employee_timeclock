@@ -38,23 +38,18 @@ export function toFrappeDateTimeString(value: string): FrappeDateTimeString {
 
 /**
  * Converts a Date object to FrappeDateTimeString format
- * Adjusts for timezone offset (default -5 hours for EST)
+ *
+ * Uses the browser's local timezone so that the resulting string matches
+ * the Frappe server's naive-datetime convention.  DST transitions and
+ * date-boundary rollovers are handled automatically.
  *
  * @param date - Date object to convert
- * @param timezoneOffset - Hours to subtract from UTC (default: 5 for EST)
- * @returns Formatted FrappeDateTimeString
+ * @returns Formatted FrappeDateTimeString in local time
  */
-export function dateToFrappeDateTimeString(date: Date, timezoneOffset: number = 5): FrappeDateTimeString {
-  const year = date.getUTCFullYear();
-  const month = date.getUTCMonth() + 1; // Months are zero-based
-  const day = date.getUTCDate();
-  const hour = date.getUTCHours();
-  const minute = date.getUTCMinutes();
-  const second = date.getUTCSeconds();
+export function dateToFrappeDateTimeString(date: Date): FrappeDateTimeString {
+  const pad = (num: number): string => String(num).padStart(2, '0');
 
-  const pad = (num: number): string => (num < 10 ? '0' + num : num.toString());
-
-  const formatted = `${year}-${pad(month)}-${pad(day)} ${pad(hour - timezoneOffset)}:${pad(minute)}:${pad(second)}`;
+  const formatted = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 
   return formatted as FrappeDateTimeString;
 }

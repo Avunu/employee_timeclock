@@ -45,11 +45,14 @@
         :key="op.name"
         :operation="op"
         :activeTimer="activeTimer"
+        :machineTimers="machineTimers"
         :workOrder="workOrder"
+        :pinned="pinnedKeys.includes(`${workOrder}::${op.operation}`)"
         @start-task="$emit('start-task', $event)"
         @stop-task="$emit('stop-task', $event)"
         @start-rework="$emit('start-rework', $event)"
         @stop-rework="$emit('stop-rework', $event)"
+        @toggle-pin="$emit('toggle-pin', $event)"
       />
     </div>
   </Column>
@@ -62,7 +65,7 @@ import type { PropType } from "vue";
 import { Switch } from "frappe-ui";
 import Column from "./Column.vue";
 import JobCardWidget from "./JobCardWidget.vue";
-import type { Operation, ActiveTimer } from "../types";
+import type { Operation, ActiveTimer, MachineTimer } from "../types";
 
 export default defineComponent({
   name: "JobCards",
@@ -84,12 +87,26 @@ export default defineComponent({
       type: Object as PropType<ActiveTimer | null>,
       default: null,
     },
+    machineTimers: {
+      type: Array as PropType<MachineTimer[]>,
+      default: () => [],
+    },
     workOrder: {
       type: String,
       required: true,
     },
+    pinnedKeys: {
+      type: Array as PropType<string[]>,
+      default: () => [],
+    },
   },
-  emits: ["start-task", "stop-task", "start-rework", "stop-rework"],
+  emits: [
+    "start-task",
+    "stop-task",
+    "start-rework",
+    "stop-rework",
+    "toggle-pin",
+  ],
 
   data(): { filterByWorkstation: boolean } {
     return {

@@ -12,6 +12,7 @@ code-generation script can import it in a plain Python environment.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel
@@ -26,16 +27,25 @@ class ActiveTimer(BaseModel):
 
 	work_order: str
 	operation: str
-	from_time: str
+	from_time: datetime
 	is_corrective: bool
+
+
+class MachineTimer(BaseModel):
+	"""A currently running machine-operation timer visible to an employee group."""
+
+	work_order: str
+	operation: str
+	from_time: datetime | None = None
+	employee_group: str
 
 
 class JobCardTimeLog(BaseModel):
 	"""Single work-session row inside a Job Card."""
 
 	name: str
-	from_time: str
-	to_time: str | None = None
+	from_time: datetime
+	to_time: datetime | None = None
 	time_in_mins: float
 	employee: str
 
@@ -52,6 +62,7 @@ class Operation(BaseModel):
 	corrective_total_time_mins: float
 	corrective_employee_time_mins: float
 	is_submitted: bool
+	is_machine_time: bool
 
 
 class WorkOrder(BaseModel):
@@ -152,6 +163,18 @@ class GetDeviceInfoResponse(BaseModel):
 	status: Literal["success"]
 	ip: str
 	mac: str
+
+
+class GetMachineTimersResponse(BaseModel):
+	status: Literal["success", "error"]
+	message: str | None = None
+	token: str | None = None
+	machine_timers: list[MachineTimer] | None = None
+
+
+class StopMachineTimerResponse(BaseModel):
+	status: Literal["success", "failed"]
+	error: str | None = None
 
 
 class VerifyLoginResponse(BaseModel):

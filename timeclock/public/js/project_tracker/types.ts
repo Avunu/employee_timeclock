@@ -45,6 +45,21 @@ export interface GetDeviceInfoResponse {
   ip: string;
   mac: string;
 }
+export interface GetMachineTimersResponse {
+  status: "success" | "error";
+  message?: string | null;
+  token?: string | null;
+  machine_timers?: MachineTimer[] | null;
+}
+/**
+ * A currently running machine-operation timer visible to an employee group.
+ */
+export interface MachineTimer {
+  work_order: string;
+  operation: string;
+  from_time?: string | null;
+  employee_group: string;
+}
 export interface GetOperationsResponse {
   status: "success" | "error";
   message?: string | null;
@@ -64,6 +79,7 @@ export interface Operation {
   corrective_total_time_mins: number;
   corrective_employee_time_mins: number;
   is_submitted: boolean;
+  is_machine_time: boolean;
 }
 export interface GetWorkOrdersResponse {
   status: "success" | "error";
@@ -96,6 +112,10 @@ export interface JobCardTimeLog {
   employee: string;
 }
 export interface StartTimerResponse {
+  status: "success" | "failed";
+  error?: string | null;
+}
+export interface StopMachineTimerResponse {
   status: "success" | "failed";
   error?: string | null;
 }
