@@ -46,8 +46,9 @@
         :operation="op"
         :activeTimer="activeTimer"
         :machineTimers="machineTimers"
-        :workOrder="workOrder"
-        :pinned="pinnedKeys.includes(`${workOrder}::${op.operation}`)"
+        :workOrderName="workOrder.name"
+        :productName="workOrder.production_item"
+        :pinned="pinnedKeys.includes(`${workOrder.name}::${op.operation}`)"
         @start-task="$emit('start-task', $event)"
         @stop-task="$emit('stop-task', $event)"
         @start-rework="$emit('start-rework', $event)"
@@ -65,7 +66,7 @@ import type { PropType } from "vue";
 import { Switch } from "frappe-ui";
 import Column from "./Column.vue";
 import JobCardWidget from "./JobCardWidget.vue";
-import type { Operation, ActiveTimer, MachineTimer } from "../types";
+import type { Operation, ActiveTimer, MachineTimer, WorkOrder } from "../types";
 
 export default defineComponent({
   name: "JobCards",
@@ -92,7 +93,7 @@ export default defineComponent({
       default: () => [],
     },
     workOrder: {
-      type: String,
+      type: Object as PropType<WorkOrder>,
       required: true,
     },
     pinnedKeys: {

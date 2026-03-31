@@ -20,7 +20,7 @@
 <script lang="ts" setup>
 import { computed } from "vue";
 import { Button as FrappeButton } from "frappe-ui";
-import type { ButtonProps } from "frappe-ui/src/components/Button/types";
+import type { ButtonProps } from "../../../../../node_modules/frappe-ui/src/components/Button/types";
 
 defineOptions({ name: "Button", inheritAttrs: false });
 

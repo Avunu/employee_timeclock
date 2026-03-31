@@ -213,6 +213,7 @@
       <!-- When session is active -->
       <!-- Work Orders Section -->
       <WorkOrderList
+        name="work_orders_list"
         class="z-0"
         :workOrders="workOrders"
         :selectedWorkOrder="selectedWorkOrder"
@@ -231,7 +232,7 @@
           :workstations="workstations"
           :pinnedKeys="myPinnedKeys"
           v-if="selectedWorkOrder"
-          :workOrder="selectedWorkOrder!.name"
+          :workOrder="selectedWorkOrder"
           @start-task="handleStartTask"
           @stop-task="handleStopTask"
           @start-rework="handleStartRework"
@@ -325,8 +326,11 @@ import WorkOrderList from "./components/WorkOrderList.vue";
 import JobCardList from "./components/JobCardList.vue";
 import Button from "./components/Button.vue";
 import { Checkbox, toast, Toast, Sidebar } from "frappe-ui";
+// @ts-ignore
 import IconSettings from "~icons/lucide/settings";
+// @ts-ignore
 import IconLogOut from "~icons/lucide/log-out";
+// @ts-ignore
 import IconPin from "~icons/lucide/pin";
 
 import { dateToFrappeDateTimeString } from "./utils";
@@ -429,7 +433,9 @@ export default defineComponent({
         if (!ops) return [];
         const op = ops.find((o) => o.operation === operationName);
         if (!op) return [];
-        return [{ workOrder, operation: op }];
+        const wo = this.workOrders.find((w) => w.name === workOrder);
+        const productName = wo ? wo.production_item : workOrder;
+        return [{ workOrder, operation: op, productName }];
       });
     },
   },
@@ -873,9 +879,9 @@ export default defineComponent({
       useStorage<string[]>("workstations", []).value = this.workstations;
     },
 
-    togglePin(payload: { workOrder: string; operationName: string }): void {
-      const { workOrder, operationName } = payload;
-      const key = `${workOrder}::${operationName}`;
+    togglePin(payload: { workOrderName: string; operationName: string }): void {
+      const { workOrderName, operationName } = payload;
+      const key = `${workOrderName}::${operationName}`;
       const current = this.pinnedCardStorage[this.employeeId] ?? [];
       if (current.includes(key)) {
         this.pinnedCardStorage[this.employeeId] = current.filter(

@@ -436,7 +436,7 @@ def log_out_employee(time: str, token: str | None = None) -> EmployeeCheckinResp
 
 
 @frappe.whitelist(allow_guest=True)
-@rate_limit(limit=1, seconds=1)
+@rate_limit(limit=2, seconds=1)
 def get_work_orders(token: str | None = None) -> GetWorkOrdersResponse:
 	"""
 	Retrieve all active work orders for display in the job timeclock.
