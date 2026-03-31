@@ -325,8 +325,11 @@ import WorkOrderList from "./components/WorkOrderList.vue";
 import JobCardList from "./components/JobCardList.vue";
 import Button from "./components/Button.vue";
 import { Checkbox, toast, Toast, Sidebar } from "frappe-ui";
+// @ts-ignore
 import IconSettings from "~icons/lucide/settings";
+// @ts-ignore
 import IconLogOut from "~icons/lucide/log-out";
+// @ts-ignore
 import IconPin from "~icons/lucide/pin";
 
 import { dateToFrappeDateTimeString } from "./utils";
