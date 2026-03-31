@@ -63,7 +63,7 @@ function frappeNotifyPlugin(changedFiles: string[]): Plugin {
 
 async function notifyFrappeReload(changedFiles: string[]) {
 	try {
-		const redisUrl = process.env.FRAPPE_REDIS_QUEUE || 'redis://localhost:11000'
+		const redisUrl = process.env.FRAPPE_REDIS_QUEUE || 'redis://localhost:13000'
 		const { createClient } = await import('@redis/client')
 		const client = createClient({ url: redisUrl })
 

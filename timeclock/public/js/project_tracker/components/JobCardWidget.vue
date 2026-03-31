@@ -5,29 +5,39 @@
       :class="cardClasses"
     >
       <!-- Header row: title + actions -->
-      <div class="flex items-baseline justify-between">
-        <h2 class="text-xl font-semibold" :class="titleColor">
-          {{ operation.operation }}
-        </h2>
+      <div class="flex items-center justify-between mt-1 mb-2">
+        <p v-if="productName" class="text-lg text-gray-600">
+          {{ productName }}
+        </p>
+        <button
+          v-if="showPin"
+          @click.stop="
+            $emit('toggle-pin', {
+              workOrderName: workOrderName,
+              operationName: operation.operation,
+            })
+          "
+          class="p-1 rounded transition-colors ml-auto"
+          :class="
+            pinned
+              ? 'text-amber-500 hover:text-amber-600'
+              : 'text-gray-300 hover:text-gray-500'
+          "
+          :title="pinned ? 'Unpin' : 'Pin'"
+        >
+          <IconPin
+            class="w-5 h-5"
+            :class="{ 'fill-current rotate-45': pinned }"
+          />
+        </button>
+      </div>
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-semibold" :class="titleColor">
+            {{ operation.operation }}
+          </h2>
+        </div>
         <div class="flex items-center space-x-2">
-          <button
-            v-if="showPin"
-            @click.stop="
-              $emit('toggle-pin', {
-                workOrder,
-                operationName: operation.operation,
-              })
-            "
-            class="p-1 rounded transition-colors"
-            :class="
-              pinned
-                ? 'text-amber-500 hover:text-amber-600'
-                : 'text-gray-300 hover:text-gray-500'
-            "
-            :title="pinned ? 'Unpin' : 'Pin'"
-          >
-            <IconPin class="w-5 h-5" :class="{ 'fill-current': pinned }" />
-          </button>
           <div class="flex gap-2 items-start">
             <Button
               :theme="isMachine ? 'blue' : 'green'"
@@ -182,8 +192,9 @@
 import { defineComponent, watch } from "vue";
 import type { PropType } from "vue";
 import Button from "./Button.vue";
+// @ts-ignore
 import IconPin from "~icons/lucide/pin";
-import type { Operation, ActiveTimer, MachineTimer } from "../types";
+import type { Operation, ActiveTimer, MachineTimer, WorkOrder } from "../types";
 
 export default defineComponent({
   name: "JobCardWidget",
@@ -204,7 +215,7 @@ export default defineComponent({
       type: Array as PropType<MachineTimer[]>,
       default: () => [],
     },
-    workOrder: {
+    workOrderName: {
       type: String,
       required: true,
     },
@@ -215,6 +226,10 @@ export default defineComponent({
     showPin: {
       type: Boolean,
       default: true,
+    },
+    productName: {
+      type: String,
+      default: "",
     },
   },
   emits: [
@@ -265,7 +280,7 @@ export default defineComponent({
       if (!this.isMachine) return undefined;
       return this.machineTimers.find(
         (t) =>
-          t.work_order === this.workOrder &&
+          t.work_order === this.workOrderName &&
           t.operation === this.operation.operation,
       );
     },
@@ -273,7 +288,7 @@ export default defineComponent({
     isLaborActiveForThis(): boolean {
       if (this.isMachine) return false;
       return (
-        this.activeTimer?.work_order === this.workOrder &&
+        this.activeTimer?.work_order === this.workOrderName &&
         this.activeTimer?.operation === this.operation.operation
       );
     },

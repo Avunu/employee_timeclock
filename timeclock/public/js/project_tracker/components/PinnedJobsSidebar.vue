@@ -57,12 +57,13 @@
               :operation="item.operation"
               :activeTimer="activeTimer"
               :machineTimers="machineTimers"
-              :workOrder="item.workOrder"
+              :workOrderName="item.workOrder"
+              :productName="item.productName"
               :pinned="true"
               @toggle-pin="$emit('toggle-pin', $event)"
               @start-task="
                 $emit('start-task', {
-                  workOrder: item.workOrder,
+                  workOrderName: item.workOrder,
                   operationName: $event,
                 })
               "
@@ -96,12 +97,14 @@
 import { defineComponent } from "vue";
 import type { PropType } from "vue";
 import JobCardWidget from "./JobCardWidget.vue";
+// @ts-ignore
 import IconPin from "~icons/lucide/pin";
 import type { Operation, ActiveTimer, MachineTimer } from "../types";
 
 export interface PinnedCard {
   workOrder: string;
   operation: Operation;
+  productName: string;
 }
 
 export default defineComponent({
