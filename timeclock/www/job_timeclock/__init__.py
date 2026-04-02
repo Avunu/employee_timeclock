@@ -252,7 +252,7 @@ def get_job_cards(token, work_order):
 	# Get the employee's job cards
 	job_cards = frappe.get_list(
 		"Job Card",
-		filters={"work_order": work_order},
+		filters={"work_order": work_order, "is_corrective_job_card": 0},
 		fields=["name", "operation", "status", "sequence_id"],
 		ignore_permissions=True,
 	)
