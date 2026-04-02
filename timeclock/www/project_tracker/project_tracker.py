@@ -841,12 +841,13 @@ def start_timer(
 	if not jobcard_name:
 		return StartTimerResponse(status="failed", error="Job card not found for this operation").model_dump()
 
-	# Determine effective employee (machine ops use machine employee)
-	log_employee = employee_id
-	machine_employees = _get_machine_employee_ids(operation)
-	is_machine = bool(machine_employees)
+	is_machine = _is_machine_operation(operation)
+	time_log = {}
+	time_log["from_time"] = start_time
 	if is_machine:
-		log_employee = machine_employees[0]
+		time_log["machine_operator"] = employee_id
+	else:
+		time_log["employee"] = employee_id
 
 	try:
 		if is_machine:
@@ -871,36 +872,26 @@ def start_timer(
 				target_card.reload()
 			else:
 				target_card = cast(JobCard, frappe.new_doc("Job Card"))
-				target_card.update(
-					{
-						"work_order": original_job_card.work_order,
-						"bom_no": original_job_card.bom_no,
-						"production_item": original_job_card.production_item,
-						"operation": original_job_card.operation,
-						"workstation": original_job_card.workstation,
-						"for_quantity": 0,
-						"wip_warehouse": original_job_card.wip_warehouse,
-						"is_corrective_job_card": 1,
-						"for_job_card": jobcard_name,
-						"hour_rate": original_job_card.hour_rate,
-						"project": original_job_card.project,
-						"company": original_job_card.company,
-						"sequence_id": original_job_card.sequence_id,
-						"operation_id": original_job_card.operation_id,
-					}
-				)
+				target_card.work_order = original_job_card.work_order
+				target_card.bom_no = original_job_card.bom_no
+				target_card.production_item = original_job_card.production_item
+				target_card.operation = original_job_card.operation
+				target_card.workstation = original_job_card.workstation
+				target_card.for_quantity = 0
+				target_card.wip_warehouse = original_job_card.wip_warehouse
+				target_card.is_corrective_job_card = 1
+				target_card.for_job_card = jobcard_name
+				target_card.hour_rate = original_job_card.hour_rate
+				target_card.project = original_job_card.project
+				target_card.company = original_job_card.company
+				target_card.sequence_id = original_job_card.sequence_id
+				target_card.operation_id = original_job_card.operation_id
 
-			target_card.append("time_logs", {"from_time": start_time, "employee": log_employee})
+			target_card.append("time_logs", time_log)
 			target_card.save(ignore_permissions=True)
 		else:
 			job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
 			job_card.reload()
-			time_log = {}
-			time_log["from_time"] = start_time
-			if is_machine:
-				time_log["machine_operator"] = log_employee
-			else:
-				time_log["employee"] = log_employee
 			job_card.append("time_logs", time_log)
 			job_card.save(ignore_permissions=True)
 
@@ -1087,17 +1078,17 @@ def get_machine_timers(token: str | None = None) -> GetMachineTimersResponse:
 	if not groups:
 		return GetMachineTimersResponse(status="success", token=token, machine_timers=[]).model_dump()
 
-	Op = DocType("Operation")
-	JC = DocType("Job Card")
-	TL = DocType("Job Card Time Log")
-	EGT = DocType("Employee Group Table")
+	Operations = DocType("Operation")
+	JobCards = DocType("Job Card")
+	JobCardTimeLogs = DocType("Job Card Time Log")
+	EmployeeGroupTable = DocType("Employee Group Table")
 
 	# Machine employee IDs from Employee Groups the employee belongs to
 	machine_emp_ids: list[str] = (
-		frappe.qb.from_(EGT)
-		.select(EGT.employee)
-		.where(EGT.parent.isin(groups))
-		.where(EGT.parenttype == "Employee Group")
+		frappe.qb.from_(EmployeeGroupTable)
+		.select(EmployeeGroupTable.employee)
+		.where(EmployeeGroupTable.parent.isin(groups))
+		.where(EmployeeGroupTable.parenttype == "Employee Group")
 		.distinct()
 		.run(pluck="employee")
 	)
@@ -1106,20 +1097,20 @@ def get_machine_timers(token: str | None = None) -> GetMachineTimersResponse:
 		return GetMachineTimersResponse(status="success", token=token, machine_timers=[]).model_dump()
 
 	rows: list[dict[str, Any]] = (
-		frappe.qb.from_(TL)
-		.inner_join(JC)
-		.on(TL.parent == JC.name)
-		.inner_join(Op)
-		.on(Op.name == JC.operation)
+		frappe.qb.from_(JobCardTimeLogs)
+		.inner_join(JobCards)
+		.on(JobCardTimeLogs.parent == JobCards.name)
+		.inner_join(Operations)
+		.on(Operations.name == JobCards.operation)
 		.select(
-			JC.work_order,
-			JC.operation,
-			TL.from_time,
-			Op.employee_group,
+			JobCards.work_order,
+			JobCards.operation,
+			JobCardTimeLogs.from_time,
+			Operations.employee_group,
 		)
-		.where(JC.docstatus == 0)
-		.where(TL.to_time.isnull())
-		.where(Op.is_machine_time == 1)
+		.where(JobCards.docstatus == 0)
+		.where(JobCardTimeLogs.to_time.isnull())
+		.where(Operations.is_machine_time == 1)
 	).run(as_dict=True)
 
 	timers = [
@@ -1204,11 +1195,11 @@ def stop_machine_timer(
 		jc.save(ignore_permissions=True)
 
 	# Broadcast stop event
-	Op = DocType("Operation")
-	eg = (
-		frappe.qb.from_(Op)
-		.select(Op.employee_group)
-		.where(Op.name == operation)
+	Operations = DocType("Operation")
+	employee_group = (
+		frappe.qb.from_(Operations)
+		.select(Operations.employee_group)
+		.where(Operations.name == operation)
 		.limit(1)
 		.run(pluck="employee_group")
 	)
@@ -1219,7 +1210,7 @@ def stop_machine_timer(
 			"timer": MachineTimer(
 				work_order=work_order,
 				operation=operation,
-				employee_group=eg[0] if eg else "",
+				employee_group=employee_group[0] if employee_group else "",
 			).model_dump(),
 		},
 		room="website",
