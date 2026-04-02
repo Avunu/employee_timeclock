@@ -1,16 +1,17 @@
 {
     "custom_fields": [
         {
+            "columns": 3,
             "dt": "Job Card Time Log",
             "fieldname": "machine_operator",
             "fieldtype": "Link",
             "insert_after": "operation",
             "label": "Machine Operator",
-            "options": "Employee",
-            "module": "Timeclock"
+            "module": "Timeclock",
+            "options": "Employee"
         }
     ],
+    "doctype": "Job Card Time Log",
     "property_setters": [],
-    "sync_on_migrate": 1,
-    "doctype": "Job Card Time Log"
+    "sync_on_migrate": 1
 }
