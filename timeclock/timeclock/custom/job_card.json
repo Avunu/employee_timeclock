@@ -1,5 +1,15 @@
 {
-	"custom_fields": [],
+	"custom_fields": [
+		{
+			"dt": "Job Card",
+			"fetch_from": "operation.is_machine_time",
+			"fieldname": "is_machine_time",
+			"fieldtype": "Check",
+			"insert_after": "operation",
+			"label": "Is Machine Time",
+			"module": "Timeclock"
+		}
+	],
 	"custom_perms": [],
 	"doctype": "Job Card",
 	"links": [],
