@@ -384,8 +384,10 @@ class TestProjectTracker(FrappeTestCase):
 		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
 		token: str = auth_result["token"]
 
-		# Log in the employee
+		# Log in the employee (use Guest so token auth is used)
+		frappe.set_user("Guest")
 		log_in_employee(str(now_datetime()), token=token)
+		frappe.set_user("Administrator")
 
 		# Authenticate again and check last_checkin
 		result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
@@ -408,9 +410,11 @@ class TestProjectTracker(FrappeTestCase):
 		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
 		token: str = auth_result["token"]
 
-		# Log in
+		# Log in (use Guest so token auth is used)
+		frappe.set_user("Guest")
 		current_time = now_datetime()
 		result: dict[str, Any] = log_in_employee(str(current_time), token=token)
+		frappe.set_user("Administrator")
 
 		self.assertEqual(result["status"], "success")
 		self.assertIsNotNone(result["log"])
@@ -435,13 +439,17 @@ class TestProjectTracker(FrappeTestCase):
 		# Get a valid token and log in first
 		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
 		token: str = auth_result["token"]
+		frappe.set_user("Guest")
 		log_in_employee(str(now_datetime()), token=token)
 
 		# Get fresh token and log out
+		frappe.set_user("Administrator")
 		auth_result = authenticate_employee(self._test_device_id.id)
 		token = auth_result["token"]
+		frappe.set_user("Guest")
 		current_time = now_datetime()
 		result: dict[str, Any] = log_out_employee(str(current_time), token=token)
+		frappe.set_user("Administrator")
 
 		self.assertEqual(result["status"], "success")
 		self.assertIsNotNone(result["log"])
@@ -538,12 +546,14 @@ class TestProjectTracker(FrappeTestCase):
 		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
 		token: str = auth_result["token"]
 
+		frappe.set_user("Guest")
 		result: dict[str, Any] = start_timer(
 			work_order=str(self._test_work_order.name),
 			operation=str(self._test_operation.name),
 			start_time=str(start_time),
 			token=token,
 		)
+		frappe.set_user("Administrator")
 
 		self.assertEqual(result["status"], "success")
 
@@ -578,20 +588,24 @@ class TestProjectTracker(FrappeTestCase):
 		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
 		token: str = auth_result["token"]
 
-		# Start the timer
+		# Start the timer (use Guest so token auth is used)
+		frappe.set_user("Guest")
 		start_timer(
 			work_order=str(self._test_work_order.name),
 			operation=str(self._test_operation.name),
 			start_time=str(start_time),
 			token=token,
 		)
+		frappe.set_user("Administrator")
 
 		# Stop the timer
 		end_time = add_to_date(start_time, minutes=30)
 		# Re-authenticate for fresh token
 		auth_result = authenticate_employee(self._test_device_id.id)
 		token = auth_result["token"]
+		frappe.set_user("Guest")
 		result: dict[str, Any] = stop_timer(end_time=str(end_time), token=token)
+		frappe.set_user("Administrator")
 
 		self.assertEqual(result["status"], "success")
 
@@ -639,25 +653,29 @@ class TestProjectTracker(FrappeTestCase):
 			auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
 			token: str = auth_result["token"]
 
-			# Start time on first job card
+			# Start time on first job card (use Guest so token auth is used)
 			start_time1 = now_datetime()
+			frappe.set_user("Guest")
 			start_timer(
 				work_order=str(self._test_work_order.name),
 				operation=str(self._test_operation.name),
 				start_time=str(start_time1),
 				token=token,
 			)
+			frappe.set_user("Administrator")
 
 			# Start time on second job card - should close first
 			start_time2 = add_to_date(start_time1, minutes=15)
 			auth_result = authenticate_employee(self._test_device_id.id)
 			token = auth_result["token"]
+			frappe.set_user("Guest")
 			start_timer(
 				work_order=str(self._test_work_order.name),
 				operation=str(self._test_operation.name),
 				start_time=str(start_time2),
 				token=token,
 			)
+			frappe.set_user("Administrator")
 
 			# Verify first time log was closed
 			self._test_job_cards[0].reload()
@@ -1012,6 +1030,7 @@ class TestProjectTracker(FrappeTestCase):
 					"for_quantity": 1,
 					"wip_warehouse": self._test_work_order.wip_warehouse,
 					"bom_no": self._test_bom.name,
+					"is_machine_time": 1,
 					"status": "Open",
 					"sequence_id": 1,
 				}
@@ -1024,28 +1043,99 @@ class TestProjectTracker(FrappeTestCase):
 			token: str = auth_result["token"]
 
 			start_time = now_datetime()
+			frappe.set_user("Guest")
 			result: dict[str, Any] = start_timer(
 				work_order=str(self._test_work_order.name),
 				operation=machine_op.name,
 				start_time=str(start_time),
 				token=token,
 			)
+			frappe.set_user("Administrator")
 
 			self.assertEqual(result["status"], "success")
 
-			# Verify the time log uses the machine employee ID
+			# Verify the time log records the human operator as machine_operator
+			# and employee is cleared (before_save moves employee -> machine_operator)
 			job_card.reload()
 			self.assertGreater(len(job_card.time_logs), 0)
 			last_log = job_card.time_logs[-1]
-			# Should be the machine employee, not the human employee
-			self.assertEqual(last_log.employee, machine_employee.name)
-			self.assertNotEqual(last_log.employee, self._test_employee.name)
+			self.assertFalse(last_log.employee, "employee should be empty on a machine time log")
+			self.assertEqual(last_log.machine_operator, self._test_employee.name)
 
 		finally:
 			frappe.delete_doc("Job Card", job_card.name, ignore_permissions=True, force=True)
 			frappe.delete_doc("Operation", machine_op.name, ignore_permissions=True, force=True)
 			frappe.delete_doc("Employee Group", employee_group.name, ignore_permissions=True, force=True)
 			frappe.delete_doc("Employee", machine_employee.name, ignore_permissions=True, force=True)
+
+	def test_machine_time_log_employee_moved_to_machine_operator(self) -> None:
+		"""
+		Test that saving a machine Job Card moves employee -> machine_operator.
+
+		Ensures the JobCard.before_save override clears the employee field on
+		time logs for machine operations, recording the operator in
+		machine_operator instead.  This prevents false overlap errors and keeps
+		the employee field consistent (always empty for machine time logs).
+		"""
+		assert self._test_workstation is not None
+		assert self._test_bom is not None
+		assert self._test_work_order is not None
+		assert self._test_employee is not None
+
+		unique_id: str = random_string(6)
+
+		# Create a machine operation
+		machine_op = frappe.get_doc(
+			{
+				"doctype": "Operation",
+				"name": f"Test Machine Op {unique_id}",
+				"workstation": self._test_workstation.name,
+				"is_machine_time": 1,
+			}
+		).insert(ignore_permissions=True)
+
+		job_card: JobCard = cast(
+			JobCard,
+			frappe.get_doc(
+				{
+					"doctype": "Job Card",
+					"work_order": self._test_work_order.name,
+					"operation": machine_op.name,
+					"workstation": self._test_workstation.name,
+					"for_quantity": 1,
+					"wip_warehouse": self._test_work_order.wip_warehouse,
+					"bom_no": self._test_bom.name,
+					"is_machine_time": 1,
+					"status": "Open",
+					"sequence_id": 1,
+				}
+			).insert(ignore_permissions=True),
+		)
+
+		try:
+			# Directly append a time log with employee set — simulating any path
+			# that bypasses start_timer (e.g. direct form save or API call)
+			job_card.reload()
+			job_card.append(
+				"time_logs",
+				{"from_time": now_datetime(), "employee": self._test_employee.name},
+			)
+			job_card.save(ignore_permissions=True)
+			job_card.reload()
+
+			self.assertGreater(len(job_card.time_logs), 0)
+			log = job_card.time_logs[-1]
+			# employee must be cleared
+			self.assertFalse(log.employee, "employee should be empty on a machine time log")
+			# operator must be preserved under machine_operator
+			self.assertEqual(
+				log.machine_operator,
+				self._test_employee.name,
+				"machine_operator should hold the operator's employee ID",
+			)
+		finally:
+			frappe.delete_doc("Job Card", job_card.name, ignore_permissions=True, force=True)
+			frappe.delete_doc("Operation", machine_op.name, ignore_permissions=True, force=True)
 
 	def tearDown(self) -> None:
 		"""
