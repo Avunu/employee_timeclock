@@ -43,6 +43,7 @@ override_doctype_class = {
 	"Employee Checkin": "timeclock.timeclock.custom.employee_checkin.EmployeeCheckin",
 	"Employee": "timeclock.timeclock.custom.employee.Employee",
 	"Operation": "timeclock.timeclock.custom.operation.Operation",
+	"Job Card": "timeclock.timeclock.custom.job_card.JobCard",
 }
 
 # include tempus-dominus.min.js on the job card doctype
