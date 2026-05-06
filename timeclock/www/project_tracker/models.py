@@ -38,6 +38,7 @@ class MachineTimer(BaseModel):
 	operation: str
 	from_time: datetime | None = None
 	employee_group: str
+	is_corrective: bool = False
 
 
 class JobCardTimeLog(BaseModel):
