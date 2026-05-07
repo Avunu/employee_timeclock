@@ -914,6 +914,7 @@ def start_timer(
 						operation=operation,
 						from_time=start_time,
 						employee_group=EmployeeGroups[0] if EmployeeGroups else "",
+						is_corrective=is_corrective,
 					).model_dump(),
 				},
 				room="website",
@@ -1107,6 +1108,7 @@ def get_machine_timers(token: str | None = None) -> GetMachineTimersResponse:
 			JobCards.operation,
 			JobCardTimeLogs.from_time,
 			Operations.employee_group,
+			JobCards.is_corrective_job_card,
 		)
 		.where(JobCards.docstatus == 0)
 		.where(JobCardTimeLogs.to_time.isnull())
@@ -1119,6 +1121,7 @@ def get_machine_timers(token: str | None = None) -> GetMachineTimersResponse:
 			operation=r["operation"],
 			from_time=r["from_time"],
 			employee_group=r["employee_group"] or "",
+			is_corrective=bool(r.get("is_corrective_job_card")),
 		)
 		for r in rows
 	]

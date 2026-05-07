@@ -59,6 +59,7 @@ export interface MachineTimer {
   operation: string;
   from_time?: string | null;
   employee_group: string;
+  is_corrective?: boolean;
 }
 export interface GetOperationsResponse {
   status: "success" | "error";

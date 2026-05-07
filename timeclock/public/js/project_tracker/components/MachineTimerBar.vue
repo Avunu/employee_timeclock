@@ -7,20 +7,39 @@
       <div
         v-for="timer in machineTimers"
         :key="`${timer.work_order}:${timer.operation}`"
-        class="flex flex-col gap-2 rounded-lg px-4 py-2 ring-2 ring-blue-400 bg-blue-100 shrink-0 cursor-pointer hover:bg-blue-200 transition-colors"
+        :class="[
+          'flex flex-col gap-2 rounded-lg px-4 py-2 ring-2 shrink-0 cursor-pointer transition-colors',
+          timer.is_corrective
+            ? 'ring-orange-400 bg-orange-100 hover:bg-orange-200'
+            : 'ring-blue-400 bg-blue-100 hover:bg-blue-200',
+        ]"
         @click="$emit('navigate-to-timer', timer)"
       >
         <div class="flex items-center gap-2">
           <span
-            class="font-semibold text-blue-800 text-lg truncate max-w-[13rem]"
+            :class="[
+              'font-semibold text-lg truncate max-w-[13rem]',
+              timer.is_corrective ? 'text-orange-800' : 'text-blue-800',
+            ]"
           >
             {{ timer.operation }}
+            <span v-if="timer.is_corrective" class="text-sm font-normal">(Rework)</span>
           </span>
-          <span class="font-mono text-lg font-bold text-blue-900">
+          <span
+            :class="[
+              'font-mono text-lg font-bold',
+              timer.is_corrective ? 'text-orange-900' : 'text-blue-900',
+            ]"
+          >
             {{ elapsed(timer) }}
           </span>
           <button
-            class="ml-1 p-1.5 rounded bg-blue-200 hover:bg-blue-300 text-blue-800 transition-colors"
+            :class="[
+              'ml-1 p-1.5 rounded transition-colors',
+              timer.is_corrective
+                ? 'bg-orange-200 hover:bg-orange-300 text-orange-800'
+                : 'bg-blue-200 hover:bg-blue-300 text-blue-800',
+            ]"
             title="Stop Machine Timer"
             @click.stop="$emit('stop-machine-timer', timer)"
           >
@@ -28,7 +47,12 @@
           </button>
         </div>
         <div class="flex">
-          <span class="text-sm text-blue-700 truncate max-w-[24rem]">
+          <span
+            :class="[
+              'text-sm truncate max-w-[24rem]',
+              timer.is_corrective ? 'text-orange-700' : 'text-blue-700',
+            ]"
+          >
             {{ timerProductionItem(timer.work_order) }}
           </span>
         </div>
