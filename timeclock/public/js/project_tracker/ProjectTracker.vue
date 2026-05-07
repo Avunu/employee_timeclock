@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col h-screen">
     <header class="rounded-lg bg-gray-300 w-full shrink-0">
-      <div class="z-100 mx-auto px-4 py-6 lg:px-8 flex h-center items-center justify-between">
+      <div class="z-100 mx-auto px-4 py-6 lg:px-8 flex h-center items-center gap-4 justify-between">
         <!-- Job Timeclock Header -->
         <button class="text-4xl font-bold tracking-tight text-gray-900" @click="refresh_page">
           {{ header }}
@@ -13,25 +13,16 @@
 
         <!-- Active Timer Indicator -->
         <div v-if="activeSession && activeTimer" class="flex items-center gap-2">
-          <div
-            class="flex items-center gap-3 rounded-lg px-4 py-2 ring-2 cursor-pointer"
-            :class="
-              activeTimer.is_corrective
-                ? 'ring-orange-500 bg-orange-50 hover:bg-orange-100'
-                : 'ring-green-500 bg-green-50 hover:bg-green-100'
-            "
-            @click="navigateToActiveTimer"
-          >
-            <span
-              class="font-semibold text-lg lg:text-2xl truncate"
-              :class="activeTimer.is_corrective ? 'text-orange-700' : 'text-green-700'"
-            >
+          <div class="flex items-center gap-3 rounded-lg px-4 py-2 ring-2 cursor-pointer" :class="activeTimer.is_corrective
+            ? 'ring-orange-500 bg-orange-50 hover:bg-orange-100'
+            : 'ring-green-500 bg-green-50 hover:bg-green-100'
+            " @click="navigateToActiveTimer">
+            <span class="font-semibold text-lg lg:text-2xl truncate"
+              :class="activeTimer.is_corrective ? 'text-orange-700' : 'text-green-700'">
               {{ activeTimer.operation }}
             </span>
-            <span
-              class="font-mono text-xl lg:text-2xl font-bold"
-              :class="activeTimer.is_corrective ? 'text-orange-800' : 'text-green-800'"
-            >
+            <span class="font-mono text-xl lg:text-2xl font-bold"
+              :class="activeTimer.is_corrective ? 'text-orange-800' : 'text-green-800'">
               {{ headerElapsedTime }}
             </span>
             <span v-if="activeTimer.is_corrective" class="text-orange-700 text-sm font-semibold">
@@ -39,81 +30,53 @@
             </span>
           </div>
           <!-- Quick Stop Button -->
-          <button
-            class="p-3 rounded-lg transition-colors"
-            :class="
-              activeTimer.is_corrective
-                ? 'bg-orange-100 hover:bg-orange-200 text-orange-700'
-                : 'bg-green-100 hover:bg-green-200 text-green-700'
-            "
-            :title="activeTimer.is_corrective ? 'Stop Rework' : 'Stop Timer'"
-            @click="
+          <button class="p-3 rounded-lg transition-colors" :class="activeTimer.is_corrective
+            ? 'bg-orange-100 hover:bg-orange-200 text-orange-700'
+            : 'bg-green-100 hover:bg-green-200 text-green-700'
+            " :title="activeTimer.is_corrective ? 'Stop Rework' : 'Stop Timer'" @click="
               activeTimer.is_corrective
                 ? handleStopRework(activeTimer.operation)
                 : handleStopTask(activeTimer.operation)
-            "
-          >
+              ">
             <div class="w-7 h-7 rounded-sm bg-current" />
           </button>
         </div>
 
-        <SessionTimer
-          :employeeName="employeeName"
-          :tokenExpiration="tokenExpiration"
-          v-if="activeSession"
-        />
-        <!-- Sign Out Icon Button -->
-        <button
-          v-if="activeSession"
-          @click="switchEmployee"
-          class="p-3 rounded-lg hover:bg-gray-200 transition-colors"
-          title="Sign Out"
-        >
-          <IconLogOut class="w-8 h-8 text-gray-700" />
-        </button>
-        <!-- Settings Icon Button -->
-        <button
-          v-if="activeSession"
-          @click="
+        <SessionTimer :employeeName="employeeName" :tokenExpiration="tokenExpiration" v-if="activeSession" />
+
+        <!-- Right-side icon group -->
+        <div v-if="activeSession" class="flex items-center gap-1">
+          <!-- Sign Out Icon Button -->
+          <button @click="switchEmployee" class="p-3 rounded-lg hover:bg-gray-200 transition-colors" title="Sign Out">
+            <IconLogOut class="w-8 h-8 text-gray-700" />
+          </button>
+          <!-- Settings Icon Button -->
+          <button @click="
             isSidebarOpen = true;
-            isPinnedSidebarOpen = false;
-          "
-          class="p-3 rounded-lg hover:bg-gray-200 transition-colors"
-          title="Settings"
-        >
-          <IconSettings class="w-8 h-8 text-gray-700" />
-        </button>
-        <!-- Pinned Jobs Icon Button -->
-        <button
-          v-if="activeSession"
-          @click="
+          isPinnedSidebarOpen = false;
+          " class="p-3 rounded-lg hover:bg-gray-200 transition-colors" title="Settings">
+            <IconSettings class="w-8 h-8 text-gray-700" />
+          </button>
+          <!-- Pinned Jobs Icon Button -->
+          <button @click="
             isPinnedSidebarOpen = true;
-            isSidebarOpen = false;
-          "
-          class="relative p-3 rounded-lg hover:bg-gray-200 transition-colors"
-          title="Pinned Jobs"
-        >
-          <IconPin
-            class="w-8 h-8 transition-colors"
-            :class="myPinnedKeys.length > 0 ? 'text-amber-500 fill-current' : 'text-gray-700'"
-          />
-          <span
-            v-if="myPinnedKeys.length > 0"
-            class="absolute top-1.5 right-1.5 w-4 h-4 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center font-bold leading-none"
-          >
-            {{ myPinnedKeys.length }}
-          </span>
-        </button>
+          isSidebarOpen = false;
+          " class="relative p-3 rounded-lg hover:bg-gray-200 transition-colors" title="Pinned Jobs">
+            <IconPin class="w-8 h-8 transition-colors"
+              :class="myPinnedKeys.length > 0 ? 'text-amber-500 fill-current' : 'text-gray-700'" />
+            <span v-if="myPinnedKeys.length > 0"
+              class="absolute top-1.5 right-1.5 w-4 h-4 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center font-bold leading-none">
+              {{ myPinnedKeys.length }}
+            </span>
+          </button>
+        </div>
       </div>
     </header>
 
     <!-- Settings Sidebar -->
     <transition name="sidebar">
-      <div
-        v-if="isSidebarOpen && activeSession"
-        class="fixed inset-0 z-50 flex justify-end"
-        @click.self="isSidebarOpen = false"
-      >
+      <div v-if="isSidebarOpen && activeSession" class="fixed inset-0 z-50 flex justify-end"
+        @click.self="isSidebarOpen = false">
         <!-- Backdrop -->
         <div class="absolute inset-0 bg-black bg-opacity-50" @click="isSidebarOpen = false"></div>
 
@@ -122,22 +85,9 @@
           <!-- Sidebar Header -->
           <div class="flex items-center justify-between p-6 border-b">
             <h2 class="text-2xl font-bold text-gray-900">Settings</h2>
-            <button
-              @click="isSidebarOpen = false"
-              class="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              <svg
-                class="w-6 h-6 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
-                />
+            <button @click="isSidebarOpen = false" class="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+              <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
@@ -149,11 +99,8 @@
                 <h3 class="text-lg font-semibold text-gray-700 mb-3">Workstations</h3>
                 <div v-if="availableWorkstations.length" class="space-y-2">
                   <div v-for="ws in availableWorkstations" :key="ws" class="w-full">
-                    <Checkbox
-                      :label="ws"
-                      :modelValue="workstations.includes(ws)"
-                      @update:modelValue="toggleWorkstation(ws, $event)"
-                    />
+                    <Checkbox :label="ws" :modelValue="workstations.includes(ws)"
+                      @update:modelValue="toggleWorkstation(ws, $event)" />
                   </div>
                 </div>
                 <p v-else class="text-sm text-gray-500">Loading…</p>
@@ -179,83 +126,51 @@
     <main class="flex flex-1 w-full overflow-hidden min-h-0" v-if="activeSession">
       <!-- When session is active -->
       <!-- Work Orders Section -->
-      <WorkOrderList
-        name="work_orders_list"
-        class="z-0"
-        :workOrders="workOrders"
-        :selectedWorkOrder="selectedWorkOrder"
+      <WorkOrderList name="work_orders_list" class="z-0" :workOrders="workOrders" :selectedWorkOrder="selectedWorkOrder"
         :activeWorkOrder="activeTimer?.work_order ?? null"
-        :activeTimerIsCorrective="activeTimer?.is_corrective ?? false"
-        @select="selectWorkOrder"
-      />
+        :activeTimerIsCorrective="activeTimer?.is_corrective ?? false" @select="selectWorkOrder" />
       <!-- Job Cards Section -->
       <transition name="job_card_list">
-        <JobCardList
-          class="z-0"
-          name="job_cards_comp"
-          :operations="operations"
-          :activeTimer="activeTimer"
-          :machineTimers="machineTimers"
-          :workstations="workstations"
-          :pinnedKeys="myPinnedKeys"
-          v-if="selectedWorkOrder"
-          :workOrder="selectedWorkOrder"
-          @start-task="handleStartTask"
-          @stop-task="handleStopTask"
-          @start-rework="handleStartRework"
-          @stop-rework="handleStopRework"
-          @toggle-pin="togglePin"
-        />
+        <JobCardList class="z-0" name="job_cards_comp" :operations="operations" :activeTimer="activeTimer"
+          :machineTimers="machineTimers" :workstations="workstations" :pinnedKeys="myPinnedKeys"
+          v-if="selectedWorkOrder" :workOrder="selectedWorkOrder" @start-task="handleStartTask"
+          @stop-task="handleStopTask" @start-rework="handleStartRework" @stop-rework="handleStopRework"
+          @toggle-pin="togglePin" />
       </transition>
     </main>
 
     <!-- Pinned Jobs Sidebar -->
-    <PinnedJobsSidebar
-      :isOpen="isPinnedSidebarOpen"
-      :activeSession="activeSession"
-      :pinnedCards="pinnedCards"
-      :activeTimer="activeTimer"
-      :machineTimers="machineTimers"
-      @close="isPinnedSidebarOpen = false"
-      @toggle-pin="togglePin"
-      @start-task="
+    <PinnedJobsSidebar :isOpen="isPinnedSidebarOpen" :activeSession="activeSession" :pinnedCards="pinnedCards"
+      :activeTimer="activeTimer" :machineTimers="machineTimers" @close="isPinnedSidebarOpen = false"
+      @toggle-pin="togglePin" @start-task="
         handlePinAction({
           action: 'start',
           workOrder: $event.workOrder,
           operationName: $event.operationName,
         })
-      "
-      @stop-task="
-        handlePinAction({
-          action: 'stop',
-          workOrder: $event.workOrder,
-          operationName: $event.operationName,
-        })
-      "
-      @start-rework="
-        handlePinAction({
-          action: 'start-rework',
-          workOrder: $event.workOrder,
-          operationName: $event.operationName,
-        })
-      "
-      @stop-rework="
-        handlePinAction({
-          action: 'stop-rework',
-          workOrder: $event.workOrder,
-          operationName: $event.operationName,
-        })
-      "
-    />
+        " @stop-task="
+          handlePinAction({
+            action: 'stop',
+            workOrder: $event.workOrder,
+            operationName: $event.operationName,
+          })
+          " @start-rework="
+            handlePinAction({
+              action: 'start-rework',
+              workOrder: $event.workOrder,
+              operationName: $event.operationName,
+            })
+            " @stop-rework="
+              handlePinAction({
+                action: 'stop-rework',
+                workOrder: $event.workOrder,
+                operationName: $event.operationName,
+              })
+              " />
 
     <!-- Machine Timer Bottom Bar -->
-    <MachineTimerBar
-      v-if="activeSession"
-      :machineTimers="machineTimers"
-      :workOrders="workOrders"
-      @stop-machine-timer="handleStopMachineTimer"
-      @navigate-to-timer="navigateToMachineTimer"
-    />
+    <MachineTimerBar v-if="activeSession" :machineTimers="machineTimers" :workOrders="workOrders"
+      @stop-machine-timer="handleStopMachineTimer" @navigate-to-timer="navigateToMachineTimer" />
 
     <!-- <main v-else: class="bg-white fixed w-auto top-100 z-50 h-24"> -->
     <main v-else: class="flex-1 w-full">
@@ -1191,8 +1106,8 @@ export default defineComponent({
   transition: opacity 0.3s ease;
 }
 
-.sidebar-enter-active > div:last-child,
-.sidebar-leave-active > div:last-child {
+.sidebar-enter-active>div:last-child,
+.sidebar-leave-active>div:last-child {
   transition: transform 0.3s ease;
 }
 
@@ -1201,8 +1116,8 @@ export default defineComponent({
   opacity: 0;
 }
 
-.sidebar-enter-from > div:last-child,
-.sidebar-leave-to > div:last-child {
+.sidebar-enter-from>div:last-child,
+.sidebar-leave-to>div:last-child {
   transform: translateX(100%);
 }
 </style>
