@@ -58,3 +58,7 @@ doctype_list_js = {"Job Card": "public/js/job_card_list.js"}
 # doctype_list_css = {
 #     "Workday": "/assets/timeclock/node_modules/@eonasdan/tempus-dominus/dist/css/tempus-dominus.min.css"
 # }
+
+fixtures = [
+	{"dt": "List View Settings", "filters": {"name": ("in", ("Job Card"))}},
+]
