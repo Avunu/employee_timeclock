@@ -22,7 +22,6 @@ from typing import Any, cast
 import frappe
 import jwt
 from erpnext.manufacturing.doctype.bom.bom import BOM
-from erpnext.manufacturing.doctype.job_card.job_card import JobCard
 from erpnext.manufacturing.doctype.operation.operation import Operation
 from erpnext.manufacturing.doctype.work_order.work_order import WorkOrder
 from erpnext.manufacturing.doctype.workstation.workstation import Workstation
@@ -31,6 +30,8 @@ from erpnext.stock.doctype.item.item import Item
 from frappe.defaults import get_defaults
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_to_date, now_datetime, random_string
+
+from timeclock.timeclock.custom.job_card import JobCard
 
 
 class TestProjectTracker(FrappeTestCase):

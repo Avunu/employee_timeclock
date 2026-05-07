@@ -1,19 +1,28 @@
 <template>
   <div :data-operation="operation.operation">
-    <div class="flex flex-col rounded-lg border px-6 py-5 shadow font-sans text-black text-lg lg:text-4xl mt-2 mb-2"
-      :class="cardClasses">
+    <div
+      class="flex flex-col rounded-lg border px-6 py-5 shadow font-sans text-black text-lg lg:text-4xl mt-2 mb-2"
+      :class="cardClasses"
+    >
       <!-- Header row: title + actions -->
       <div class="flex items-center justify-between mt-1 mb-2">
         <p v-if="productName" class="text-lg text-gray-600">
           {{ productName }}
         </p>
-        <button v-if="showPin" @click.stop="
-          $emit('toggle-pin', {
-            workOrderName: workOrderName,
-            operationName: operation.operation,
-          })
-          " class="p-1 rounded transition-colors ml-auto" :class="pinned ? 'text-amber-500 hover:text-amber-600' : 'text-gray-300 hover:text-gray-500'
-            " :title="pinned ? 'Unpin' : 'Pin'">
+        <button
+          v-if="showPin"
+          @click.stop="
+            $emit('toggle-pin', {
+              workOrderName: workOrderName,
+              operationName: operation.operation,
+            })
+          "
+          class="p-1 rounded transition-colors ml-auto"
+          :class="
+            pinned ? 'text-amber-500 hover:text-amber-600' : 'text-gray-300 hover:text-gray-500'
+          "
+          :title="pinned ? 'Unpin' : 'Pin'"
+        >
           <IconPin class="w-5 h-5" :class="{ 'fill-current rotate-45': pinned }" />
         </button>
       </div>
@@ -25,17 +34,49 @@
         </div>
         <div class="flex items-center space-x-2">
           <div class="flex gap-2 items-start">
-            <Button :theme="isMachine ? 'blue' : 'green'" variant="outline" size="2xl" label="Start Timer"
-              @click="startTask" v-if="!taskStarted && !operation.is_submitted" />
-            <Button theme="gray" variant="ghost" size="2xl" label="Submitted" :disabled="true" class="italic"
-              v-if="!taskStarted && operation.is_submitted" />
-            <Button :theme="isMachine ? 'blue' : 'green'" variant="outline" size="2xl" label="Stop Timer"
-              @click="stopTask" v-if="taskStarted" />
-            <Button theme="gray" variant="outline" size="2xl" label="Start Rework"
-              class="!bg-orange-500 !text-white hover:!bg-orange-600" @click="startRework" v-if="!reworkStarted" />
-            <Button theme="gray" variant="outline" size="2xl" label="Stop Rework"
-              class="!text-orange-700 !border-orange-500 hover:!bg-orange-100" @click="stopRework"
-              v-if="reworkStarted" />
+            <Button
+              :theme="isMachine ? 'blue' : 'green'"
+              variant="outline"
+              size="2xl"
+              label="Start Timer"
+              @click="startTask"
+              v-if="!taskStarted && !operation.is_submitted"
+            />
+            <Button
+              theme="gray"
+              variant="ghost"
+              size="2xl"
+              label="Submitted"
+              :disabled="true"
+              class="italic"
+              v-if="!taskStarted && operation.is_submitted"
+            />
+            <Button
+              :theme="isMachine ? 'blue' : 'green'"
+              variant="outline"
+              size="2xl"
+              label="Stop Timer"
+              @click="stopTask"
+              v-if="taskStarted"
+            />
+            <Button
+              theme="gray"
+              variant="outline"
+              size="2xl"
+              label="Start Rework"
+              class="!bg-orange-500 !text-white hover:!bg-orange-600"
+              @click="startRework"
+              v-if="!reworkStarted"
+            />
+            <Button
+              theme="gray"
+              variant="outline"
+              size="2xl"
+              label="Stop Rework"
+              class="!text-orange-700 !border-orange-500 hover:!bg-orange-100"
+              @click="stopRework"
+              v-if="reworkStarted"
+            />
           </div>
         </div>
       </div>
@@ -43,44 +84,68 @@
       <div v-if="operation.planned_time_mins > 0" class="mt-3 space-y-1">
         <div class="flex justify-between text-lg" :class="progressHintClass">
           <span>Estimated Time: {{ formatMins(operation.planned_time_mins) }}</span>
-          <span v-if="isOverrun">+{{ formatMins(totalLoggedMins - operation.planned_time_mins) }} overrun</span>
+          <span v-if="isOverrun"
+            >+{{ formatMins(totalLoggedMins - operation.planned_time_mins) }} overrun</span
+          >
         </div>
         <div class="h-2 w-full rounded-full bg-gray-200 overflow-hidden flex">
-          <div class="h-full transition-all duration-300" :class="[
-            isMachine ? 'bg-blue-500' : 'bg-green-500',
-            { 'rounded-full': !isOverrun, 'rounded-l-full': isOverrun },
-          ]" :style="{ width: progressPercent + '%' }" />
-          <div v-if="isOverrun" class="h-full rounded-r-full bg-red-500 transition-all duration-300"
-            :style="{ width: overrunPercent + '%' }" />
+          <div
+            class="h-full transition-all duration-300"
+            :class="[
+              isMachine ? 'bg-blue-500' : 'bg-green-500',
+              { 'rounded-full': !isOverrun, 'rounded-l-full': isOverrun },
+            ]"
+            :style="{ width: progressPercent + '%' }"
+          />
+          <div
+            v-if="isOverrun"
+            class="h-full rounded-r-full bg-red-500 transition-all duration-300"
+            :style="{ width: overrunPercent + '%' }"
+          />
         </div>
       </div>
       <!-- Time data body -->
       <div class="mt-4 flex flex-col gap-2 text-lg" v-if="hasTimeData">
         <!-- Regular Time Row -->
-        <div class="flex justify-between items-center"
-          v-if="taskStarted || operation.actual_time_mins > 0 || operation.employee_time_mins > 0">
+        <div
+          class="flex justify-between items-center"
+          v-if="taskStarted || operation.actual_time_mins > 0 || operation.employee_time_mins > 0"
+        >
           <div>
-            <span :class="isMachine ? 'text-blue-600' : 'text-green-600'" class="w-full"
-              v-if="operation.actual_time_mins > 0">
+            <span
+              :class="isMachine ? 'text-blue-600' : 'text-green-600'"
+              class="w-full"
+              v-if="operation.actual_time_mins > 0"
+            >
               {{ formatMins(operation.actual_time_mins) }} logged
             </span>
           </div>
           <div class="text-right">
-            <span :class="isMachine ? 'text-blue-700' : 'text-green-700'" class="font-mono text-lg" v-if="taskStarted">
+            <span
+              :class="isMachine ? 'text-blue-700' : 'text-green-700'"
+              class="font-mono text-lg"
+              v-if="taskStarted"
+            >
               {{ elapsedTime }}
             </span>
-            <span :class="isMachine ? 'text-blue-500' : 'text-green-500'" class="text-lg ml-2"
-              v-if="operation.employee_time_mins > 0">
+            <span
+              :class="isMachine ? 'text-blue-500' : 'text-green-500'"
+              class="text-lg ml-2"
+              v-if="operation.employee_time_mins > 0"
+            >
               Your total: {{ formatMins(operation.employee_time_mins) }}
             </span>
           </div>
         </div>
         <!-- Corrective Time Row -->
-        <div class="flex justify-between items-center" v-if="
-          reworkStarted ||
-          operation.corrective_total_time_mins > 0 ||
-          operation.corrective_employee_time_mins > 0
-        ">
+        <div
+          class="flex justify-between items-center"
+          v-if="
+            reworkStarted ||
+            operation.corrective_total_time_mins > 0 ||
+            operation.corrective_employee_time_mins > 0
+          "
+        >
           <span class="text-orange-600" v-if="operation.corrective_total_time_mins > 0">
             {{ formatMins(operation.corrective_total_time_mins) }} rework
           </span>
@@ -89,7 +154,10 @@
             <span class="text-orange-700 font-mono font-bold" v-if="reworkStarted">
               {{ reworkElapsedTime }}
             </span>
-            <span class="text-orange-600 text-lg ml-2" v-if="operation.corrective_employee_time_mins > 0">
+            <span
+              class="text-orange-600 text-lg ml-2"
+              v-if="operation.corrective_employee_time_mins > 0"
+            >
               Your total:
               {{ formatMins(operation.corrective_employee_time_mins) }}
             </span>
@@ -199,7 +267,8 @@ export default defineComponent({
       return this.isMachine ? !!this.activeMachineTimer : this.isLaborActiveForThis;
     },
     taskStarted(): boolean {
-      if (this.isMachine) return !!this.activeMachineTimer && !this.activeMachineTimer.is_corrective;
+      if (this.isMachine)
+        return !!this.activeMachineTimer && !this.activeMachineTimer.is_corrective;
       return this.isLaborActiveForThis && !this.activeTimer!.is_corrective;
     },
     reworkStarted(): boolean {

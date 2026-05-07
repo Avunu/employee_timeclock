@@ -1,6 +1,8 @@
 from erpnext.manufacturing.doctype.job_card.job_card import JobCard as BaseJobCard
 from frappe.types import DF
 
+from .job_card_time_log import JobCardTimeLog
+
 
 class JobCard(BaseJobCard):
 	"""Custom JobCard override for Timeclock-specific functionality with custom field types"""
@@ -8,6 +10,7 @@ class JobCard(BaseJobCard):
 	# Custom fields from job_card.json
 
 	is_machine_time: DF.Check
+	time_logs: DF.Table[JobCardTimeLog]
 
 	def before_save(self):
 		# For machine time job cards, ensure employee is never logged on the time log.
@@ -15,8 +18,8 @@ class JobCard(BaseJobCard):
 		# and the employee field remains empty (preventing overlap false-positives).
 		if self.is_machine_time:
 			for log in self.time_logs:
-				if log.get("employee"):
-					if not log.get("machine_operator"):
+				if log.employee:
+					if not log.machine_operator:
 						log.machine_operator = log.employee
 					log.employee = ""
 		super().before_save()

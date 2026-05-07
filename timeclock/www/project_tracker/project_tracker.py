@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import frappe
 import getmac
@@ -244,12 +244,12 @@ def authenticate_employee(rfid: str) -> AuthenticateEmployeeResponse:
 	token = refresh_token(str(employee_id))
 
 	# get the last employee checkin to see if the employee is clocked in or out
-	EmployeeCheckinDT = DocType("Employee Checkin")
+	EmployeeCheckins = DocType("Employee Checkin")
 	last_checkin: list[str] = (
-		frappe.qb.from_(EmployeeCheckinDT)
-		.select(EmployeeCheckinDT.log_type)
-		.where(EmployeeCheckinDT.employee == employee_id)
-		.orderby(EmployeeCheckinDT.modified, order=frappe.qb.desc)
+		frappe.qb.from_(EmployeeCheckins)
+		.select(EmployeeCheckins.log_type)
+		.where(EmployeeCheckins.employee == employee_id)
+		.orderby(EmployeeCheckins.modified, order=frappe.qb.desc)
 		.limit(1)
 		.run(pluck="log_type")
 	)
@@ -258,7 +258,7 @@ def authenticate_employee(rfid: str) -> AuthenticateEmployeeResponse:
 
 	return AuthenticateEmployeeResponse(
 		status="success",
-		last_checkin=last_checkin[0] if last_checkin else None,
+		last_checkin=cast(Literal["IN", "OUT"], last_checkin[0]) if last_checkin else None,
 		token=token,
 	).model_dump()
 
@@ -995,16 +995,16 @@ def get_user_session_employee() -> UserSessionEmployee:
 		last_checkin: str | None = None
 		if employee_id:
 			employee_name = frappe.get_value("Employee", employee_id, "employee_name")
-			EmployeeCheckinDT = DocType("Employee Checkin")
+			EmployeeCheckins = DocType("Employee Checkin")
 			checkin_result: list[str] = (
-				frappe.qb.from_(EmployeeCheckinDT)
-				.select(EmployeeCheckinDT.log_type)
-				.where(EmployeeCheckinDT.employee == employee_id)
-				.orderby(EmployeeCheckinDT.modified, order=frappe.qb.desc)
+				frappe.qb.from_(EmployeeCheckins)
+				.select(EmployeeCheckins.log_type)
+				.where(EmployeeCheckins.employee == employee_id)
+				.orderby(EmployeeCheckins.modified, order=frappe.qb.desc)
 				.limit(1)
 				.run(pluck="log_type")
 			)
-			last_checkin = checkin_result[0] if checkin_result else None
+			last_checkin = cast(Literal["IN", "OUT"], checkin_result[0]) if checkin_result else None
 		return UserSessionEmployee(
 			user_id=user_id,
 			employee_id=employee_id,
