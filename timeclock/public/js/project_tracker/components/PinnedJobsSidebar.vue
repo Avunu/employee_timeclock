@@ -6,10 +6,7 @@
       @click.self="$emit('close')"
     >
       <!-- Backdrop -->
-      <div
-        class="absolute inset-0 bg-black bg-opacity-50"
-        @click="$emit('close')"
-      ></div>
+      <div class="absolute inset-0 bg-black bg-opacity-50" @click="$emit('close')"></div>
 
       <!-- Sidebar Content -->
       <div class="relative w-200 h-full bg-white shadow-2xl flex flex-col">
@@ -41,10 +38,7 @@
 
         <!-- Sidebar Body -->
         <div class="flex-1 overflow-y-auto p-4">
-          <p
-            v-if="pinnedCards.length === 0"
-            class="text-sm text-gray-500 text-center py-8"
-          >
+          <p v-if="pinnedCards.length === 0" class="text-sm text-gray-500 text-center py-8">
             No pinned job cards yet.<br />
             Tap the
             <IconPin class="inline w-4 h-4 text-gray-400" />
@@ -135,14 +129,7 @@ export default defineComponent({
       default: () => [],
     },
   },
-  emits: [
-    "close",
-    "toggle-pin",
-    "start-task",
-    "stop-task",
-    "start-rework",
-    "stop-rework",
-  ],
+  emits: ["close", "toggle-pin", "start-task", "stop-task", "start-rework", "stop-rework"],
 });
 </script>
 

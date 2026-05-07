@@ -1,9 +1,5 @@
 <template>
-  <Column
-    title="Job Cards"
-    description="Select a job card to start the timer"
-    class="w-1/2"
-  >
+  <Column title="Job Cards" description="Select a job card to start the timer" class="w-1/2">
     <template #actions>
       <Switch
         v-if="workstations.length > 0"
@@ -17,8 +13,7 @@
     <div v-if="totalPlannedMins > 0" class="mb-4 space-y-1.5">
       <!-- Time summary -->
       <p class="text-lg font-medium" :class="progressHintClass">
-        {{ formatMins(totalLoggedMins) }} logged of
-        {{ formatMins(totalPlannedMins) }} estimated
+        {{ formatMins(totalLoggedMins) }} logged of {{ formatMins(totalPlannedMins) }} estimated
         <span v-if="isOverrun">
           · +{{ formatMins(totalLoggedMins - totalPlannedMins) }} overrun
         </span>
@@ -101,13 +96,7 @@ export default defineComponent({
       default: () => [],
     },
   },
-  emits: [
-    "start-task",
-    "stop-task",
-    "start-rework",
-    "stop-rework",
-    "toggle-pin",
-  ],
+  emits: ["start-task", "stop-task", "start-rework", "stop-rework", "toggle-pin"],
 
   data(): { filterByWorkstation: boolean } {
     return {
@@ -120,22 +109,14 @@ export default defineComponent({
       if (!this.filterByWorkstation || this.workstations.length === 0) {
         return this.operations;
       }
-      return this.operations.filter((op) =>
-        this.workstations.includes(op.workstation),
-      );
+      return this.operations.filter((op) => this.workstations.includes(op.workstation));
     },
     totalPlannedMins(): number {
-      return this.operations.reduce(
-        (sum, op) => sum + (op.planned_time_mins || 0),
-        0,
-      );
+      return this.operations.reduce((sum, op) => sum + (op.planned_time_mins || 0), 0);
     },
     totalLoggedMins(): number {
       return this.operations.reduce(
-        (sum, op) =>
-          sum +
-          (op.actual_time_mins || 0) +
-          (op.corrective_total_time_mins || 0),
+        (sum, op) => sum + (op.actual_time_mins || 0) + (op.corrective_total_time_mins || 0),
         0,
       );
     },

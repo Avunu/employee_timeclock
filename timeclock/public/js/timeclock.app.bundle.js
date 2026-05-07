@@ -75,16 +75,12 @@ frappe.ui.form.WorkdayBulkAddQuickEntryForm = class WorkdayBulkAddQuickEntryForm
         ],
         onload: function (field) {
           // convert the input fields to a new native <input type="time">
-          field.grid.wrapper
-            .find('input[data-fieldname="checkin"]')
-            .each(function (i, e) {
-              e.type = "time";
-            });
-          field.grid.wrapper
-            .find('input[data-fieldname="checkout"]')
-            .each(function (i, e) {
-              e.type = "time";
-            });
+          field.grid.wrapper.find('input[data-fieldname="checkin"]').each(function (i, e) {
+            e.type = "time";
+          });
+          field.grid.wrapper.find('input[data-fieldname="checkout"]').each(function (i, e) {
+            e.type = "time";
+          });
         },
       },
     ];
@@ -127,9 +123,6 @@ frappe.ui.form.WorkdayBulkAddQuickEntryForm = class WorkdayBulkAddQuickEntryForm
 
 // Helper function to show the bulk add dialog
 frappe.ui.form.show_workday_bulk_add = function (after_insert) {
-  const quick_entry = new frappe.ui.form.WorkdayBulkAddQuickEntryForm(
-    "Workday",
-    after_insert,
-  );
+  const quick_entry = new frappe.ui.form.WorkdayBulkAddQuickEntryForm("Workday", after_insert);
   quick_entry.render_dialog();
 };

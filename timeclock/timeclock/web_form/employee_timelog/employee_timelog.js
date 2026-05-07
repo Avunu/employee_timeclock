@@ -2,11 +2,7 @@
 function reset_form(form_entry) {
   // reset the form
   update_form_value(form_entry, "manual_override", "");
-  update_form_value(
-    form_entry,
-    "manual_override_date",
-    frappe.datetime.now_date(),
-  );
+  update_form_value(form_entry, "manual_override_date", frappe.datetime.now_date());
   update_form_value(form_entry, "manual_override_time", "");
   update_form_value(form_entry, "time", "");
   update_form_value(form_entry, "log_type", "IN");
@@ -29,11 +25,8 @@ function save_form(form_entry) {
     return;
   }
   // make sure time isn't in the future
-  else if (
-    Date.parse(form_entry.time) > Date.parse(frappe.datetime.now_datetime())
-  ) {
-    const time_travel_gif =
-      "https://media4.giphy.com/media/3ov9jU4ycPvfrPTsly/giphy.gif";
+  else if (Date.parse(form_entry.time) > Date.parse(frappe.datetime.now_datetime())) {
+    const time_travel_gif = "https://media4.giphy.com/media/3ov9jU4ycPvfrPTsly/giphy.gif";
     const alert_message =
       '<b>Time Traveler!</b><br>It looks like you are trying to clock in the future. Please check your time and try again.<br><img src="' +
       time_travel_gif +
@@ -186,10 +179,7 @@ frappe.init_client_script = () => {
             second: "numeric",
           }),
         );
-        time =
-          form_entry.manual_override_date +
-          " " +
-          form_entry.manual_override_time;
+        time = form_entry.manual_override_date + " " + form_entry.manual_override_time;
       } else {
         time = frappe.datetime.now_datetime();
       }

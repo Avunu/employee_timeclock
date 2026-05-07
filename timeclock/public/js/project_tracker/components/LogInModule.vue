@@ -7,16 +7,10 @@
       <input type="password" required v-model="password" />
       <p v-if="error_message" class="error">{{ error_message }}</p>
       <div class="button-group">
-        <Button
-          @click="submit_login(email, password)"
-          theme="blue"
-          variant="solid"
-        >
+        <Button @click="submit_login(email, password)" theme="blue" variant="solid">
           Submit
         </Button>
-        <Button @click="return_trigger" theme="gray" variant="outline">
-          Return
-        </Button>
+        <Button @click="return_trigger" theme="gray" variant="outline"> Return </Button>
       </div>
     </Card>
   </div>
@@ -61,8 +55,7 @@ export default defineComponent({
         this.authenticated = true;
         this.$emit("submit_login", this.authenticated);
       } else {
-        this.error_message =
-          "Incorrect Login and/or Password. Please try again.";
+        this.error_message = "Incorrect Login and/or Password. Please try again.";
         this.password = "";
       }
     },

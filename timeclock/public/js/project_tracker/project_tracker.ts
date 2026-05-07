@@ -14,4 +14,3 @@ import { FrappeUI } from "frappe-ui";
 const app: App = createApp(ProjectTracker);
 app.use(FrappeUI);
 app.mount("#app");
-

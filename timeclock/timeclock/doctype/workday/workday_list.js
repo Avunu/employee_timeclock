@@ -63,8 +63,7 @@ frappe.ui.form.on("Workday", {
 
 function add_custom_field(dialog, custom_field_options) {
   const custom_field = frappe.ui.form.make_control(custom_field_options);
-  custom_field.parent =
-    dialog.fields_dict[custom_field_options.fieldname].$wrapper;
+  custom_field.parent = dialog.fields_dict[custom_field_options.fieldname].$wrapper;
   custom_field.refresh();
   custom_field.$input.addClass("input-time");
   dialog.fields_dict[custom_field_options.fieldname].$input

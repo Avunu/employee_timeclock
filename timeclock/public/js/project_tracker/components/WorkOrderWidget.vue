@@ -28,16 +28,8 @@
           <p class="text-sm text-gray-500">{{ workOrder.name }}</p>
         </div>
         <!-- Donut progress chart – click.stop prevents re-triggering card click -->
-        <div
-          v-if="workOrder.planned_time_mins > 0"
-          @click.stop
-          class="shrink-0 -mb-1"
-        >
-          <Plotly
-            :data="chartData"
-            :layout="chartLayout"
-            :config="chartConfig"
-          />
+        <div v-if="workOrder.planned_time_mins > 0" @click.stop class="shrink-0 -mb-1">
+          <Plotly :data="chartData" :layout="chartLayout" :config="chartConfig" />
         </div>
       </div>
     </div>
@@ -86,14 +78,13 @@ export default defineComponent({
     },
 
     statusTheme(): "gray" | "blue" | "green" | "orange" | "red" {
-      const map: Record<string, "gray" | "blue" | "green" | "orange" | "red"> =
-        {
-          "Not Started": "gray",
-          "In Process": "blue",
-          Completed: "green",
-          Stopped: "red",
-          Draft: "gray",
-        };
+      const map: Record<string, "gray" | "blue" | "green" | "orange" | "red"> = {
+        "Not Started": "gray",
+        "In Process": "blue",
+        Completed: "green",
+        Stopped: "red",
+        Draft: "gray",
+      };
       return map[this.workOrder.status] ?? "gray";
     },
 
@@ -106,9 +97,7 @@ export default defineComponent({
           type: "pie",
           hole: 0.65,
           // When overrun show a solid filled circle; otherwise show progress arc
-          values: overrun
-            ? [1, 0]
-            : [Math.max(logged, 0.0001), Math.max(planned - logged, 0)],
+          values: overrun ? [1, 0] : [Math.max(logged, 0.0001), Math.max(planned - logged, 0)],
           marker: {
             colors: overrun ? ["#ef4444", "#f3f4f6"] : ["#22c55e", "#f3f4f6"],
             line: { width: 0 },

@@ -8,7 +8,7 @@
 
 // actually, written manually, for now.
 
-export {}
+export {};
 
 /* prettier-ignore */
 declare module 'vue' {

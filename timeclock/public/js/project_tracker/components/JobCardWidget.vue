@@ -19,16 +19,11 @@
           "
           class="p-1 rounded transition-colors ml-auto"
           :class="
-            pinned
-              ? 'text-amber-500 hover:text-amber-600'
-              : 'text-gray-300 hover:text-gray-500'
+            pinned ? 'text-amber-500 hover:text-amber-600' : 'text-gray-300 hover:text-gray-500'
           "
           :title="pinned ? 'Unpin' : 'Pin'"
         >
-          <IconPin
-            class="w-5 h-5"
-            :class="{ 'fill-current rotate-45': pinned }"
-          />
+          <IconPin class="w-5 h-5" :class="{ 'fill-current rotate-45': pinned }" />
         </button>
       </div>
       <div class="flex items-center justify-between">
@@ -88,14 +83,9 @@
       <!-- Progress bar -->
       <div v-if="operation.planned_time_mins > 0" class="mt-3 space-y-1">
         <div class="flex justify-between text-lg" :class="progressHintClass">
-          <span
-            >Estimated Time: {{ formatMins(operation.planned_time_mins) }}</span
-          >
+          <span>Estimated Time: {{ formatMins(operation.planned_time_mins) }}</span>
           <span v-if="isOverrun"
-            >+{{
-              formatMins(totalLoggedMins - operation.planned_time_mins)
-            }}
-            overrun</span
+            >+{{ formatMins(totalLoggedMins - operation.planned_time_mins) }} overrun</span
           >
         </div>
         <div class="h-2 w-full rounded-full bg-gray-200 overflow-hidden flex">
@@ -119,11 +109,7 @@
         <!-- Regular Time Row -->
         <div
           class="flex justify-between items-center"
-          v-if="
-            taskStarted ||
-            operation.actual_time_mins > 0 ||
-            operation.employee_time_mins > 0
-          "
+          v-if="taskStarted || operation.actual_time_mins > 0 || operation.employee_time_mins > 0"
         >
           <div>
             <span
@@ -160,18 +146,12 @@
             operation.corrective_employee_time_mins > 0
           "
         >
-          <span
-            class="text-orange-600"
-            v-if="operation.corrective_total_time_mins > 0"
-          >
+          <span class="text-orange-600" v-if="operation.corrective_total_time_mins > 0">
             {{ formatMins(operation.corrective_total_time_mins) }} rework
           </span>
           <span v-else />
           <div class="text-right">
-            <span
-              class="text-orange-700 font-mono font-bold"
-              v-if="reworkStarted"
-            >
+            <span class="text-orange-700 font-mono font-bold" v-if="reworkStarted">
               {{ reworkElapsedTime }}
             </span>
             <span
@@ -232,13 +212,7 @@ export default defineComponent({
       default: "",
     },
   },
-  emits: [
-    "start-task",
-    "stop-task",
-    "start-rework",
-    "stop-rework",
-    "toggle-pin",
-  ],
+  emits: ["start-task", "stop-task", "start-rework", "stop-rework", "toggle-pin"],
 
   data(): {
     elapsedTime: string;
@@ -267,9 +241,7 @@ export default defineComponent({
           : "ring-2 ring-green-500 bg-green-100";
       }
       // Inactive — white bg, colored border to show type
-      return this.isMachine
-        ? "bg-white border-blue-200"
-        : "bg-white border-green-200";
+      return this.isMachine ? "bg-white border-blue-200" : "bg-white border-green-200";
     },
     /** Operation name always in the type color. */
     titleColor(): string {
@@ -279,9 +251,7 @@ export default defineComponent({
     activeMachineTimer(): MachineTimer | undefined {
       if (!this.isMachine) return undefined;
       return this.machineTimers.find(
-        (t) =>
-          t.work_order === this.workOrderName &&
-          t.operation === this.operation.operation,
+        (t) => t.work_order === this.workOrderName && t.operation === this.operation.operation,
       );
     },
     /** True when the labor activeTimer is for this card. */
@@ -294,9 +264,7 @@ export default defineComponent({
     },
     /** Unified "is active" — machine or labor. */
     isActiveForThis(): boolean {
-      return this.isMachine
-        ? !!this.activeMachineTimer
-        : this.isLaborActiveForThis;
+      return this.isMachine ? !!this.activeMachineTimer : this.isLaborActiveForThis;
     },
     taskStarted(): boolean {
       if (this.isMachine) return !!this.activeMachineTimer;
@@ -320,21 +288,16 @@ export default defineComponent({
     },
     totalLoggedMins(): number {
       return (
-        (this.operation.actual_time_mins || 0) +
-        (this.operation.corrective_total_time_mins || 0)
+        (this.operation.actual_time_mins || 0) + (this.operation.corrective_total_time_mins || 0)
       );
     },
     progressPercent(): number {
       if (this.operation.planned_time_mins <= 0) return 0;
       if (this.totalLoggedMins <= this.operation.planned_time_mins) {
-        return Math.round(
-          (this.totalLoggedMins / this.operation.planned_time_mins) * 100,
-        );
+        return Math.round((this.totalLoggedMins / this.operation.planned_time_mins) * 100);
       }
       // On overrun: green shows planned as proportion of total logged
-      return Math.round(
-        (this.operation.planned_time_mins / this.totalLoggedMins) * 100,
-      );
+      return Math.round((this.operation.planned_time_mins / this.totalLoggedMins) * 100);
     },
     overrunPercent(): number {
       if (!this.isOverrun) return 0;

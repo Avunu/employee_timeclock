@@ -9,13 +9,9 @@
         v-for="workOrder in workOrders"
         :key="workOrder.name"
         :workOrder="workOrder"
-        :isSelected="
-          !!(selectedWorkOrder && selectedWorkOrder.name === workOrder.name)
-        "
+        :isSelected="!!(selectedWorkOrder && selectedWorkOrder.name === workOrder.name)"
         :isActive="activeWorkOrder === workOrder.name"
-        :isCorrective="
-          activeWorkOrder === workOrder.name && activeTimerIsCorrective
-        "
+        :isCorrective="activeWorkOrder === workOrder.name && activeTimerIsCorrective"
         @click="selectWorkOrder(workOrder)"
       />
     </div>
@@ -55,10 +51,7 @@ export default defineComponent({
   },
   methods: {
     selectWorkOrder(workOrder: WorkOrder): void {
-      if (
-        this.selectedWorkOrder &&
-        this.selectedWorkOrder.name === workOrder.name
-      ) {
+      if (this.selectedWorkOrder && this.selectedWorkOrder.name === workOrder.name) {
         // Deselect the current work order if clicked again
         this.$emit("select", null);
       } else {

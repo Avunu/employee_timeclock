@@ -47,12 +47,7 @@ frappe.views.ReportView = class ReportView extends frappe.views.ReportView {
     ];
     this.filters = [
       // Optional filters for the list
-      [
-        "Workday",
-        "date",
-        ">=",
-        frappe.datetime.add_days(frappe.datetime.get_today(), -7),
-      ],
+      ["Workday", "date", ">=", frappe.datetime.add_days(frappe.datetime.get_today(), -7)],
       ["Workday", "date", "<=", frappe.datetime.get_today()],
     ];
 
@@ -85,14 +80,8 @@ frappe.views.ReportView = class ReportView extends frappe.views.ReportView {
     let today = frappe.datetime.get_today();
     let month_start = frappe.datetime.month_start(frappe.datetime.get_today());
     let week_start = frappe.datetime.week_start(frappe.datetime.get_today());
-    let last_sunday = frappe.datetime.add_days(
-      frappe.datetime.week_start(),
-      -7,
-    );
-    let last_saturday = frappe.datetime.add_days(
-      frappe.datetime.week_start(),
-      -1,
-    );
+    let last_sunday = frappe.datetime.add_days(frappe.datetime.week_start(), -7);
+    let last_saturday = frappe.datetime.add_days(frappe.datetime.week_start(), -1);
     let this_week_button = $(
       `<button class="btn btn-secondary btn-xs" style="margin: auto 5px; height: fit-content;">This Week</button>`,
     );

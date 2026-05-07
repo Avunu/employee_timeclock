@@ -1,14 +1,9 @@
 <template>
   <div class="flex flex-col h-screen">
     <header class="rounded-lg bg-gray-300 w-full shrink-0">
-      <div
-        class="z-100 mx-auto px-4 py-6 lg:px-8 flex h-center items-center justify-between"
-      >
+      <div class="z-100 mx-auto px-4 py-6 lg:px-8 flex h-center items-center justify-between">
         <!-- Job Timeclock Header -->
-        <button
-          class="text-4xl font-bold tracking-tight text-gray-900"
-          @click="refresh_page"
-        >
+        <button class="text-4xl font-bold tracking-tight text-gray-900" @click="refresh_page">
           {{ header }}
         </button>
 
@@ -17,10 +12,7 @@
         <!-- v-if="activeSession" @click="log_out_employee(token)">Clock Out</button>-->
 
         <!-- Active Timer Indicator -->
-        <div
-          v-if="activeSession && activeTimer"
-          class="flex items-center gap-2"
-        >
+        <div v-if="activeSession && activeTimer" class="flex items-center gap-2">
           <div
             class="flex items-center gap-3 rounded-lg px-4 py-2 ring-2 cursor-pointer"
             :class="
@@ -32,24 +24,17 @@
           >
             <span
               class="font-semibold text-lg lg:text-2xl truncate"
-              :class="
-                activeTimer.is_corrective ? 'text-orange-700' : 'text-green-700'
-              "
+              :class="activeTimer.is_corrective ? 'text-orange-700' : 'text-green-700'"
             >
               {{ activeTimer.operation }}
             </span>
             <span
               class="font-mono text-xl lg:text-2xl font-bold"
-              :class="
-                activeTimer.is_corrective ? 'text-orange-800' : 'text-green-800'
-              "
+              :class="activeTimer.is_corrective ? 'text-orange-800' : 'text-green-800'"
             >
               {{ headerElapsedTime }}
             </span>
-            <span
-              v-if="activeTimer.is_corrective"
-              class="text-orange-700 text-sm font-semibold"
-            >
+            <span v-if="activeTimer.is_corrective" class="text-orange-700 text-sm font-semibold">
               REWORK
             </span>
           </div>
@@ -110,11 +95,7 @@
         >
           <IconPin
             class="w-8 h-8 transition-colors"
-            :class="
-              myPinnedKeys.length > 0
-                ? 'text-amber-500 fill-current'
-                : 'text-gray-700'
-            "
+            :class="myPinnedKeys.length > 0 ? 'text-amber-500 fill-current' : 'text-gray-700'"
           />
           <span
             v-if="myPinnedKeys.length > 0"
@@ -134,10 +115,7 @@
         @click.self="isSidebarOpen = false"
       >
         <!-- Backdrop -->
-        <div
-          class="absolute inset-0 bg-black bg-opacity-50"
-          @click="isSidebarOpen = false"
-        ></div>
+        <div class="absolute inset-0 bg-black bg-opacity-50" @click="isSidebarOpen = false"></div>
 
         <!-- Sidebar Content -->
         <div class="relative w-80 h-full bg-white shadow-2xl flex flex-col">
@@ -168,15 +146,9 @@
           <div class="flex-1 overflow-y-auto p-6">
             <div class="space-y-6">
               <div>
-                <h3 class="text-lg font-semibold text-gray-700 mb-3">
-                  Workstations
-                </h3>
+                <h3 class="text-lg font-semibold text-gray-700 mb-3">Workstations</h3>
                 <div v-if="availableWorkstations.length" class="space-y-2">
-                  <div
-                    v-for="ws in availableWorkstations"
-                    :key="ws"
-                    class="w-full"
-                  >
+                  <div v-for="ws in availableWorkstations" :key="ws" class="w-full">
                     <Checkbox
                       :label="ws"
                       :modelValue="workstations.includes(ws)"
@@ -190,9 +162,7 @@
           </div>
 
           <!-- Sidebar Footer: Device Info -->
-          <div
-            class="border-t p-4 bg-gray-50 text-xs text-gray-500 space-y-1 font-mono"
-          >
+          <div class="border-t p-4 bg-gray-50 text-xs text-gray-500 space-y-1 font-mono">
             <div class="flex justify-between">
               <span class="font-semibold text-gray-600">IP</span>
               <span>{{ deviceIp || "—" }}</span>
@@ -206,10 +176,7 @@
       </div>
     </transition>
 
-    <main
-      class="flex flex-1 w-full overflow-hidden min-h-0"
-      v-if="activeSession"
-    >
+    <main class="flex flex-1 w-full overflow-hidden min-h-0" v-if="activeSession">
       <!-- When session is active -->
       <!-- Work Orders Section -->
       <WorkOrderList
@@ -334,13 +301,7 @@ import IconLogOut from "~icons/lucide/log-out";
 import IconPin from "~icons/lucide/pin";
 
 import { dateToFrappeDateTimeString } from "./utils";
-import type {
-  Employee,
-  WorkOrder,
-  Operation,
-  ActiveTimer,
-  MachineTimer,
-} from "./types";
+import type { Employee, WorkOrder, Operation, ActiveTimer, MachineTimer } from "./types";
 
 export default defineComponent({
   name: "JobTimeTracker",
@@ -360,10 +321,7 @@ export default defineComponent({
     IconPin,
   },
   setup() {
-    const pinnedCardStorage = useStorage<Record<string, string[]>>(
-      "pinnedCards",
-      {},
-    );
+    const pinnedCardStorage = useStorage<Record<string, string[]>>("pinnedCards", {});
     return { pinnedCardStorage };
   },
   data(): {
@@ -532,9 +490,7 @@ export default defineComponent({
       if (!this.activeTimer) return;
 
       // Find the work order matching the active timer
-      const targetWO = this.workOrders.find(
-        (wo) => wo.name === this.activeTimer!.work_order,
-      );
+      const targetWO = this.workOrders.find((wo) => wo.name === this.activeTimer!.work_order);
       if (!targetWO) return;
 
       // Select the work order (loads operations)
@@ -544,17 +500,13 @@ export default defineComponent({
       // Wait for DOM to update, then scroll to the work order and job card
       this.$nextTick(() => {
         // Scroll work order into view
-        const woEl = document.querySelector(
-          `[data-work-order="${this.activeTimer!.work_order}"]`,
-        );
+        const woEl = document.querySelector(`[data-work-order="${this.activeTimer!.work_order}"]`);
         if (woEl) {
           woEl.scrollIntoView({ behavior: "smooth", block: "center" });
         }
 
         // Scroll job card into view
-        const jcEl = document.querySelector(
-          `[data-operation="${this.activeTimer!.operation}"]`,
-        );
+        const jcEl = document.querySelector(`[data-operation="${this.activeTimer!.operation}"]`);
         if (jcEl) {
           jcEl.scrollIntoView({ behavior: "smooth", block: "center" });
         }
@@ -562,25 +514,19 @@ export default defineComponent({
     },
 
     async navigateToMachineTimer(timer: MachineTimer) {
-      const targetWO = this.workOrders.find(
-        (wo) => wo.name === timer.work_order,
-      );
+      const targetWO = this.workOrders.find((wo) => wo.name === timer.work_order);
       if (!targetWO) return;
 
       this.selectedWorkOrder = targetWO;
       await this.getOperations(targetWO.name);
 
       this.$nextTick(() => {
-        const woEl = document.querySelector(
-          `[data-work-order="${timer.work_order}"]`,
-        );
+        const woEl = document.querySelector(`[data-work-order="${timer.work_order}"]`);
         if (woEl) {
           woEl.scrollIntoView({ behavior: "smooth", block: "center" });
         }
 
-        const jcEl = document.querySelector(
-          `[data-operation="${timer.operation}"]`,
-        );
+        const jcEl = document.querySelector(`[data-operation="${timer.operation}"]`);
         if (jcEl) {
           jcEl.scrollIntoView({ behavior: "smooth", block: "center" });
         }
@@ -884,9 +830,7 @@ export default defineComponent({
       const key = `${workOrderName}::${operationName}`;
       const current = this.pinnedCardStorage[this.employeeId] ?? [];
       if (current.includes(key)) {
-        this.pinnedCardStorage[this.employeeId] = current.filter(
-          (k) => k !== key,
-        );
+        this.pinnedCardStorage[this.employeeId] = current.filter((k) => k !== key);
       } else {
         this.pinnedCardStorage[this.employeeId] = [...current, key];
       }
@@ -894,9 +838,7 @@ export default defineComponent({
 
     async fetchPinnedOperations(): Promise<void> {
       const workOrders = new Set(
-        this.myPinnedKeys
-          .map((k) => k.slice(0, k.indexOf("::")))
-          .filter(Boolean),
+        this.myPinnedKeys.map((k) => k.slice(0, k.indexOf("::"))).filter(Boolean),
       );
       const missing = [...workOrders].filter((wo) => !this.operationsCache[wo]);
       await Promise.all(
@@ -936,10 +878,8 @@ export default defineComponent({
       this.isPinnedSidebarOpen = false;
       if (action === "start") await this.handleStartTask(operationName);
       else if (action === "stop") await this.handleStopTask(operationName);
-      else if (action === "start-rework")
-        await this.handleStartRework(operationName);
-      else if (action === "stop-rework")
-        await this.handleStopRework(operationName);
+      else if (action === "start-rework") await this.handleStartRework(operationName);
+      else if (action === "stop-rework") await this.handleStopRework(operationName);
     },
 
     async fetchWorkstations(): Promise<void> {
@@ -1024,11 +964,7 @@ export default defineComponent({
       if (response.status === "success") {
         // Optimistic removal — realtime event will confirm
         this.machineTimers = this.machineTimers.filter(
-          (t) =>
-            !(
-              t.work_order === timer.work_order &&
-              t.operation === timer.operation
-            ),
+          (t) => !(t.work_order === timer.work_order && t.operation === timer.operation),
         );
         if (this.selectedWorkOrder) {
           await this.getOperations(this.selectedWorkOrder.name);
@@ -1049,28 +985,18 @@ export default defineComponent({
             // Fallback: remove any running timer with the same operation on a
             // different work order — the backend has switched it over.
             this.machineTimers = this.machineTimers.filter(
-              (t) =>
-                !(
-                  t.operation === timer.operation &&
-                  t.work_order !== timer.work_order
-                ),
+              (t) => !(t.operation === timer.operation && t.work_order !== timer.work_order),
             );
             // Only add if we don't already have it and it belongs to our groups
             const exists = this.machineTimers.some(
-              (t) =>
-                t.work_order === timer.work_order &&
-                t.operation === timer.operation,
+              (t) => t.work_order === timer.work_order && t.operation === timer.operation,
             );
             if (!exists) {
               this.machineTimers = [...this.machineTimers, timer];
             }
           } else if (data.action === "stop") {
             this.machineTimers = this.machineTimers.filter(
-              (t) =>
-                !(
-                  t.work_order === timer.work_order &&
-                  t.operation === timer.operation
-                ),
+              (t) => !(t.work_order === timer.work_order && t.operation === timer.operation),
             );
             // Refresh operations if viewing the affected work order
             if (this.selectedWorkOrder?.name === timer.work_order) {
@@ -1181,10 +1107,7 @@ export default defineComponent({
 
   beforeUnmount() {
     // Clean up visibility change listener
-    document.removeEventListener(
-      "visibilitychange",
-      this.handleVisibilityChange,
-    );
+    document.removeEventListener("visibilitychange", this.handleVisibilityChange);
     // Clean up header timer interval
     if (this.headerTimerInterval) {
       clearInterval(this.headerTimerInterval);

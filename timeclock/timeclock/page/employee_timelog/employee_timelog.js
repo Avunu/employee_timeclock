@@ -146,14 +146,11 @@ async function manual_employee_selection() {
       },
     ],
   });
-  d.fields_dict.employee.$input.on(
-    "awesomplete-selectcomplete",
-    async function () {
-      locals.manual_override = false;
-      get_employee_by_name(d.get_value("employee"));
-      d.hide();
-    },
-  );
+  d.fields_dict.employee.$input.on("awesomplete-selectcomplete", async function () {
+    locals.manual_override = false;
+    get_employee_by_name(d.get_value("employee"));
+    d.hide();
+  });
   d.show();
 }
 
@@ -197,8 +194,7 @@ async function log_time() {
 
 async function save_form() {
   if (Date.parse(locals.time) > Date.parse(frappe.datetime.now_datetime())) {
-    const time_travel_gif =
-      "https://media4.giphy.com/media/3ov9jU4ycPvfrPTsly/giphy.gif";
+    const time_travel_gif = "https://media4.giphy.com/media/3ov9jU4ycPvfrPTsly/giphy.gif";
     const alert_message =
       '<b>Time Traveler!</b><br>It looks like you are trying to log time in the future. Please check your time and try again.<br><img src="' +
       time_travel_gif +
@@ -313,9 +309,7 @@ async function manual_time_entry() {
     const date = d.get_value("date");
     // combine the date and time into a datetime
     locals.time = frappe.datetime.add_days(date, 0) + " " + time;
-    locals.log_type = document.querySelector(
-      'input[name="log_type"]:checked',
-    ).value;
+    locals.log_type = document.querySelector('input[name="log_type"]:checked').value;
     locals.manual_override = true;
     if (!locals.time || !locals.log_type) {
       frappe.show_alert({

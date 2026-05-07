@@ -1,9 +1,7 @@
 <template>
   <div class="static h-screen flex z-0">
     <header class="z-10 block rounded-lg bg-gray-300 fixed w-screen">
-      <div
-        class="z-100 mx-auto px-4 py-6 lg:px-8 flex h-center items-center justify-between"
-      >
+      <div class="z-100 mx-auto px-4 py-6 lg:px-8 flex h-center items-center justify-between">
         <!-- Job Timeclock Header -->
         <button
           class="flex justify-center text-4xl font-bold tracking-tight text-white-300"
@@ -14,10 +12,7 @@
       </div>
     </header>
 
-    <main
-      class="z-0 flex w-full overflow-hidden my-16 pt-16"
-      v-if="activeSession"
-    >
+    <main class="z-0 flex w-full overflow-hidden my-16 pt-16" v-if="activeSession">
       <!-- When session is active -->
 
       <transition name="job_card_list"> </transition>
@@ -42,10 +37,7 @@ import { dateToFrappeDateTimeString } from "../project_tracker/utils";
 // import sub components
 import AuthorizationMessage from "./components/AuthorizationMessage.vue";
 import type { Employee } from "./types/Employee";
-import type {
-  AuthenticateEmployeeResponse,
-  EmployeeCheckinResponse,
-} from "./types/api";
+import type { AuthenticateEmployeeResponse, EmployeeCheckinResponse } from "./types/api";
 
 // Extend Window interface for TypeScript
 declare global {

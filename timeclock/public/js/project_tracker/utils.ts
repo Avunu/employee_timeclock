@@ -8,7 +8,7 @@
  * @example
  * const dt: FrappeDateTimeString = "2026-01-06 15:30:45" as FrappeDateTimeString;
  */
-export type FrappeDateTimeString = string & { readonly __brand: 'FrappeDateTimeString' };
+export type FrappeDateTimeString = string & { readonly __brand: "FrappeDateTimeString" };
 
 /**
  * Type guard to check if a string matches the Frappe datetime format
@@ -31,7 +31,9 @@ export function isFrappeDateTimeString(value: string): value is FrappeDateTimeSt
  */
 export function toFrappeDateTimeString(value: string): FrappeDateTimeString {
   if (!isFrappeDateTimeString(value)) {
-    throw new Error(`Invalid Frappe datetime format: ${value}. Expected format: YYYY-MM-DD HH:MM:SS`);
+    throw new Error(
+      `Invalid Frappe datetime format: ${value}. Expected format: YYYY-MM-DD HH:MM:SS`,
+    );
   }
   return value as FrappeDateTimeString;
 }
@@ -47,7 +49,7 @@ export function toFrappeDateTimeString(value: string): FrappeDateTimeString {
  * @returns Formatted FrappeDateTimeString in local time
  */
 export function dateToFrappeDateTimeString(date: Date): FrappeDateTimeString {
-  const pad = (num: number): string => String(num).padStart(2, '0');
+  const pad = (num: number): string => String(num).padStart(2, "0");
 
   const formatted = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 
