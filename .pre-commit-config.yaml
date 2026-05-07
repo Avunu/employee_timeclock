@@ -43,30 +43,35 @@ repos:
         # exclude the legacy job_timeclock files
         exclude: "^timeclock/www/job_timeclock/.*$"
 
+  - repo: https://github.com/oxc-project/mirrors-oxfmt
+    rev: v0.45.0
+    hooks:
+      - id: oxfmt
+        files: "packages.*"
+        types_or: [ javascript, json, css ]
+        exclude: |
+          (?x)^(
+              .*boilerplate.*|
+              .*dist.*|
+              .*node_modules.*|
+              timeclock/public/js/lib/.*
+              timeclock/templates/includes/.*|
+          )$
+
   - repo: https://github.com/oxc-project/mirrors-oxlint
     rev: v1.60.0
     hooks:
       - id: oxlint
-        verbose: true
-
-  - repo: local
-    hooks:
-      - id: oxfmt
-        name: oxfmt
-        language: node
-        entry: oxfmt
-        args: [ "--no-error-on-unmatched-pattern" ]
-        types_or: [ javascript, ts, vue ]
+        args: [ "--quiet" ]
         exclude: |
           (?x)^(
-              timeclock/public/dist/.*|
+              .*boilerplate.*|
               .*node_modules.*|
-              timeclock/templates/includes/.*|
+              cypress/.*|
+              timeclock/public/dist/.*|
               timeclock/public/js/lib/.*|
-              timeclock/www/job_timeclock/.*
+              timeclock/templates/includes/.*|
           )$
-        additional_dependencies: [ "oxfmt@^0.48.0" ]
-
 ci:
   autoupdate_schedule: weekly
   skip: []

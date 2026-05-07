@@ -664,7 +664,32 @@ export default defineComponent({
     },
 
     async handleStartRework(operationName: string) {
-      // If regular timer is running on the same operation, stop it first
+      const op = this.operations.find((o) => o.operation === operationName);
+
+      if (op?.is_machine_time) {
+        // --- Machine rework timer: don't touch activeTimer ---
+        const startTime = new Date();
+        const startTimeFrappe = dateToFrappeDateTimeString(startTime);
+
+        const response = await api.startTimer(
+          this.selectedWorkOrder!.name,
+          operationName,
+          startTimeFrappe,
+          true,
+          this.token,
+        );
+
+        if (response.status === "success") {
+          await this.fetchMachineTimers();
+          toast.success(`Rework started for ${operationName}.`);
+        } else {
+          toast.error(`${operationName} machine rework failed to start.`);
+          console.error("start_timer (machine corrective) failed:", response.error);
+        }
+        return;
+      }
+
+      // --- Labor rework: if regular timer is running on the same operation, stop it first ---
       if (
         this.activeTimer &&
         !this.activeTimer.is_corrective &&
@@ -700,6 +725,34 @@ export default defineComponent({
     },
 
     async handleStopRework(operationName: string) {
+      const op = this.operations.find((o) => o.operation === operationName);
+
+      if (op?.is_machine_time) {
+        // --- Machine rework timer: use stopMachineTimer endpoint ---
+        const endTime = new Date();
+        const endTimeFrappe = dateToFrappeDateTimeString(endTime);
+
+        const response = await api.stopMachineTimer(
+          this.selectedWorkOrder!.name,
+          operationName,
+          endTimeFrappe,
+          this.token,
+        );
+
+        if (response.status === "success") {
+          await this.fetchMachineTimers();
+          if (this.selectedWorkOrder) {
+            await this.getOperations(this.selectedWorkOrder.name);
+          }
+          toast.success(`Rework completed for ${operationName}.`);
+        } else {
+          toast.error(`${operationName} machine rework failed to stop.`);
+          console.error("stop_machine_timer (corrective) failed:", response.error);
+        }
+        return;
+      }
+
+      // --- Labor rework ---
       const endTime = new Date();
       const endTimeFrappe = dateToFrappeDateTimeString(endTime);
 
