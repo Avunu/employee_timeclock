@@ -2,6 +2,7 @@
 function reset_form(form_entry) {
   // reset the form
   update_form_value(form_entry, "manual_override", "");
+  // Use YYYY-MM-DD (internal format); ControlDate.validate() requires it.
   update_form_value(form_entry, "manual_override_date", frappe.datetime.now_date());
   update_form_value(form_entry, "manual_override_time", "");
   update_form_value(form_entry, "time", "");
