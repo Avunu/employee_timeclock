@@ -12,17 +12,14 @@ class JobCard(BaseJobCard):
 	is_machine_time: DF.Check
 	time_logs: DF.Table[JobCardTimeLog]
 
-	def before_save(self):
-		# For machine time job cards, ensure employee is never logged on the time log.
-		# Move employee -> machine_operator so the human operator is recorded correctly
-		# and the employee field remains empty (preventing overlap false-positives).
+	def before_validate(self):
 		if self.is_machine_time:
 			for log in self.time_logs:
 				if log.employee:
 					if not log.machine_operator:
 						log.machine_operator = log.employee
 					log.employee = ""
-		super().before_save()
+		super().before_validate()
 
 	def get_overlap_for(self, args, open_job_cards=None):
 		# Upstream calls get_open_job_cards unconditionally, which causes a false OverlapError
