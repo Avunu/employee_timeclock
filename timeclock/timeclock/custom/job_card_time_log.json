@@ -7,6 +7,7 @@
             "fieldtype": "Link",
             "insert_after": "operation",
             "label": "Machine Operator",
+            "link_filters": "[]",
             "module": "Timeclock",
             "options": "Employee"
         }

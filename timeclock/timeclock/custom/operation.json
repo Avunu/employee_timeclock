@@ -9,18 +9,19 @@
             "module": "Timeclock"
         },
         {
+            "depends_on": "is_machine_time",
             "dt": "Operation",
             "fieldname": "employee_group",
             "fieldtype": "Link",
-            "options": "Employee Group",
             "insert_after": "is_machine_time",
             "label": "Machine Employee Group",
-            "depends_on": "is_machine_time",
+            "link_filters": "[]",
             "mandatory_depends_on": "is_machine_time",
-            "module": "Timeclock"
+            "module": "Timeclock",
+            "options": "Employee Group"
         }
     ],
+    "doctype": "Operation",
     "property_setters": [],
-    "sync_on_migrate": 1,
-    "doctype": "Operation"
+    "sync_on_migrate": 1
 }
