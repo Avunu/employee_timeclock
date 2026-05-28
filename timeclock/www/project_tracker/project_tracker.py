@@ -4,10 +4,6 @@ from typing import Any, Literal, cast
 import frappe
 import getmac
 import jwt
-from erpnext.manufacturing.doctype.job_card.job_card import JobCard
-from erpnext.manufacturing.doctype.job_card_time_log.job_card_time_log import (
-	JobCardTimeLog,
-)
 from frappe import _
 from frappe.query_builder import Case, DocType
 from frappe.query_builder.functions import Coalesce, Max, Sum
@@ -15,6 +11,10 @@ from frappe.rate_limiter import rate_limit
 from frappe.utils.data import get_datetime
 
 from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
+from timeclock.timeclock.custom.job_card import JobCard
+from timeclock.timeclock.custom.job_card_time_log import (
+	JobCardTimeLog,
+)
 from timeclock.www.project_tracker.models import (
 	ActiveTimer,
 	AuthenticateEmployeeResponse,
@@ -588,7 +588,7 @@ def get_operations(
 			WorkOrderOperations.time_in_mins.as_("planned_time_mins"),
 			Operations.is_machine_time,
 			Coalesce(
-				Sum(Case().when(JobCards.is_corrective_job_card == 0, JobCardTimeLogs.time_in_mins).else_(0)),
+				Sum(Case().when(JobCards.is_corrective_job_card == 0, JobCardTimeLogs.time_in_mins).else_(0)),  # type: ignore
 				0,
 			).as_("actual_time_mins"),
 			Coalesce(
@@ -598,12 +598,12 @@ def get_operations(
 						(JobCards.is_corrective_job_card == 0) & (JobCardTimeLogs.employee == employee_case),
 						JobCardTimeLogs.time_in_mins,
 					)
-					.else_(0)
+					.else_(0)  # type: ignore
 				),
 				0,
 			).as_("employee_time_mins"),
 			Coalesce(
-				Sum(Case().when(JobCards.is_corrective_job_card == 1, JobCardTimeLogs.time_in_mins).else_(0)),
+				Sum(Case().when(JobCards.is_corrective_job_card == 1, JobCardTimeLogs.time_in_mins).else_(0)),  # type: ignore
 				0,
 			).as_("corrective_total_time_mins"),
 			Coalesce(
@@ -613,12 +613,13 @@ def get_operations(
 						(JobCards.is_corrective_job_card == 1) & (JobCardTimeLogs.employee == employee_case),
 						JobCardTimeLogs.time_in_mins,
 					)
-					.else_(0)
+					.else_(0)  # type: ignore
 				),
 				0,
 			).as_("corrective_employee_time_mins"),
 			Coalesce(
-				Max(Case().when(JobCards.is_corrective_job_card == 0, JobCards.docstatus).else_(None)), 0
+				Max(Case().when(JobCards.is_corrective_job_card == 0, JobCards.docstatus).else_(None)),  # type: ignore
+				0,
 			).as_("regular_docstatus"),
 		)
 		.where(WorkOrderOperations.parent == work_order)
