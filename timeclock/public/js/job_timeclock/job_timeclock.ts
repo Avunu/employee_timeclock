@@ -1,12 +1,12 @@
 // import css
-import "./project_tracker.css";
+import "./job_timeclock.css";
 
 // import vue
 import { createApp } from "vue";
 import type { App } from "vue";
 
 // create vue app
-import ProjectTracker from "./ProjectTracker.vue";
+import ProjectTracker from "./JobTimeclock.vue";
 
 // Import frappe
 import { FrappeUI } from "frappe-ui";

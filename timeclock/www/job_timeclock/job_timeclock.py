@@ -15,7 +15,7 @@ from timeclock.timeclock.custom.job_card import JobCard
 from timeclock.timeclock.custom.job_card_time_log import (
 	JobCardTimeLog,
 )
-from timeclock.www.project_tracker.models import (
+from timeclock.www.job_timeclock.models import (
 	ActiveTimer,
 	AuthenticateEmployeeResponse,
 	EmployeeCheckinResponse,

@@ -29,8 +29,8 @@
       "@/*": [
         "timeclock/public/js/*"
       ],
-      "@project_tracker/*": [
-        "timeclock/public/js/project_tracker/*"
+      "@job_timeclock/*": [
+        "timeclock/public/js/job_timeclock/*"
       ],
       "@timeclock/*": [
         "timeclock/public/js/timeclock/*"

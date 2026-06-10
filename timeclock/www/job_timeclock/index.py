@@ -1,7 +1,7 @@
 import frappe
+from frappe.sessions import get_csrf_token
 
 no_cache = True
-from frappe.sessions import get_csrf_token
 
 
 def get_context(context):
@@ -9,3 +9,5 @@ def get_context(context):
 	csrf_token = get_csrf_token()
 	frappe.db.commit()
 	context.csrf_token = csrf_token
+	context.sitename = frappe.local.site
+	context.developer_mode = frappe.conf.developer_mode

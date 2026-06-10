@@ -187,8 +187,8 @@ import { defineComponent, watch } from "vue";
 import { useStorage } from "@vueuse/core";
 import { jwtDecode } from "jwt-decode";
 import onScan from "onscan.js";
-import { api } from "./client";
-import { getSocket } from "./socket";
+import { api } from "./client.ts";
+import { getSocket } from "./socket.ts";
 
 // Extend Window interface for TypeScript
 declare global {
@@ -215,8 +215,8 @@ import IconLogOut from "~icons/lucide/log-out";
 // @ts-ignore
 import IconPin from "~icons/lucide/pin";
 
-import { dateToFrappeDateTimeString } from "./utils";
-import type { Employee, WorkOrder, Operation, ActiveTimer, MachineTimer } from "./types";
+import { dateToFrappeDateTimeString } from "./utils.ts";
+import type { Employee, WorkOrder, Operation, ActiveTimer, MachineTimer } from "./types.ts";
 
 export default defineComponent({
   name: "JobTimeTracker",

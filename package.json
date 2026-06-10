@@ -69,10 +69,10 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "VITE_APP=timeclock vite build && VITE_APP=project_tracker vite build",
-    "build:project_tracker": "VITE_APP=project_tracker vite build",
+    "build": "VITE_APP=timeclock vite build && VITE_APP=job_timeclock vite build",
+    "build:job_timeclock": "VITE_APP=job_timeclock vite build",
     "build:timeclock": "VITE_APP=timeclock vite build",
-    "dev:project_tracker": "VITE_APP=project_tracker vite build --watch",
+    "dev:job_timeclock": "VITE_APP=job_timeclock vite build --watch",
     "dev:timeclock": "VITE_APP=timeclock vite build --watch",
     "upgrade": "npx npm-check-updates -u && yarn install && npx yarn-audit-fix && yarn add -D tailwindcss@^3.4"
   },

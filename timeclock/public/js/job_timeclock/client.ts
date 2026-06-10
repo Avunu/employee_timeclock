@@ -16,7 +16,7 @@ import type {
   VerifyLoginResponse,
 } from "./types";
 
-const METHOD = "timeclock.www.project_tracker.project_tracker";
+const METHOD = "timeclock.www.job_timeclock.job_timeclock";
 
 export const api = {
   authenticateEmployee(rfid: string) {

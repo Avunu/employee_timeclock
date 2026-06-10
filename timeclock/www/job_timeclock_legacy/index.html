@@ -4,9 +4,11 @@
 <head>
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.png" />
-    <link rel="stylesheet" href="/assets/timeclock/dist/js/project_tracker/index.css" />
+	{% if colocated_css -%}
+        <style>{{ colocated_css }}</style>
+    {%- endif %}
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Project Tracker</title>
+    <title>Jobs Timeclock App</title>
 </head>
 
 <body>
@@ -15,11 +17,7 @@
     <div id="popovers"></div>
 
     <script>window.csrf_token = '{{ csrf_token }}'</script>
-    <script>window.sitename = '{{ sitename }}'</script>
-    {% if developer_mode %}
-    <script>window.developer_mode = true</script>
-    {% endif %}
-    <script type="module" src="/assets/timeclock/dist/js/project_tracker/index.js"></script>
+    <script>{{ colocated_js }}</script>
 </body>
 
 </html>

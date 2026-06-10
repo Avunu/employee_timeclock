@@ -32,7 +32,7 @@ import { useStorage } from "@vueuse/core";
 import { jwtDecode } from "jwt-decode";
 import onScan from "onscan.js";
 import { frappeCall } from "../FrappeCall";
-import { dateToFrappeDateTimeString } from "../project_tracker/utils";
+import { dateToFrappeDateTimeString } from "../job_timeclock/utils";
 
 // import sub components
 import AuthorizationMessage from "./components/AuthorizationMessage.vue";
