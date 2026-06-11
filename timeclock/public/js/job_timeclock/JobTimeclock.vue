@@ -47,22 +47,22 @@
         <!-- Right-side icon group -->
         <div v-if="activeSession" class="flex items-center gap-1">
           <!-- Sign Out Icon Button -->
-          <button @click="switchEmployee" class="p-3 rounded-lg hover:bg-gray-200 transition-colors" title="Sign Out">
-            <IconLogOut class="w-8 h-8 text-gray-700" />
+          <button @click="switchEmployee" class="p-4 rounded-lg hover:bg-gray-200 transition-colors" title="Sign Out">
+            <IconLogOut class="w-11 h-11 text-gray-700" />
           </button>
           <!-- Settings Icon Button -->
           <button @click="
             isSidebarOpen = true;
           isPinnedSidebarOpen = false;
           " class="p-3 rounded-lg hover:bg-gray-200 transition-colors" title="Settings">
-            <IconSettings class="w-8 h-8 text-gray-700" />
+            <IconSettings class="w-11 h-11 text-gray-700" />
           </button>
           <!-- Pinned Jobs Icon Button -->
           <button @click="
             isPinnedSidebarOpen = true;
           isSidebarOpen = false;
           " class="relative p-3 rounded-lg hover:bg-gray-200 transition-colors" title="Pinned Jobs">
-            <IconPin class="w-8 h-8 transition-colors"
+            <IconPin class="w-11 h-11 transition-colors"
               :class="myPinnedKeys.length > 0 ? 'text-amber-500 fill-current' : 'text-gray-700'" />
             <span v-if="myPinnedKeys.length > 0"
               class="absolute top-1.5 right-1.5 w-4 h-4 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center font-bold leading-none">
@@ -263,6 +263,7 @@ export default defineComponent({
     deviceIp: string;
     deviceMac: string;
     machineTimers: MachineTimer[];
+    employeeGroups: string[];
   } {
     return {
       activeTimer: null,
@@ -288,6 +289,7 @@ export default defineComponent({
       deviceIp: "",
       deviceMac: "",
       machineTimers: [],
+      employeeGroups: [],
     };
   },
 
@@ -337,6 +339,7 @@ export default defineComponent({
       this.tokenExpiration = 0;
       this.activeTimer = null;
       this.machineTimers = [];
+      this.employeeGroups = [];
       this.operations = [];
       this.selectedWorkOrder = null;
       this.workOrders = [];
@@ -700,6 +703,7 @@ export default defineComponent({
       this.activeSession = false;
       this.activeTimer = null;
       this.machineTimers = [];
+      this.employeeGroups = [];
       this.token = null;
       this.tokenExpiration = 0;
       this.operations = [];
@@ -732,6 +736,7 @@ export default defineComponent({
       this.activeSession = false;
       this.activeTimer = null;
       this.machineTimers = [];
+      this.employeeGroups = [];
       this.token = null;
       this.tokenExpiration = 0;
       this.operations = [];
@@ -915,6 +920,7 @@ export default defineComponent({
         if (response.status === "success") {
           if (response.token) this.token = response.token;
           this.machineTimers = response.machine_timers ?? [];
+          this.employeeGroups = response.employee_groups ?? [];
         }
       } catch (error) {
         console.error("Failed to fetch machine timers:", error);
@@ -950,6 +956,8 @@ export default defineComponent({
           const timer: MachineTimer = data.timer;
 
           if (data.action === "start") {
+            // Ignore machine timers for groups this employee doesn't belong to
+            if (!this.employeeGroups.includes(timer.employee_group)) return;
             // Fallback: remove any running timer with the same operation on a
             // different work order — the backend has switched it over.
             this.machineTimers = this.machineTimers.filter(
