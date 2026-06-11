@@ -30,7 +30,7 @@
             </span>
           </div>
           <!-- Quick Stop Button -->
-          <button class="p-3 rounded-lg transition-colors" :class="activeTimer.is_corrective
+          <button class="p-4 rounded-lg transition-colors" :class="activeTimer.is_corrective
             ? 'bg-orange-100 hover:bg-orange-200 text-orange-700'
             : 'bg-green-100 hover:bg-green-200 text-green-700'
             " :title="activeTimer.is_corrective ? 'Stop Rework' : 'Stop Timer'" @click="
@@ -38,7 +38,7 @@
                 ? handleStopRework(activeTimer.operation)
                 : handleStopTask(activeTimer.operation)
               ">
-            <div class="w-7 h-7 rounded-sm bg-current" />
+            <div class="w-9 h-9 rounded-sm bg-current" />
           </button>
         </div>
 
@@ -47,22 +47,22 @@
         <!-- Right-side icon group -->
         <div v-if="activeSession" class="flex items-center gap-1">
           <!-- Sign Out Icon Button -->
-          <button @click="switchEmployee" class="p-4 rounded-lg hover:bg-gray-200 transition-colors" title="Sign Out">
-            <IconLogOut class="w-11 h-11 text-gray-700" />
+          <button @click="switchEmployee" class="p-5 rounded-lg hover:bg-gray-200 transition-colors" title="Sign Out">
+            <IconLogOut class="w-14 h-14 text-gray-700" />
           </button>
           <!-- Settings Icon Button -->
           <button @click="
             isSidebarOpen = true;
           isPinnedSidebarOpen = false;
-          " class="p-3 rounded-lg hover:bg-gray-200 transition-colors" title="Settings">
-            <IconSettings class="w-11 h-11 text-gray-700" />
+          " class="p-4 rounded-lg hover:bg-gray-200 transition-colors" title="Settings">
+            <IconSettings class="w-14 h-14 text-gray-700" />
           </button>
           <!-- Pinned Jobs Icon Button -->
           <button @click="
             isPinnedSidebarOpen = true;
           isSidebarOpen = false;
-          " class="relative p-3 rounded-lg hover:bg-gray-200 transition-colors" title="Pinned Jobs">
-            <IconPin class="w-11 h-11 transition-colors"
+          " class="relative p-4 rounded-lg hover:bg-gray-200 transition-colors" title="Pinned Jobs">
+            <IconPin class="w-14 h-14 transition-colors"
               :class="myPinnedKeys.length > 0 ? 'text-amber-500 fill-current' : 'text-gray-700'" />
             <span v-if="myPinnedKeys.length > 0"
               class="absolute top-1.5 right-1.5 w-4 h-4 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center font-bold leading-none">

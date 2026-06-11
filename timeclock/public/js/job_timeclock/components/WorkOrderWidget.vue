@@ -1,7 +1,7 @@
 <template>
   <div :data-work-order="workOrder.name" @click="click">
     <div
-      class="flex flex-col rounded-lg border bg-white px-4 py-3 shadow cursor-pointer mt-2 mb-2"
+      class="flex flex-col rounded-lg border bg-white px-6 py-5 shadow cursor-pointer mt-3 mb-3"
       :class="{
         '!bg-blue-100': isSelected && !isActive,
         'ring-2 ring-green-500 !bg-green-50': isActive && !isCorrective,
@@ -10,7 +10,7 @@
     >
       <!-- Header row: title + status badge -->
       <div class="flex items-center justify-between gap-3">
-        <p class="text-2xl font-semibold flex-1 min-w-0 leading-tight break-words">
+        <p class="text-3xl font-semibold flex-1 min-w-0 leading-tight break-words">
           {{ workOrder.production_item }}
         </p>
         <Badge
@@ -25,7 +25,7 @@
       <!-- Body: subtitle + time summary (left) | donut chart (right, under badge) -->
       <div class="flex items-end justify-between gap-2 mt-1">
         <div class="flex-1 min-w-0">
-          <p class="text-base text-gray-500">{{ workOrder.name }}</p>
+          <p class="text-lg text-gray-500">{{ workOrder.name }}</p>
         </div>
         <!-- Donut progress chart – click.stop prevents re-triggering card click -->
         <div v-if="workOrder.planned_time_mins > 0" @click.stop class="shrink-0 -mb-1">
@@ -113,8 +113,8 @@ export default defineComponent({
 
     chartLayout(): object {
       return {
-        width: 32,
-        height: 32,
+        width: 48,
+        height: 48,
         margin: { l: 0, r: 0, t: 0, b: 0, pad: 0 },
         showlegend: false,
         paper_bgcolor: "transparent",
