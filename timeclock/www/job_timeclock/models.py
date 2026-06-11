@@ -170,6 +170,7 @@ class GetMachineTimersResponse(BaseModel):
 	status: Literal["success", "error"]
 	message: str | None = None
 	token: str | None = None
+	employee_groups: list[str] | None = None
 	machine_timers: list[MachineTimer] | None = None
 
 

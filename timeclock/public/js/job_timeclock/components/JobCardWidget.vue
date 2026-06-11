@@ -1,12 +1,12 @@
 <template>
   <div :data-operation="operation.operation">
     <div
-      class="flex flex-col rounded-lg border px-6 py-5 shadow font-sans text-black text-lg lg:text-4xl mt-2 mb-2"
+      class="flex flex-col rounded-lg border px-8 py-7 shadow font-sans text-black text-xl lg:text-5xl mt-3 mb-3"
       :class="cardClasses"
     >
       <!-- Header row: title + actions -->
       <div class="flex items-center justify-between mt-1 mb-2">
-        <p v-if="productName" class="text-lg text-gray-600">
+        <p v-if="productName" class="text-xl text-gray-600">
           {{ productName }}
         </p>
         <button
@@ -28,7 +28,7 @@
       </div>
       <div class="flex items-center justify-between">
         <div>
-          <h2 class="text-xl font-semibold" :class="titleColor">
+          <h2 class="text-2xl font-semibold" :class="titleColor">
             {{ operation.operation }}
           </h2>
         </div>
@@ -82,7 +82,7 @@
       </div>
       <!-- Progress bar -->
       <div v-if="operation.planned_time_mins > 0" class="mt-3 space-y-1">
-        <div class="flex justify-between text-lg" :class="progressHintClass">
+        <div class="flex justify-between text-xl" :class="progressHintClass">
           <span>Estimated Time: {{ formatMins(operation.planned_time_mins) }}</span>
           <span v-if="isOverrun"
             >+{{ formatMins(totalLoggedMins - operation.planned_time_mins) }} overrun</span
@@ -105,7 +105,7 @@
         </div>
       </div>
       <!-- Time data body -->
-      <div class="mt-4 flex flex-col gap-2 text-lg" v-if="hasTimeData">
+      <div class="mt-4 flex flex-col gap-2 text-xl" v-if="hasTimeData">
         <!-- Regular Time Row -->
         <div
           class="flex justify-between items-center"
@@ -123,14 +123,14 @@
           <div class="text-right">
             <span
               :class="isMachine ? 'text-blue-700' : 'text-green-700'"
-              class="font-mono text-lg"
+              class="font-mono text-xl"
               v-if="taskStarted"
             >
               {{ elapsedTime }}
             </span>
             <span
               :class="isMachine ? 'text-blue-500' : 'text-green-500'"
-              class="text-lg ml-2"
+              class="text-xl ml-2"
               v-if="operation.employee_time_mins > 0"
             >
               Your total: {{ formatMins(operation.employee_time_mins) }}
@@ -155,7 +155,7 @@
               {{ reworkElapsedTime }}
             </span>
             <span
-              class="text-orange-600 text-lg ml-2"
+              class="text-orange-600 text-xl ml-2"
               v-if="operation.corrective_employee_time_mins > 0"
             >
               Your total:

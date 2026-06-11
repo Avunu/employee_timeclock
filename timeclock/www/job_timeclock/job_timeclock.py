@@ -569,6 +569,16 @@ def get_operations(
 	# CASE: map operation -> expected employee (machine ops use machine employee)
 	employee_case = _build_machine_employee_case(WorkOrderOperations.operation, employee_id)
 
+	# Machine operations are only visible to employees who belong to the
+	# operation's Employee Group (e.g. CNC operators); regular (labor)
+	# operations remain visible to everyone.
+	groups = _get_employee_groups_for_employee(employee_id)
+	machine_visibility = (
+		(Operations.is_machine_time == 0) | (Operations.employee_group.isin(groups))
+		if groups
+		else Operations.is_machine_time == 0
+	)
+
 	results: list[dict[str, Any]] = (
 		frappe.qb.from_(WorkOrderOperations)
 		.join(Operations)
@@ -624,6 +634,7 @@ def get_operations(
 		)
 		.where(WorkOrderOperations.parent == work_order)
 		.where(WorkOrderOperations.parenttype == "Work Order")
+		.where(machine_visibility)
 		.groupby(WorkOrderOperations.name)
 		.orderby(
 			Case().when(WorkOrderOperations.workstation.isin(ws_list), 0).else_(1)
@@ -1063,13 +1074,17 @@ def get_device_info() -> GetDeviceInfoResponse:
 def get_machine_timers(token: str | None = None) -> GetMachineTimersResponse:
 	"""Return all active machine timers visible to the authenticated employee.
 
-	An employee sees machine timers for every Employee Group they belong to.
+	An employee only sees a machine timer when the timer's operation belongs to
+	one of the Employee Groups the employee is a member of.  The employee's
+	groups are returned alongside the timers so the client can apply the same
+	filter to realtime ``machine_timer_update`` events.
 
 	Args:
 		token: Optional JWT authentication token (NFC auth).
 
 	Returns:
-		Dict with status and list of MachineTimer objects.
+		Dict with status, the employee's groups, and a list of MachineTimer
+		objects.
 	"""
 	try:
 		employee_id, token = _resolve_employee(token)
@@ -1078,25 +1093,13 @@ def get_machine_timers(token: str | None = None) -> GetMachineTimersResponse:
 
 	groups = _get_employee_groups_for_employee(employee_id)
 	if not groups:
-		return GetMachineTimersResponse(status="success", token=token, machine_timers=[]).model_dump()
+		return GetMachineTimersResponse(
+			status="success", token=token, employee_groups=[], machine_timers=[]
+		).model_dump()
 
 	Operations = DocType("Operation")
 	JobCards = DocType("Job Card")
 	JobCardTimeLogs = DocType("Job Card Time Log")
-	EmployeeGroupTable = DocType("Employee Group Table")
-
-	# Machine employee IDs from Employee Groups the employee belongs to
-	machine_emp_ids: list[str] = (
-		frappe.qb.from_(EmployeeGroupTable)
-		.select(EmployeeGroupTable.employee)
-		.where(EmployeeGroupTable.parent.isin(groups))
-		.where(EmployeeGroupTable.parenttype == "Employee Group")
-		.distinct()
-		.run(pluck="employee")
-	)
-
-	if not machine_emp_ids:
-		return GetMachineTimersResponse(status="success", token=token, machine_timers=[]).model_dump()
 
 	rows: list[dict[str, Any]] = (
 		frappe.qb.from_(JobCardTimeLogs)
@@ -1114,6 +1117,7 @@ def get_machine_timers(token: str | None = None) -> GetMachineTimersResponse:
 		.where(JobCards.docstatus == 0)
 		.where(JobCardTimeLogs.to_time.isnull())
 		.where(Operations.is_machine_time == 1)
+		.where(Operations.employee_group.isin(groups))
 	).run(as_dict=True)
 
 	timers = [
@@ -1127,7 +1131,9 @@ def get_machine_timers(token: str | None = None) -> GetMachineTimersResponse:
 		for r in rows
 	]
 
-	return GetMachineTimersResponse(status="success", token=token, machine_timers=timers).model_dump()
+	return GetMachineTimersResponse(
+		status="success", token=token, employee_groups=groups, machine_timers=timers
+	).model_dump()
 
 
 @frappe.whitelist(allow_guest=True)

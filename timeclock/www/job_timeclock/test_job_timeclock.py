@@ -1138,6 +1138,256 @@ class TestProjectTracker(FrappeTestCase):
 			frappe.delete_doc("Job Card", job_card.name, ignore_permissions=True, force=True)
 			frappe.delete_doc("Operation", machine_op.name, ignore_permissions=True, force=True)
 
+	def test_get_machine_timers_scoped_to_employee_groups(self) -> None:
+		"""Machine timers are only visible to members of the operation's group.
+
+		A running machine timer must be returned to an employee who belongs to
+		the operation's Employee Group, but hidden from an unrelated employee who
+		belongs to a *different* group (e.g. a general worker who is not a CNC
+		operator).  Regression test for machine timers leaking to every employee.
+		"""
+		from timeclock.www.job_timeclock.job_timeclock import (
+			authenticate_employee,
+			get_machine_timers,
+			start_timer,
+		)
+
+		assert self._test_employee is not None
+		assert self._test_work_order is not None
+		assert self._test_workstation is not None
+		assert self._test_bom is not None
+
+		unique_id: str = random_string(6)
+
+		# CNC group containing the operator who runs the machine
+		cnc_group = frappe.get_doc(
+			{
+				"doctype": "Employee Group",
+				"employee_group_name": f"Test CNC Group {unique_id}",
+				"employee_list": [{"employee": self._test_employee.name}],
+			}
+		).insert(ignore_permissions=True)
+
+		# A general worker in an unrelated group — should NOT see CNC machine time
+		general_employee: Employee = cast(
+			Employee,
+			frappe.get_doc(
+				{
+					"doctype": "Employee",
+					"first_name": f"General {unique_id}",
+					"company": get_defaults().get("company"),
+					"status": "Active",
+					"gender": "Other",
+					"date_of_birth": "1995-01-01",
+					"date_of_joining": "2020-01-01",
+				}
+			).insert(ignore_permissions=True),
+		)
+		general_device = frappe.get_doc(
+			{
+				"doctype": "Attendance Device ID",
+				"id": f"RFIDGEN{unique_id}",
+				"parent": general_employee.name,
+				"parenttype": "Employee",
+				"parentfield": "attendance_device_id",
+			}
+		).insert(ignore_permissions=True)
+		general_group = frappe.get_doc(
+			{
+				"doctype": "Employee Group",
+				"employee_group_name": f"Test General Group {unique_id}",
+				"employee_list": [{"employee": general_employee.name}],
+			}
+		).insert(ignore_permissions=True)
+
+		machine_op = frappe.get_doc(
+			{
+				"doctype": "Operation",
+				"name": f"Test CNC Machine Op {unique_id}",
+				"workstation": self._test_workstation.name,
+				"is_machine_time": 1,
+				"employee_group": cnc_group.name,
+			}
+		).insert(ignore_permissions=True)
+
+		job_card: JobCard = cast(
+			JobCard,
+			frappe.get_doc(
+				{
+					"doctype": "Job Card",
+					"work_order": self._test_work_order.name,
+					"operation": machine_op.name,
+					"workstation": self._test_workstation.name,
+					"for_quantity": 1,
+					"wip_warehouse": self._test_work_order.wip_warehouse,
+					"bom_no": self._test_bom.name,
+					"is_machine_time": 1,
+					"status": "Open",
+					"sequence_id": 1,
+				}
+			).insert(ignore_permissions=True),
+		)
+
+		try:
+			# Operator starts the machine timer
+			operator_token: str = authenticate_employee(self._test_device_id.id)["token"]
+			frappe.set_user("Guest")
+			start_result: dict[str, Any] = start_timer(
+				work_order=str(self._test_work_order.name),
+				operation=machine_op.name,
+				start_time=str(now_datetime()),
+				token=operator_token,
+			)
+			frappe.set_user("Administrator")
+			self.assertEqual(start_result["status"], "success")
+
+			# Operator (CNC group member) sees the timer
+			operator_token = authenticate_employee(self._test_device_id.id)["token"]
+			frappe.set_user("Guest")
+			operator_view: dict[str, Any] = get_machine_timers(token=operator_token)
+			frappe.set_user("Administrator")
+			self.assertEqual(operator_view["status"], "success")
+			self.assertIn(cnc_group.name, operator_view["employee_groups"])
+			operator_ops = {t["operation"] for t in operator_view["machine_timers"]}
+			self.assertIn(machine_op.name, operator_ops)
+
+			# General worker (different group) does NOT see the CNC timer
+			general_token: str = authenticate_employee(general_device.id)["token"]
+			frappe.set_user("Guest")
+			general_view: dict[str, Any] = get_machine_timers(token=general_token)
+			frappe.set_user("Administrator")
+			self.assertEqual(general_view["status"], "success")
+			self.assertEqual(general_view["employee_groups"], [general_group.name])
+			general_ops = {t["operation"] for t in general_view["machine_timers"]}
+			self.assertNotIn(machine_op.name, general_ops)
+
+		finally:
+			frappe.set_user("Administrator")
+			frappe.delete_doc("Job Card", job_card.name, ignore_permissions=True, force=True)
+			frappe.delete_doc("Operation", machine_op.name, ignore_permissions=True, force=True)
+			frappe.delete_doc("Employee Group", cnc_group.name, ignore_permissions=True, force=True)
+			frappe.delete_doc("Employee Group", general_group.name, ignore_permissions=True, force=True)
+			frappe.delete_doc(
+				"Attendance Device ID", general_device.name, ignore_permissions=True, force=True
+			)
+			frappe.delete_doc("Employee", general_employee.name, ignore_permissions=True, force=True)
+
+	def test_get_operations_hides_machine_ops_from_other_groups(self) -> None:
+		"""Machine operations are filtered out for employees in other groups.
+
+		A machine operation belonging to the CNC Employee Group must appear in
+		``get_operations`` for a CNC operator, but be hidden from a general
+		worker who is not in that group — while regular (labor) operations stay
+		visible to both.  Regression test for machine job cards leaking to every
+		employee.
+		"""
+		from timeclock.www.job_timeclock.job_timeclock import authenticate_employee, get_operations
+
+		assert self._test_employee is not None
+		assert self._test_work_order is not None
+		assert self._test_workstation is not None
+
+		unique_id: str = random_string(6)
+
+		# CNC group containing the operator who runs the machine
+		cnc_group = frappe.get_doc(
+			{
+				"doctype": "Employee Group",
+				"employee_group_name": f"Test CNC Group {unique_id}",
+				"employee_list": [{"employee": self._test_employee.name}],
+			}
+		).insert(ignore_permissions=True)
+
+		# A general worker in an unrelated group — should NOT see machine ops
+		general_employee: Employee = cast(
+			Employee,
+			frappe.get_doc(
+				{
+					"doctype": "Employee",
+					"first_name": f"General {unique_id}",
+					"company": get_defaults().get("company"),
+					"status": "Active",
+					"gender": "Other",
+					"date_of_birth": "1995-01-01",
+					"date_of_joining": "2020-01-01",
+				}
+			).insert(ignore_permissions=True),
+		)
+		general_device = frappe.get_doc(
+			{
+				"doctype": "Attendance Device ID",
+				"id": f"RFIDGEN{unique_id}",
+				"parent": general_employee.name,
+				"parenttype": "Employee",
+				"parentfield": "attendance_device_id",
+			}
+		).insert(ignore_permissions=True)
+		general_group = frappe.get_doc(
+			{
+				"doctype": "Employee Group",
+				"employee_group_name": f"Test General Group {unique_id}",
+				"employee_list": [{"employee": general_employee.name}],
+			}
+		).insert(ignore_permissions=True)
+
+		machine_op = frappe.get_doc(
+			{
+				"doctype": "Operation",
+				"name": f"Test CNC Machine Op {unique_id}",
+				"workstation": self._test_workstation.name,
+				"is_machine_time": 1,
+				"employee_group": cnc_group.name,
+			}
+		).insert(ignore_permissions=True)
+
+		# Attach the machine operation to the existing test work order
+		wo_operation = frappe.get_doc(
+			{
+				"doctype": "Work Order Operation",
+				"parent": self._test_work_order.name,
+				"parenttype": "Work Order",
+				"parentfield": "operations",
+				"operation": machine_op.name,
+				"workstation": self._test_workstation.name,
+				"time_in_mins": 10,
+				"status": "Pending",
+			}
+		).insert(ignore_permissions=True)
+
+		try:
+			# CNC operator (group member) sees the machine operation
+			operator_token: str = authenticate_employee(self._test_device_id.id)["token"]
+			operator_ops: dict[str, Any] = get_operations(
+				work_order=str(self._test_work_order.name), token=operator_token
+			)
+			self.assertEqual(operator_ops["status"], "success")
+			operator_op_names = {o["operation"] for o in operator_ops["operations"]}
+			self.assertIn(machine_op.name, operator_op_names)
+			# Regular (labor) operations remain visible
+			self.assertTrue(any(not o["is_machine_time"] for o in operator_ops["operations"]))
+
+			# General worker (different group) does NOT see the machine operation
+			general_token: str = authenticate_employee(general_device.id)["token"]
+			general_ops: dict[str, Any] = get_operations(
+				work_order=str(self._test_work_order.name), token=general_token
+			)
+			self.assertEqual(general_ops["status"], "success")
+			general_op_names = {o["operation"] for o in general_ops["operations"]}
+			self.assertNotIn(machine_op.name, general_op_names)
+			# Regular operations are still returned to the general worker
+			self.assertTrue(any(not o["is_machine_time"] for o in general_ops["operations"]))
+
+		finally:
+			frappe.set_user("Administrator")
+			frappe.db.delete("Work Order Operation", {"name": wo_operation.name})
+			frappe.delete_doc("Operation", machine_op.name, ignore_permissions=True, force=True)
+			frappe.delete_doc("Employee Group", cnc_group.name, ignore_permissions=True, force=True)
+			frappe.delete_doc("Employee Group", general_group.name, ignore_permissions=True, force=True)
+			frappe.delete_doc(
+				"Attendance Device ID", general_device.name, ignore_permissions=True, force=True
+			)
+			frappe.delete_doc("Employee", general_employee.name, ignore_permissions=True, force=True)
+
 	def tearDown(self) -> None:
 		"""
 		Clean up test data after each test.

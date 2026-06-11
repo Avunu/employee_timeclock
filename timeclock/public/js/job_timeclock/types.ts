@@ -49,6 +49,7 @@ export interface GetMachineTimersResponse {
   status: "success" | "error";
   message?: string | null;
   token?: string | null;
+  employee_groups?: string[] | null;
   machine_timers?: MachineTimer[] | null;
 }
 /**

@@ -10,7 +10,7 @@
     >
       <!-- Header row: title + status badge -->
       <div class="flex items-center justify-between gap-3">
-        <p class="text-xl font-semibold flex-1 min-w-0 leading-tight truncate">
+        <p class="text-2xl font-semibold flex-1 min-w-0 leading-tight break-words">
           {{ workOrder.production_item }}
         </p>
         <Badge
@@ -25,7 +25,7 @@
       <!-- Body: subtitle + time summary (left) | donut chart (right, under badge) -->
       <div class="flex items-end justify-between gap-2 mt-1">
         <div class="flex-1 min-w-0">
-          <p class="text-sm text-gray-500">{{ workOrder.name }}</p>
+          <p class="text-base text-gray-500">{{ workOrder.name }}</p>
         </div>
         <!-- Donut progress chart – click.stop prevents re-triggering card click -->
         <div v-if="workOrder.planned_time_mins > 0" @click.stop class="shrink-0 -mb-1">
