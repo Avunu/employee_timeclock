@@ -6,7 +6,6 @@
             "fieldtype": "Table",
             "insert_after": "attendance_device_id",
             "label": "Attendance Device IDs",
-            "link_filters": null,
             "module": "Timeclock",
             "options": "Attendance Device ID"
         }
