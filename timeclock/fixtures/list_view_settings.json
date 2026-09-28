@@ -5,12 +5,13 @@
   "disable_automatic_recency_filters": 0,
   "disable_comment_count": 0,
   "disable_count": 0,
+  "disable_scrolling": 0,
   "disable_sidebar_stats": 0,
   "docstatus": 0,
   "doctype": "List View Settings",
   "fields": "[{\"fieldname\":\"operation\",\"label\":\"Operation\"},{\"fieldname\":\"status_field\",\"label\":\"Status\"},{\"fieldname\":\"work_order\",\"label\":\"Work Order\"},{\"fieldname\":\"workstation\",\"label\":\"Workstation\"},{\"fieldname\":\"total_time_in_mins\",\"label\":\"Total Time in Mins\"},{\"fieldname\":\"is_corrective_job_card\",\"label\":\"Rework\"}]",
   "modified": "2026-05-07 08:53:52.363762",
   "name": "Job Card",
-  "total_fields": "10"
+  "show_tags": 0
  }
 ]
