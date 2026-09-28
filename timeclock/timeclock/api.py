@@ -5,6 +5,7 @@ import re
 from typing import Any, Literal, TypedDict, cast
 
 import frappe
+from frappe.query_builder.functions import Sum
 from frappe.utils import get_first_day_of_week, now, now_datetime, today
 
 from timeclock.timeclock.custom.employee import Employee
@@ -42,16 +43,15 @@ def get_weekly_hours(employee: str) -> list[str | float]:
 		week_start = week_start_raw
 	week_end = week_start + datetime.timedelta(days=6)
 	# get the total hours for the week
-	total_hours = frappe.get_all(
-		"Workday",
-		filters={"employee": employee, "date": ["between", [week_start, week_end]]},
-		fields=["sum(total_hours) as total_hours"],
-		order_by="date asc",
-		group_by="employee",
-		as_list=True,
-	)
-	# round the total hours to 2 decimal places
-	total_hours = round(total_hours[0][0], 2)
+	workday = frappe.qb.DocType("Workday")
+	result = (
+		frappe.qb.from_(workday)
+		.select(Sum(workday.total_hours))
+		.where(workday.employee == employee)
+		.where(workday.date.between(week_start, week_end))
+	).run()
+	# round the total hours to 2 decimal places; the sum is NULL when the week has no workdays
+	total_hours = round(float(result[0][0] or 0), 2)
 	# wrap the employee name and total hours into an array
 	employee_hours = [employee_name, total_hours]
 	# return the total hours
