@@ -1,14 +1,14 @@
 frappe.realtime.on("doc_update", (data) => console.log(data));
 
 // create a custom sort selector for the Workday Management Report
-frappe.ui.SortSelector = class SortSelector extends frappe.ui.SortSelector {
+class WorkdaySortSelector extends frappe.ui.SortSelector {
   get_sql_string() {
     return "`tabWorkday`.`employee_name` asc, `tabWorkday`.`date` asc";
   }
 };
 
 // create a custom Workday Management Report Class
-frappe.views.ReportView = class ReportView extends frappe.views.ReportView {
+class WorkdayManagementReport extends frappe.views.ReportView {
   setup_defaults() {
     this.page_name = frappe.get_route_str();
     this.page_title = __(this.doctype + "  Management");
@@ -146,16 +146,27 @@ frappe.views.ReportView = class ReportView extends frappe.views.ReportView {
   setup_view_menu() {
     // do nothing
   }
-};
 
-// Create a new page
-frappe.pages["workday-management"].on_page_load = function (wrapper) {
-  var list_factory = new frappe.views.ListFactory({
-    doctype: "Workday", // The doctype for the list
-    parent: wrapper, // The parent element for the list
-    title: "Workday Management", // The title for the list
+
+  setup_sort_selector() {
+  this.sort_selector = new WorkdaySortSelector({
+    parent: this.filter_area.$filter_list_wrapper,
+    doctype: this.doctype,
+    args: this.order_by,
+    onchange: this.on_sort_change.bind(this),
   });
-  list_factory.route = ["List", "Workday", "Report"];
-  list_factory.page_name = frappe.get_route_str();
-  list_factory.make(list_factory.route);
+  this.group_by_control = new frappe.ui.GroupBy(this);
+}
+
+// the page's fixed columns/sort must not overwrite the user's own Workday report settings
+save_report_settings() {}
+}
+
+frappe.pages["workday-management"].on_page_load = function () {
+  const page_name = frappe.get_route_str();
+  const parent = frappe.make_page(true, page_name, null);
+  window.cur_list = frappe.views.list_view[page_name] = new WorkdayManagementReport({
+    doctype: "Workday",
+    parent: parent,
+  });
 };
