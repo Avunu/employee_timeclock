@@ -9,8 +9,8 @@
   "disable_sidebar_stats": 0,
   "docstatus": 0,
   "doctype": "List View Settings",
-  "fields": "[{\"fieldname\":\"operation\",\"label\":\"Operation\"},{\"fieldname\":\"status_field\",\"label\":\"Status\"},{\"fieldname\":\"work_order\",\"label\":\"Work Order\"},{\"fieldname\":\"workstation\",\"label\":\"Workstation\"},{\"fieldname\":\"total_time_in_mins\",\"label\":\"Total Time in Mins\"},{\"fieldname\":\"is_corrective_job_card\",\"label\":\"Rework\"}]",
-  "modified": "2026-05-07 08:53:52.363762",
+  "fields": "[{\"fieldname\":\"operation\",\"label\":\"Operation\"},{\"fieldname\":\"status_field\",\"label\":\"Status\"},{\"fieldname\":\"is_corrective_job_card\",\"label\":\"Rework\"},{\"fieldname\":\"total_time_in_mins\",\"label\":\"Total Time in Mins\"},{\"fieldname\":\"work_order\",\"label\":\"Work Order\"},{\"fieldname\":\"workstation\",\"label\":\"Workstation\"}]",
+  "modified": "2026-06-29 11:19:07.531616",
   "name": "Job Card",
   "show_tags": 0
  }
