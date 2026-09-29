@@ -23,6 +23,7 @@ frappe.views.ReportView = class ReportView extends frappe.views.ReportView {
 
     this.can_create = frappe.model.can_create(this.doctype);
     this.can_write = frappe.model.can_write(this.doctype);
+    this.link_title_doctype_fields = [];
 
     this.fields = [
       ["name", "Workday"],
