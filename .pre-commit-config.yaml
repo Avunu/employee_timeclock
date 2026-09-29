@@ -18,14 +18,14 @@ repos:
 
   # ssort to sort methods source files
   - repo: https://github.com/bwhmather/ssort
-    rev: 0.16.0
+    rev: 0.17.0
     hooks:
       - id: ssort
         # Exclude auto-generated Frappe DocType files
         exclude: "/doctype/[^/]+/[^/]+\\.py$"
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.12
+    rev: v0.16.9
     hooks:
       - id: ruff
         name: "Run ruff import sorter"
@@ -44,7 +44,7 @@ repos:
         exclude: "^timeclock/www/job_timeclock/.*$"
 
   - repo: https://github.com/oxc-project/mirrors-oxfmt
-    rev: v0.45.0
+    rev: v0.71.0
     hooks:
       - id: oxfmt
         files: "packages.*"
