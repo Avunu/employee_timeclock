@@ -1,5 +1,6 @@
 from erpnext.manufacturing.doctype.job_card.job_card import JobCard as BaseJobCard
 from frappe.types import DF
+from frappe.utils import flt
 
 from .job_card_time_log import JobCardTimeLog
 
@@ -27,3 +28,11 @@ class JobCard(BaseJobCard):
 		if args.get("employee"):
 			return super().get_overlap_for(args, open_job_cards)
 		return []
+
+	def validate_sequence_id(self):
+		# v16 throws whenever an earlier operation has zero completed qty, which blocks
+		# logging time on operations worked in parallel. Only enforce the sequence once
+		# this card reports completed qty (matches v15 behavior)
+		if not flt(self.total_completed_qty):
+			return
+		super().validate_sequence_id()
