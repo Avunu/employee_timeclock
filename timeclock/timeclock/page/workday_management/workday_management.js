@@ -63,7 +63,7 @@ frappe.views.ReportView = class ReportView extends frappe.views.ReportView {
     return frappe.run_serially(
       [
         this.setup_list_wrapper,
-        this.show_or_hide_sidebar,
+        this.hide_sidebar,
         this.setup_filter_area,
         this.setup_sort_selector,
         this.setup_extra_filters,
