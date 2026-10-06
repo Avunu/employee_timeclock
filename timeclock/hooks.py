@@ -39,12 +39,7 @@ doc_events = {
 	},
 }
 
-override_doctype_class = {
-	"Employee Checkin": "timeclock.timeclock.custom.employee_checkin.EmployeeCheckin",
-	"Employee": "timeclock.timeclock.custom.employee.Employee",
-	"Operation": "timeclock.timeclock.custom.operation.Operation",
-	"Job Card": "timeclock.timeclock.custom.job_card.JobCard",
-}
+extend_doctype_class = {"Job Card": "timeclock.timeclock.custom.job_card.TimeclockJobCard"}
 
 # include tempus-dominus.min.js on the job card doctype
 doctype_js = {"Job Card": "public/js/job_card.js"}

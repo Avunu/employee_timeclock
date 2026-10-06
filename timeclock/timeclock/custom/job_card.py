@@ -5,8 +5,8 @@ from frappe.utils import flt
 from .job_card_time_log import JobCardTimeLog
 
 
-class JobCard(BaseJobCard):
-	"""Custom JobCard override for Timeclock-specific functionality with custom field types"""
+class TimeclockJobCard(BaseJobCard):
+	"""Job Card extension (extend_doctype_class) for Timeclock-specific functionality with custom field types"""
 
 	# Custom fields from job_card.json
 

@@ -3,7 +3,7 @@ from hrms.hr.doctype.employee_checkin.employee_checkin import EmployeeCheckin as
 
 
 class EmployeeCheckin(BaseEmployeeCheckin):
-	"""EmployeeCheckin override for type annotations"""
+	"""Typing-only shell for custom fields; intentionally not registered as a controller override."""
 
 	attendance: DF.Link | None
 	device_id: DF.Data | None

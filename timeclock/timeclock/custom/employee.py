@@ -3,7 +3,7 @@ from frappe.types import DF
 
 
 class Employee(BaseEmployee):
-	"""Custom Employee override for Timeclock-specific functionality with custom field types"""
+	"""Typing-only shell for custom fields; intentionally not registered as a controller override."""
 
 	# Custom fields from employee.json
 	from timeclock.timeclock.doctype.attendance_device_id.attendance_device_id import (
