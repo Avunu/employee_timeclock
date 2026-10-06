@@ -31,7 +31,7 @@ from frappe.defaults import get_defaults
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_to_date, now_datetime, random_string
 
-from timeclock.timeclock.custom.job_card import JobCard
+from timeclock.timeclock.custom.job_card import TimeclockJobCard
 
 
 class TestProjectTracker(FrappeTestCase):
@@ -55,7 +55,7 @@ class TestProjectTracker(FrappeTestCase):
 	_test_employee: Employee | None = None
 	_test_device_id: Any = None
 	_test_work_order: WorkOrder | None = None
-	_test_job_cards: list[JobCard] = []
+	_test_job_cards: list[TimeclockJobCard] = []
 	_test_item: Item | None = None
 	_test_bom: BOM | None = None
 	_test_workstation: Workstation | None = None
@@ -115,8 +115,8 @@ class TestProjectTracker(FrappeTestCase):
 		assert cls._test_bom is not None
 
 		# Create a job card
-		job_card: JobCard = cast(
-			JobCard,
+		job_card: TimeclockJobCard = cast(
+			TimeclockJobCard,
 			frappe.get_doc(
 				{
 					"doctype": "Job Card",
@@ -540,7 +540,7 @@ class TestProjectTracker(FrappeTestCase):
 		assert self._test_work_order is not None
 		assert self._test_operation is not None
 
-		job_card: JobCard = self._test_job_cards[0]
+		job_card: TimeclockJobCard = self._test_job_cards[0]
 		start_time = now_datetime()
 
 		# Get a valid token
@@ -582,7 +582,7 @@ class TestProjectTracker(FrappeTestCase):
 		assert self._test_work_order is not None
 		assert self._test_operation is not None
 
-		job_card: JobCard = self._test_job_cards[0]
+		job_card: TimeclockJobCard = self._test_job_cards[0]
 		start_time = now_datetime()
 
 		# Get a valid token
@@ -632,8 +632,8 @@ class TestProjectTracker(FrappeTestCase):
 		assert self._test_bom is not None
 
 		# Create a second job card for testing
-		job_card2: JobCard = cast(
-			JobCard,
+		job_card2: TimeclockJobCard = cast(
+			TimeclockJobCard,
 			frappe.get_doc(
 				{
 					"doctype": "Job Card",
@@ -832,7 +832,7 @@ class TestProjectTracker(FrappeTestCase):
 		assert self._test_bom is not None
 
 		# Use the existing fixture job card
-		job_card: JobCard = self._test_job_cards[0]
+		job_card: TimeclockJobCard = self._test_job_cards[0]
 
 		# Get a valid token
 		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
@@ -876,8 +876,8 @@ class TestProjectTracker(FrappeTestCase):
 		if job_card.docstatus == 1:
 			job_card.cancel()
 		frappe.delete_doc("Job Card", job_card.name, ignore_permissions=True, force=True)
-		new_job_card: JobCard = cast(
-			JobCard,
+		new_job_card: TimeclockJobCard = cast(
+			TimeclockJobCard,
 			frappe.get_doc(
 				{
 					"doctype": "Job Card",
@@ -914,7 +914,7 @@ class TestProjectTracker(FrappeTestCase):
 		assert self._test_bom is not None
 
 		# Use the existing fixture job card
-		job_card: JobCard = self._test_job_cards[0]
+		job_card: TimeclockJobCard = self._test_job_cards[0]
 
 		# Get a valid token
 		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
@@ -948,8 +948,8 @@ class TestProjectTracker(FrappeTestCase):
 		if job_card.docstatus == 1:
 			job_card.cancel()
 		frappe.delete_doc("Job Card", job_card.name, ignore_permissions=True, force=True)
-		new_job_card: JobCard = cast(
-			JobCard,
+		new_job_card: TimeclockJobCard = cast(
+			TimeclockJobCard,
 			frappe.get_doc(
 				{
 					"doctype": "Job Card",
@@ -1020,8 +1020,8 @@ class TestProjectTracker(FrappeTestCase):
 		).insert(ignore_permissions=True)
 
 		# Create a job card with the machine operation
-		job_card: JobCard = cast(
-			JobCard,
+		job_card: TimeclockJobCard = cast(
+			TimeclockJobCard,
 			frappe.get_doc(
 				{
 					"doctype": "Job Card",
@@ -1095,8 +1095,8 @@ class TestProjectTracker(FrappeTestCase):
 			}
 		).insert(ignore_permissions=True)
 
-		job_card: JobCard = cast(
-			JobCard,
+		job_card: TimeclockJobCard = cast(
+			TimeclockJobCard,
 			frappe.get_doc(
 				{
 					"doctype": "Job Card",
@@ -1210,8 +1210,8 @@ class TestProjectTracker(FrappeTestCase):
 			}
 		).insert(ignore_permissions=True)
 
-		job_card: JobCard = cast(
-			JobCard,
+		job_card: TimeclockJobCard = cast(
+			TimeclockJobCard,
 			frappe.get_doc(
 				{
 					"doctype": "Job Card",

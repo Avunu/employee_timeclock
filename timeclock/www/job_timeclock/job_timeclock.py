@@ -11,7 +11,7 @@ from frappe.rate_limiter import rate_limit
 from frappe.utils.data import get_datetime
 
 from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
-from timeclock.timeclock.custom.job_card import JobCard
+from timeclock.timeclock.custom.job_card import TimeclockJobCard
 from timeclock.timeclock.custom.job_card_time_log import (
 	JobCardTimeLog,
 )
@@ -696,7 +696,7 @@ def _close_open_timers_on_operation(operation: str, close_time: datetime) -> int
 
 	closed = 0
 	for card_name, log_names in cards.items():
-		job_card: JobCard = JobCard("Job Card", card_name, ignore_permissions=True)
+		job_card: TimeclockJobCard = TimeclockJobCard("Job Card", card_name, ignore_permissions=True)
 		for tl in job_card.time_logs:
 			if tl.name in log_names:
 				tl.to_time = close_time
@@ -739,7 +739,7 @@ def _close_open_timers_on_employee(employee_id: str, close_time: datetime) -> in
 
 	closed = 0
 	for card_name, log_names in cards.items():
-		job_card: JobCard = JobCard("Job Card", card_name, ignore_permissions=True)
+		job_card: TimeclockJobCard = TimeclockJobCard("Job Card", card_name, ignore_permissions=True)
 		for tl in job_card.time_logs:
 			if tl.name in log_names:
 				tl.to_time = close_time
@@ -870,7 +870,9 @@ def start_timer(
 			_close_open_timers_on_employee(employee_id, start_time)
 
 		if is_corrective:
-			original_job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
+			original_job_card: TimeclockJobCard = TimeclockJobCard(
+				"Job Card", jobcard_name, ignore_permissions=True
+			)
 
 			# Find or create corrective job card
 			existing_corrective = frappe.db.get_value(
@@ -880,10 +882,12 @@ def start_timer(
 			)
 
 			if existing_corrective:
-				target_card: JobCard = JobCard("Job Card", existing_corrective, ignore_permissions=True)
+				target_card: TimeclockJobCard = TimeclockJobCard(
+					"Job Card", existing_corrective, ignore_permissions=True
+				)
 				target_card.reload()
 			else:
-				target_card = cast(JobCard, frappe.new_doc("Job Card"))
+				target_card = cast(TimeclockJobCard, frappe.new_doc("Job Card"))
 				target_card.work_order = original_job_card.work_order
 				target_card.bom_no = original_job_card.bom_no
 				target_card.production_item = original_job_card.production_item
@@ -902,7 +906,7 @@ def start_timer(
 			target_card.append("time_logs", time_log)
 			target_card.save(ignore_permissions=True)
 		else:
-			job_card: JobCard = JobCard("Job Card", jobcard_name, ignore_permissions=True)
+			job_card: TimeclockJobCard = TimeclockJobCard("Job Card", jobcard_name, ignore_permissions=True)
 			job_card.reload()
 			job_card.append("time_logs", time_log)
 			job_card.save(ignore_permissions=True)
@@ -1198,7 +1202,7 @@ def stop_machine_timer(
 		cards.setdefault(row["parent"], []).append(row["name"])
 
 	for card_name, log_names in cards.items():
-		jc: JobCard = JobCard("Job Card", card_name, ignore_permissions=True)
+		jc: TimeclockJobCard = TimeclockJobCard("Job Card", card_name, ignore_permissions=True)
 		for tl in jc.time_logs:
 			if tl.name in log_names:
 				tl.to_time = end_time
@@ -1255,7 +1259,7 @@ def submit_jobcard(
 		None: Returns failed status with error message
 	"""
 	completed_qty: int = 1
-	doc: JobCard = JobCard("Job Card", jobCard["name"], ignore_permissions=True)
+	doc: TimeclockJobCard = TimeclockJobCard("Job Card", jobCard["name"], ignore_permissions=True)
 
 	last_row: JobCardTimeLog | None = None
 	if doc.time_logs and len(doc.time_logs) > 0:
