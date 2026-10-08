@@ -836,6 +836,9 @@ def start_timer(
 	Raises:
 		None: Catches and logs exceptions
 	"""
+
+	frappe.flags.in_timeclock = True
+
 	try:
 		employee_id, _token = _resolve_employee(token)
 	except Exception as e:
@@ -963,6 +966,9 @@ def stop_timer(
 	Returns:
 		Dict with status "success" or "failed".
 	"""
+
+	frappe.flags.in_timeclock = True
+
 	try:
 		employee_id, _token = _resolve_employee(token)
 	except Exception as e:
@@ -1163,6 +1169,9 @@ def stop_machine_timer(
 	Returns:
 		Dict with status "success" or "failed".
 	"""
+
+	frappe.flags.in_timeclock = True
+
 	try:
 		_employee_id, _token = _resolve_employee(token)
 	except Exception as e:
@@ -1258,6 +1267,9 @@ def submit_jobcard(
 	Raises:
 		None: Returns failed status with error message
 	"""
+
+	frappe.flags.in_timeclock = True
+
 	completed_qty: int = 1
 	doc: TimeclockJobCard = TimeclockJobCard("Job Card", jobCard["name"], ignore_permissions=True)
 

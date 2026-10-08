@@ -1,3 +1,4 @@
+import frappe
 from erpnext.manufacturing.doctype.job_card.job_card import JobCard as BaseJobCard
 from frappe.types import DF
 from frappe.utils import flt
@@ -23,11 +24,17 @@ class TimeclockJobCard(BaseJobCard):
 		super().before_validate()
 
 	def get_overlap_for(self, args, open_job_cards=None):
+		# The timeclock closes an employee's open timers before starting a new one, so its
+		# saves skip the overlap check; upstream can otherwise reject a stop and leave the
+		# timer open. Desk edits keep the check.
+		if frappe.flags.in_timeclock:
+			return []
 		# Upstream calls get_open_job_cards unconditionally, which causes a false OverlapError
-		# when employee is an empty string. Guard the check to only run when employee is set.
+		# when employee is an empty string. Only run the check when employee is set.
 		if args.get("employee"):
 			return super().get_overlap_for(args, open_job_cards)
 		return []
+
 
 	def validate_sequence_id(self):
 		# v16 throws whenever an earlier operation has zero completed qty, which blocks
