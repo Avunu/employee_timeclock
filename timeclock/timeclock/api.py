@@ -121,7 +121,7 @@ def build_workday(checkin_times: list[datetime.datetime], workday: Workday) -> W
 	return workday
 
 
-@frappe.whitelist(allow_guest=True)
+# @frappe.whitelist(allow_guest=True)
 def update_workday_from_checkin(checkin: EmployeeCheckin, method: str | None = None) -> EmployeeCheckin:
 	_ = method  # Explicitly mark as intentionally unused
 	# if the workday was modified in the last minute, then break
