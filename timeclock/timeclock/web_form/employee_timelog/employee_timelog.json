@@ -9,7 +9,7 @@
  "button_label": "Punch",
  "client_script": "",
  "creation": "2022-07-12 15:19:25.823445",
- "custom_css": ".web-form-container {\n    position: absolute;\n    width: 100vw;\n    height: 100vh;\n    top: 0;\n    left: 0;\n}\n\n.btn:not(label), .navbar, .page-breadcrumbs, div[data-fieldname='log_type'] {\n    display: none;\n}\n\n.clock {\n    position: absolute; right: 0; top: -8rem;\n}\n\n.clock #time {\n    font-size: 2rem;\n    font-weight: 700;\n}\n\n.clock #date {\n    font-size: 1.4rem;\n    font-weight: 500;\n}\n\ninput[type=\"radio\"]:checked+label {\n    background-color: var(--blue);\n    color: white;\n}\n\n#alert-container {\n    transform: scale(1.5);\n    translate: -25% -35%;\n}\n\n#reset {\n    padding: 2rem 3.5rem;\n    font-size: 1.25rem!important;\n}\n",
+ "custom_css": ".web-form-container {\n    position: absolute;\n    width: 100vw;\n    height: 100vh;\n    top: 0;\n    left: 0;\n}\n\n.btn:not(label), .navbar, .page-breadcrumbs, div[data-fieldname='log_type'] {\n    display: none;\n}\n\n.clock {\n    position: absolute; right: 0; top: -8rem;\n}\n\n.clock #time {\n    font-size: 2rem;\n    font-weight: 700;\n}\n\n.clock #date {\n    font-size: 1.4rem;\n    font-weight: 500;\n}\n\ninput[type=\"radio\"]:checked+label {\n    background-color: var(--blue);\n    color: white;\n}\n\n.es-toast-container {\ninset: 50% auto auto 50%;\ntransform: translate(-50%, -50%);\n}\n\n.es-toast {\nmax-width: 90vw;\nmin-width: 50vw;\npadding: 2rem 3rem;\n}\n\n#reset {\n    padding: 2rem 3.5rem;\n    font-size: 1.25rem!important;\n}\n",
  "doc_type": "Employee Checkin",
  "docstatus": 0,
  "doctype": "Web Form",

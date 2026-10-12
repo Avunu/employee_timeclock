@@ -65,14 +65,17 @@ function save_form(form_entry) {
           callback: function (response) {
             const employee_name = response.message[0];
             const weekly_hours = response.message[1];
+            const heading_color = log_type == "IN" ? "#4ade80" : "#f87171";
             const alert_message =
-              "<h3>Clocked " +
+              "<div style='font-size: 2.5rem; font-weight: 700; line-height: 1.2; color: " +
+              heading_color +
+              ";'>Clocked " +
               log_type.toLowerCase() +
-              "!</h3><large>" +
+              "!</div><div style='font-size: 2.5rem; font-weight: 600; line-height: 1.2; color: #ffffff;'>" +
               employee_name +
               ", you have logged " +
               weekly_hours +
-              " hours this week.</large>";
+              " hours this week.</div>";
             // set the alert color based on the log type
             let alert_color;
             if (log_type == "IN") {
