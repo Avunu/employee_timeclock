@@ -482,7 +482,7 @@ def get_work_orders(token: str | None = None) -> GetWorkOrdersResponse:
 	logged_sq = (
 		frappe.qb.from_(TL)
 		.inner_join(JC)
-		.on(TL.parent == JC.name)
+		.on((TL.parent == JC.name) & (TL.parentfield == "time_logs"))
 		.select(JC.work_order.as_("wo"), Coalesce(Sum(TL.time_in_mins), 0).as_("logged_time_mins"))
 		.where(JC.docstatus < 2)
 		.groupby(JC.work_order)
@@ -590,7 +590,7 @@ def get_operations(
 			& (JobCards.docstatus < 2)
 		)
 		.left_join(JobCardTimeLogs)
-		.on(JobCardTimeLogs.parent == JobCards.name)
+		.on((JobCardTimeLogs.parent == JobCards.name) & (JobCardTimeLogs.parentfield == "time_logs"))
 		.select(
 			WorkOrderOperations.name.as_("work_order_operation"),
 			WorkOrderOperations.operation,
@@ -679,7 +679,7 @@ def _close_open_timers_on_operation(operation: str, close_time: datetime) -> int
 	open_logs: list[dict[str, Any]] = (
 		frappe.qb.from_(TL)
 		.inner_join(JC)
-		.on(TL.parent == JC.name)
+		.on((TL.parent == JC.name) & (TL.parentfield == "time_logs"))
 		.select(TL.parent, TL.name)
 		.where(TL.to_time.isnull())
 		.where(JC.operation == operation)
@@ -722,7 +722,7 @@ def _close_open_timers_on_employee(employee_id: str, close_time: datetime) -> in
 	open_logs: list[dict[str, Any]] = (
 		frappe.qb.from_(TL)
 		.inner_join(JC)
-		.on(TL.parent == JC.name)
+		.on((TL.parent == JC.name) & (TL.parentfield == "time_logs"))
 		.select(TL.parent, TL.name)
 		.where(TL.to_time.isnull())
 		.where(TL.employee == employee_id)
@@ -775,7 +775,7 @@ def get_active_timer(token: str | None = None) -> GetActiveTimerResponse:
 	result: list[dict[str, Any]] = (
 		frappe.qb.from_(JobCardTimeLogs)
 		.inner_join(JobCards)
-		.on(JobCardTimeLogs.parent == JobCards.name)
+		.on((JobCardTimeLogs.parent == JobCards.name) & (JobCardTimeLogs.parentfield == "time_logs"))
 		.select(
 			JobCards.work_order,
 			JobCards.operation,
@@ -1114,7 +1114,7 @@ def get_machine_timers(token: str | None = None) -> GetMachineTimersResponse:
 	rows: list[dict[str, Any]] = (
 		frappe.qb.from_(JobCardTimeLogs)
 		.inner_join(JobCards)
-		.on(JobCardTimeLogs.parent == JobCards.name)
+		.on((JobCardTimeLogs.parent == JobCards.name) & (JobCardTimeLogs.parentfield == "time_logs"))
 		.inner_join(Operations)
 		.on(Operations.name == JobCards.operation)
 		.select(
@@ -1194,7 +1194,7 @@ def stop_machine_timer(
 	open_logs: list[dict[str, Any]] = (
 		frappe.qb.from_(JobCardTimeLogs)
 		.inner_join(JobCards)
-		.on(JobCardTimeLogs.parent == JobCards.name)
+		.on((JobCardTimeLogs.parent == JobCards.name) & (JobCardTimeLogs.parentfield == "time_logs"))
 		.select(JobCardTimeLogs.parent, JobCardTimeLogs.name)
 		.where(JobCards.work_order == work_order)
 		.where(JobCards.operation == operation)
