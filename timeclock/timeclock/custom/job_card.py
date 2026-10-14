@@ -52,6 +52,11 @@ class TimeclockJobCard(BaseJobCard):
 		open_starts = [get_datetime(log.from_time) for log in self.time_logs if log.from_time and not log.to_time]
 		if kwargs.get("end_time") and open_starts:
 			kwargs["end_time"] = max(get_datetime(kwargs["end_time"]), *open_starts)
+		elif kwargs.get("end_time") and self.time_logs:
+			# the timeclock stops timers on clock-out without pausing the card, so there may be no
+			# open log for upstream to record the completed qty on, and it silently saves nothing
+			last_log = self.time_logs[-1]
+			last_log.completed_qty = flt(last_log.completed_qty) + flt(kwargs.get("qty"))
 		return super().complete_job_card(**kwargs)
 
 	def validate_on_hold(self):
