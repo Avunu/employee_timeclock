@@ -1,7 +1,7 @@
 import frappe
 from erpnext.manufacturing.doctype.job_card.job_card import JobCard as BaseJobCard
 from frappe.types import DF
-from frappe.utils import flt
+from frappe.utils import flt, get_datetime
 
 from .job_card_time_log import JobCardTimeLog
 
@@ -43,3 +43,20 @@ class TimeclockJobCard(BaseJobCard):
 		if not flt(self.total_completed_qty):
 			return
 		super().validate_sequence_id()
+
+
+	@frappe.whitelist()
+	def complete_job_card(self, **kwargs):
+		# The End Time field drops seconds (HH:mm), so finishing in the same minute as a resume
+		# sends an end time earlier than the open log's start
+		open_starts = [get_datetime(log.from_time) for log in self.time_logs if log.from_time and not log.to_time]
+		if kwargs.get("end_time") and open_starts:
+			kwargs["end_time"] = max(get_datetime(kwargs["end_time"]), *open_starts)
+		return super().complete_job_card(**kwargs)
+
+	def validate_on_hold(self):
+		# A paused card has no running timer, so a completed qty typed into the time logs can be
+		# submitted without resuming first; upstream blocks the submit and the form hides Resume
+		if self.is_paused and self.docstatus == 1 and all(log.to_time for log in self.time_logs):
+			self.is_paused = 0
+		super().validate_on_hold()
