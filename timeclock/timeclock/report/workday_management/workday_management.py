@@ -9,7 +9,7 @@ from typing import Any, TypedDict, cast
 import frappe
 from frappe import _
 from frappe.query_builder import DocType
-from frappe.utils import add_days, cint, flt, get_datetime, get_time, getdate, today
+from frappe.utils import add_days, cint, flt, get_datetime, get_first_day_of_week, get_time, getdate, today
 
 from timeclock.timeclock.api import LogType, build_workday, check_range
 from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
@@ -51,7 +51,7 @@ class Day(TypedDict):
 
 
 def get_columns(group_by: str = "Employee") -> list[dict]:
-	return [
+	columns = [
 		{
 			"fieldname": "label",
 			"label": _("Employee") if group_by == "Employee" else _("Day"),
@@ -117,6 +117,11 @@ def get_columns(group_by: str = "Employee") -> list[dict]:
 			"width": 170,
 		},
 	]
+	# Datatable column sorting sorts the tree's rows flat, mixing days and punches across
+	# employees, so the row order from get_data is the only order
+	for column in columns:
+		column.update(sortable=False, dropdown=False)
+	return columns
 
 
 # ---------------------------------------------------------------------------
@@ -166,6 +171,7 @@ def _get_checkins(filters: WorkdayManagementFilters) -> list[dict]:
 		.where(Checkins.time >= getdate(filters["from_date"]))
 		.where(Checkins.time < add_days(getdate(filters["to_date"]), 1))
 		.orderby(Checkins.time)
+		.orderby(Checkins.creation)
 	)
 	employee = filters.get("employee")
 	if employee:
@@ -319,11 +325,12 @@ def get_data(filters: WorkdayManagementFilters) -> list[dict]:
 	group_by = filters.get("group_by") or "Employee"
 	issues_only = cint(filters.get("issues_only"))
 
+	# Newest day first; punches within a day stay in time order so IN1/OUT1/... read top-down
 	days = _get_days(filters)
 	if group_by == "Day":
-		days.sort(key=lambda d: (d["date"], d["employee_name"].lower()))
+		days.sort(key=lambda d: (-d["date"].toordinal(), d["employee_name"].lower()))
 	else:
-		days.sort(key=lambda d: (d["employee_name"].lower(), d["employee"], d["date"]))
+		days.sort(key=lambda d: (d["employee_name"].lower(), d["employee"], d["date"].toordinal()))
 
 	result: list[dict] = []
 	for _key, group_days in groupby(days, key=lambda d: d["date"] if group_by == "Day" else d["employee"]):
@@ -364,7 +371,7 @@ def get_data(filters: WorkdayManagementFilters) -> list[dict]:
 
 def execute(filters: WorkdayManagementFilters | None = None):
 	filters = cast(WorkdayManagementFilters, dict(filters or {}))
-	filters.setdefault("from_date", str(add_days(today(), -7)))
+	filters.setdefault("from_date", get_first_day_of_week(today(), as_str=True))
 	filters.setdefault("to_date", today())
 	group_by = filters.get("group_by") or "Employee"
 

@@ -26,7 +26,7 @@ frappe.query_reports["Workday Management"] = {
       label: __("From Date"),
       fieldtype: "Date",
       reqd: 1,
-      default: frappe.datetime.add_days(frappe.datetime.get_today(), -7),
+      default: frappe.datetime.week_start(),
     },
     {
       fieldname: "to_date",
