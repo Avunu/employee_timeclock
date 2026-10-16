@@ -195,7 +195,9 @@ class TestTimeclockApi(IntegrationTestCase):
 		self.assertEqual(workdays[0]["employee_name"], self.employee_name)
 		self.assertEqual(workdays[0]["check_in_1"], "8:00 AM")
 		self.assertEqual(workdays[0]["check_in_1_dt"], _punch_time(8))
-		self.assertEqual(frappe.db.get_value("Employee Checkin", checkin.name, "workday"), workdays[0]["name"])
+		self.assertEqual(
+			frappe.db.get_value("Employee Checkin", checkin.name, "workday"), workdays[0]["name"]
+		)
 
 	# --- submit_checkin ---
 

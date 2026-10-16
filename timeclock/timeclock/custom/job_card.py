@@ -35,7 +35,6 @@ class TimeclockJobCard(BaseJobCard):
 			return super().get_overlap_for(args, open_job_cards)
 		return []
 
-
 	def validate_sequence_id(self):
 		# v16 throws whenever an earlier operation has zero completed qty, which blocks
 		# logging time on operations worked in parallel. Only enforce the sequence once
@@ -44,12 +43,13 @@ class TimeclockJobCard(BaseJobCard):
 			return
 		super().validate_sequence_id()
 
-
 	@frappe.whitelist()
 	def complete_job_card(self, **kwargs):
 		# The End Time field drops seconds (HH:mm), so finishing in the same minute as a resume
 		# sends an end time earlier than the open log's start
-		open_starts = [get_datetime(log.from_time) for log in self.time_logs if log.from_time and not log.to_time]
+		open_starts = [
+			get_datetime(log.from_time) for log in self.time_logs if log.from_time and not log.to_time
+		]
 		if kwargs.get("end_time") and open_starts:
 			kwargs["end_time"] = max(get_datetime(kwargs["end_time"]), *open_starts)
 		elif kwargs.get("end_time") and self.time_logs:

@@ -14,7 +14,14 @@ const WM_STATUS_COLORS = {
 };
 
 // Statuses a rebuild fixes, used when Rebuild Workdays runs with nothing selected
-const WM_REBUILD_STATUSES = ["No Workday", "Out of Sync"];
+const WM_REBUILD_STATUSES = ["No Workday", "Out of Sync", "Log Type Mismatch"];
+
+// Row backgrounds by tree level: groups darkest, workdays tinted, punches plain.
+// Theme surface variables, so the shades flip in dark mode.
+const WM_ROW_BACKGROUNDS = {
+  group: "var(--surface-gray-3)",
+  workday: "var(--surface-blue-1)",
+};
 
 // row_keys of tree nodes that were open before a refresh we triggered, reapplied after render
 let wm_open_nodes = null;
@@ -92,7 +99,15 @@ frappe.query_reports["Workday Management"] = {
         }
         return label;
       }
+      // a click handler set in onload opens this row's time editor
+      if (row_type === "new_punch") return `<a class="wm-add-punch">+ ${label}</a>`;
       return `<span class="text-muted">${label}</span>`;
+    }
+
+    // -- New punch row: prompt for a time, nothing else --
+    if (row_type === "new_punch") {
+      if (field === "time") return `<span class="text-muted">${__("Double-click to add")}</span>`;
+      return "";
     }
 
     // ── Status column: issue count on groups, indicator pill on workdays ──
@@ -107,15 +122,6 @@ frappe.query_reports["Workday Management"] = {
         return `<span class="indicator-pill ${color}" title="${title}">${frappe.utils.escape_html(__(value))}</span>`;
       }
       return "";
-    }
-
-    // ── Log type: flag punches whose log type doesn't match their IN/OUT slot ──
-    if (field === "log_type") {
-      if (row_type !== "checkin") return "";
-      const expected = (data.label || "").startsWith("OUT") ? "OUT" : "IN";
-      const color = value === expected ? (value === "IN" ? "green" : "blue") : "orange";
-      const title = value === expected ? "" : __("Expected {0} for this slot", [expected]);
-      return `<span class="indicator-pill ${color}" title="${title}">${frappe.utils.escape_html(value || __("None"))}</span>`;
     }
 
     // ── Override: show the original punch time on hover ──
@@ -137,12 +143,14 @@ frappe.query_reports["Workday Management"] = {
       checkboxColumn: true,
       serialNoColumn: true,
       cellHeight: 36,
+      layout: "fluid",
 
       getEditor: function (colIndex, rowIndex, value, parent, column, row, data) {
-        // Only punches (Employee Checkin rows) are editable
-        if (!data || data.row_type !== "checkin") return false;
-
+        // Punches (Employee Checkin rows) are editable, plus the time on a day's new punch row
+        if (!data) return false;
         const field = column.fieldname || column.id;
+        const is_new = data.row_type === "new_punch" && field === "time";
+        if (data.row_type !== "checkin" && !is_new) return false;
 
         // ── time: native time input, kept on the punch's date ──
         if (field === "time") {
@@ -161,29 +169,9 @@ frappe.query_reports["Workday Management"] = {
               return $input.value;
             },
             setValue(newValue) {
-              if (newValue && newValue !== data.time_value) save_checkin(data, field, newValue);
-            },
-          };
-        }
-
-        // ── log_type: IN / OUT select ──
-        if (field === "log_type") {
-          const $select = document.createElement("select");
-          $select.className = "dt-input";
-          $select.style.width = "100%";
-          ["IN", "OUT"].forEach((log_type) => $select.add(new Option(log_type, log_type)));
-          parent.appendChild($select);
-
-          return {
-            initValue(val) {
-              $select.value = val || "IN";
-              $select.focus();
-            },
-            getValue() {
-              return $select.value;
-            },
-            setValue(newValue) {
-              if (newValue !== data.log_type) save_checkin(data, field, newValue);
+              if (!newValue) return;
+              if (is_new) add_punch(data, newValue);
+              else if (newValue !== data.time_value) save_checkin(data, newValue);
             },
           };
         }
@@ -194,6 +182,15 @@ frappe.query_reports["Workday Management"] = {
   },
 
   onload: function (report) {
+    // "+ Add Punch" opens the time editor on its own row
+    report.$report.on("click", ".wm-add-punch", (e) => {
+      e.preventDefault();
+      const datatable = report.datatable;
+      const rowIndex = $(e.currentTarget).closest(".dt-cell").data("row-index");
+      const time_column = datatable.datamanager.getColumns().find((col) => col.id === "time");
+      const $cell = datatable.cellmanager.getCell$(time_column.colIndex, rowIndex);
+      if ($cell) datatable.cellmanager.activateEditing($cell);
+    });
     report.page.add_button(__("Add Punch"), () => open_add_punch_dialog(report), {
       btn_class: "btn-primary",
       icon: "add",
@@ -251,32 +248,33 @@ frappe.query_reports["Workday Management"] = {
       wm_open_nodes = null;
     }
 
-    // Clear all cell styling first to remove stale styles from previous renders
-    datatable.datamanager.rows.forEach((row, rowIndex) => {
-      datatable.datamanager.columns.forEach((_, colIdx) => {
-        datatable.style.setStyle(`.dt-cell--${colIdx}-${rowIndex}`, {
-          backgroundColor: "",
-          fontWeight: "",
-        });
-      });
-    });
-
-    // Style group-level rows
-    datatable.datamanager.rows.forEach((row, rowIndex) => {
-      const rowData = datatable.datamanager.data[rowIndex];
-      if (!rowData) return;
-
-      if (rowData.row_type === "group") {
-        datatable.datamanager.columns.forEach((_, colIdx) => {
-          datatable.style.setStyle(`.dt-cell--${colIdx}-${rowIndex}`, {
-            backgroundColor: "var(--bg-light-gray, #f5f7fa)",
-            fontWeight: "400",
-          });
-        });
-      }
-    });
+    shade_rows(datatable);
   },
 };
+
+// ---------------------------------------------------------------------------
+// Row Shading
+// ---------------------------------------------------------------------------
+
+// One rule per shaded row in a stylesheet of our own, rewritten whole on each render.
+//datatable.style.setStyle scans every existing rule per call, so a rule per cell
+// (rows x columns) locks the page up once a refresh starts replacing them.
+function shade_rows(datatable) {
+  let style_el = datatable.wrapper.querySelector("style.wm-row-shading");
+  if (!style_el) {
+    style_el = document.createElement("style");
+    style_el.className = "wm-row-shading";
+    datatable.wrapper.prepend(style_el);
+  }
+
+  const scope = `.${datatable.style.scopeClass}`;
+  style_el.textContent = datatable.datamanager.data
+    .map((row, rowIndex) => {
+      const background = WM_ROW_BACKGROUNDS[row?.row_type];
+      return background ? `${scope} .dt-row-${rowIndex} .dt-cell { background-color: ${background}; }` : "";
+    })
+    .join("\n");
+}
 
 // ---------------------------------------------------------------------------
 // Tree state
@@ -331,7 +329,7 @@ function get_checked_data(report) {
 function save_checkin(data, fieldname, value) {
   frappe.call({
     method: `${WM_METHOD}.update_checkin`,
-    args: { checkin: data.checkin, fieldname: fieldname, value: value },
+    args: { checkin: data.checkin, time: time },
     callback: (r) => {
       if (r.message) frappe.show_alert({ message: r.message, indicator: "green" }, 3);
     },
@@ -340,13 +338,22 @@ function save_checkin(data, fieldname, value) {
   });
 }
 
+function add_punch(data, time) {
+  // log_type is left to the server, which picks it from where the time lands in the day
+  frappe.call({
+    method: `${WM_METHOD}.add_checkin`,
+    args: { employee: data.employee, date: data.date, time: time },
+    callback: (r) => {
+      if (r.message) frappe.show_alert({ message: r.message, indicator: "green" }, 3);
+    },
+    // Refresh on failure too, so the row drops the rejected value
+    always: () => refresh_report(),
+  });
+}
+
 function open_add_punch_dialog(report) {
   // Prefill from the first selected row, suggesting the log type the day needs next
   const selected = get_checked_data(report)[0] || {};
-  const punches = (report.data || []).filter(
-    (row) =>
-      row.row_type === "checkin" && row.employee === selected.employee && row.date === selected.date,
-  );
 
   const dialog = new frappe.ui.Dialog({
     title: __("Add Punch"),
@@ -372,14 +379,6 @@ function open_add_punch_dialog(report) {
         label: __("Time"),
         fieldtype: "Time",
         reqd: 1,
-      },
-      {
-        fieldname: "log_type",
-        label: __("Log Type"),
-        fieldtype: "Select",
-        options: "IN\nOUT",
-        reqd: 1,
-        default: punches.length % 2 ? "OUT" : "IN",
       },
     ],
     primary_action_label: __("Add"),

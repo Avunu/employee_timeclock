@@ -9,6 +9,7 @@ from typing import Any, TypedDict, cast
 import frappe
 from frappe import _
 from frappe.query_builder import DocType
+from frappe.query_builder.functions import Count
 from frappe.utils import add_days, cint, flt, get_datetime, get_first_day_of_week, get_time, getdate, today
 
 from timeclock.timeclock.api import LogType, build_workday, check_range
@@ -72,23 +73,10 @@ def get_columns(group_by: str = "Employee") -> list[dict]:
 			"editable": True,
 		},
 		{
-			"fieldname": "log_type",
-			"label": _("Log Type"),
-			"fieldtype": "Data",
-			"width": 90,
-			"editable": True,
-		},
-		{
 			"fieldname": "hours",
-			"label": _("Workday Hours"),
+			"label": _("Hours"),
 			"fieldtype": "Float",
-			"width": 120,
-		},
-		{
-			"fieldname": "punch_hours",
-			"label": _("Punch Hours"),
-			"fieldtype": "Float",
-			"width": 110,
+			"width": 100,
 		},
 		{
 			"fieldname": "device_id",
@@ -281,8 +269,6 @@ def _day_rows(day: Day, group_by: str) -> list[dict]:
 				"status": issues[0] if issues else OK,
 				"issues": ", ".join(_(issue) for issue in issues),
 				"hours": flt(workday.total_hours) if workday else None,
-				# checkins belong to the day, so only the first Workday carries them
-				"punch_hours": punch_hours if idx == 0 else None,
 				"workday": workday_name,
 			}
 		)
@@ -306,8 +292,8 @@ def _day_rows(day: Day, group_by: str) -> list[dict]:
 					"label": f"{'OUT' if i % 2 else 'IN'}{i // 2 + 1}",
 					"time": _format_time(time),
 					"time_value": time.strftime("%H:%M"),
-					"log_type": checkin.log_type or "",
-					"punch_hours": pair_hours[i],
+					# each OUT carries the hours since its IN
+					"hours": pair_hours[i],
 					"device_id": checkin.device_id or "",
 					"override": override,
 					"overridden_time": _format_time(get_datetime(checkin.overridden_time))
@@ -317,6 +303,18 @@ def _day_rows(day: Day, group_by: str) -> list[dict]:
 					"checkin": checkin.name,
 				}
 			)
+
+		# Blank punch row closing the day; a time entered in it adds a punch for this employee and date
+		rows.append(
+			{
+				**common,
+				"row_type": "new_punch",
+				"row_key": f"new_punch:{day['employee']}:{date}",
+				"indent": 2,
+				"label": _("Add Punch"),
+				"workday": workday_name,
+			}
+		)
 
 	return rows
 
@@ -330,7 +328,7 @@ def get_data(filters: WorkdayManagementFilters) -> list[dict]:
 	if group_by == "Day":
 		days.sort(key=lambda d: (-d["date"].toordinal(), d["employee_name"].lower()))
 	else:
-		days.sort(key=lambda d: (d["employee_name"].lower(), d["employee"], d["date"].toordinal()))
+		days.sort(key=lambda d: (d["employee_name"].lower(), d["employee"], -d["date"].toordinal()))
 
 	result: list[dict] = []
 	for _key, group_days in groupby(days, key=lambda d: d["date"] if group_by == "Day" else d["employee"]):
@@ -354,7 +352,6 @@ def get_data(filters: WorkdayManagementFilters) -> list[dict]:
 				"label": first["employee_name"] if group_by == "Employee" else _format_day(first["date"]),
 				"issue_count": sum(1 for r in workday_rows if r["status"] != OK),
 				"hours": sum(flt(r["hours"]) for r in workday_rows),
-				"punch_hours": sum(flt(r["punch_hours"]) for r in workday_rows),
 				"employee": first["employee"] if group_by == "Employee" else "",
 				"date": str(first["date"]) if group_by == "Day" else "",
 			}
@@ -381,8 +378,7 @@ def execute(filters: WorkdayManagementFilters | None = None):
 	# Build total row from group-level rows only (indent 0) to avoid double-counting
 	if data:
 		total_row: dict[str, Any] = {"label": _("Total"), "indent": 0, "row_type": "total"}
-		for key in ("hours", "punch_hours"):
-			total_row[key] = sum(flt(r.get(key)) for r in data if r.get("indent") == 0)
+		total_row["hours"] = sum(flt(r.get("hours")) for r in data if r.get("indent") == 0)
 		data.append(total_row)
 
 	return columns, data
@@ -416,47 +412,59 @@ def sync_workday(employee: str, date: datetime.date | str) -> Workday:
 	day_filter = (
 		(Checkins.employee == employee) & (Checkins.time >= date) & (Checkins.time < add_days(date, 1))
 	)
-	times = (
+
+	punches = (
 		frappe.qb.from_(Checkins)
-		.select(Checkins.time)
+		.select(Checkins.name, Checkins.time, Checkins.log_type)
 		.where(day_filter)
 		.orderby(Checkins.time)
-		.run(pluck=True)
+		.orderby(Checkins.creation)
+		.run(as_dict=True)
 	)
 
-	workday = build_workday([get_datetime(t) for t in times], workday)
+	workday = build_workday([get_datetime(punch.time) for punch in punches], workday)
 	workday.db_update()
 	frappe.qb.update(Checkins).set(Checkins.workday, workday.name).where(day_filter).run()
+
+	# The day alternates IN, OUT, IN, ... by time. The employee clock pages read the last
+	# punches log_type to pick the next one, so keep every stored value on that pattern.
+	for i, punch in enumerate(punches):
+		log_type = "OUT" if i % 2 else "IN"
+		if punch.log_type != log_type:
+			frappe.qb.update(Checkins).set(Checkins.log_type, log_type).where(
+				Checkins.name == punch.name
+			).run()
 	return workday
 
 
-def _validate_log_type(log_type: str) -> LogType:
-	if log_type not in ("IN", "OUT"):
-		frappe.throw(_("Log Type must be IN or OUT"))
-	return cast(LogType, log_type)
+def _next_log_type(employee: str, time: datetime.datetime) -> LogType:
+	"""IN or OUT for a new punch, by the slot it lands in among the employee's punches that day."""
+	earlier = (
+		frappe.qb.from_(Checkins)
+		.select(Count("*"))
+		.where(Checkins.employee == employee)
+		.where(Checkins.time >= time.date())
+		.where(Checkins.time < time)
+		.run()[0][0]
+	)
+	return "OUT" if earlier % 2 else "IN"
 
 
-@frappe.whitelist()
-def update_checkin(checkin: str, fieldname: str, value: str) -> str:
-	"""Update the time (within the same day) or log type of an Employee Checkin, then resync its Workday."""
+def update_checkin(checkin: str, time: str) -> str:
+	""" Move an Employee Checkin to a new time within its day, then resync its Workday."""
 	frappe.has_permission("Workday", "write", throw=True)
-	if fieldname not in ("time", "log_type"):
-		frappe.throw(_("Field {0} is not editable").format(fieldname))
 
 	doc = cast(EmployeeCheckin, frappe.get_doc("Employee Checkin", checkin))
 	original_time = get_datetime(doc.time)
 
-	if fieldname == "time":
-		new_time = datetime.datetime.combine(original_time.date(), get_time(value))
-		if new_time == original_time:
-			return _("No changes made")
-		# keep the original punch for audit, same as edits made through the Workday form
-		if not doc.workday_override:
-			doc.workday_override = 1
-			doc.overridden_time = original_time
-		doc.time = new_time
-	else:
-		doc.log_type = _validate_log_type(value)
+	new_time = datetime.datetime.combine(original_time.date(), get_time(time))
+	if new_time == original_time:
+		return _("No changes made")
+	# keep the original punch fo audit, same as edits made through the Workday form
+	if not doc.workday_override:
+		doc.workday_override = 1
+		doc.overridden_time = original_time
+	doc.time = new_time
 
 	doc.save()
 	sync_workday(doc.employee, original_time.date())
@@ -464,14 +472,14 @@ def update_checkin(checkin: str, fieldname: str, value: str) -> str:
 
 
 @frappe.whitelist()
-def add_checkin(employee: str, date: str, time: str, log_type: str) -> str:
-	"""Create an Employee Checkin for an employee on a date, then resync that day's Workday."""
+def add_checkin(employee: str, date: str, time: str) -> str:
+	"""Create an Employee Checkin for an employee on a date, then resync that day's workday."""
 	frappe.has_permission("Workday", "write", throw=True)
 
 	doc = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
 	doc.employee = employee
 	doc.time = datetime.datetime.combine(getdate(date), get_time(time))
-	doc.log_type = _validate_log_type(log_type)
+	doc.log_type = _next_log_type(employee, doc.time)
 	doc.device_id = DEVICE_ID
 	doc.insert()
 
