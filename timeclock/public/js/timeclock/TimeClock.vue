@@ -133,7 +133,7 @@ export default defineComponent({
 		},
 
 		async log_employee_in(token: string): Promise<void> {
-			const current_time: string = dateToFrappeDateTimeString(new Date(), 5);
+			const current_time: string = dateToFrappeDateTimeString(new Date());
 
 			const response = await frappeCall<EmployeeCheckinResponse>("timeclock.www.timeclock.log_in_employee", {
 				token: token,
@@ -154,7 +154,7 @@ export default defineComponent({
 		},
 
 		async log_employee_out(token: string): Promise<void> {
-			const current_time: string = dateToFrappeDateTimeString(new Date(), 5);
+			const current_time: string = dateToFrappeDateTimeString(new Date());
 
 			const response = await frappeCall<EmployeeCheckinResponse>("timeclock.www.timeclock.log_out_employee", {
 				token: token,

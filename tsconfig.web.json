@@ -18,6 +18,7 @@
 		"timeclock/public/js/FrappeCall.ts",
 		"timeclock/public/js/timeclock/**",
 		"timeclock/public/js/job_timeclock/**",
+		"timeclock/public/js/types/**",
 		"timeclock/www/job_timeclock_legacy/**",
 		"components.d.ts",
 		"timeclock/public/js/job_timeclock/components.d.ts",

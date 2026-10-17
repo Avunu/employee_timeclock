@@ -4,25 +4,34 @@
 		"useDefineForClassFields": true,
 		"module": "ESNext",
 		"moduleResolution": "bundler",
-		"strict": false,
-		"strictNullChecks": false,
+		"strict": true,
 		"jsx": "preserve",
 		"isolatedModules": true,
 		"esModuleInterop": true,
 		"lib": ["ESNext", "DOM", "DOM.Iterable"],
+		"types": ["node", "vite/client", "unplugin-icons/types/vue"],
 		"skipLibCheck": true,
 		"noEmit": true,
-		"allowJs": true,
-		"noImplicitAny": false,
+		"allowImportingTsExtensions": true,
 		"paths": {
 			"@tiptap/pm/*": ["./node_modules/@tiptap/pm/*/index.ts"],
 			"@tiptap/*": ["./node_modules/@tiptap/*/src/index.ts"],
 			"@/*": ["./timeclock/public/js/*"],
 			"@job_timeclock/*": ["./timeclock/public/js/job_timeclock/*"],
 			"@timeclock/*": ["./timeclock/public/js/timeclock/*"],
-			"frappe-ui/src/*": ["./node_modules/frappe-ui/src/*"]
+			"frappe-ui": ["./timeclock/public/js/types/frappe-ui.d.ts"]
 		}
 	},
-	"include": ["*.ts", "*.d.ts"],
-	"exclude": ["node_modules", "dist", "timeclock/public/dist"]
+	"include": [
+		"vite.config.ts",
+		"tailwind.config.ts",
+		"postcss.config.ts",
+		"timeclock/public/js/FrappeCall.ts",
+		"timeclock/public/js/types/*.d.ts",
+		"timeclock/public/js/timeclock/**/*.ts",
+		"timeclock/public/js/timeclock/**/*.vue",
+		"timeclock/public/js/job_timeclock/**/*.ts",
+		"timeclock/public/js/job_timeclock/**/*.vue"
+	],
+	"exclude": ["node_modules", "timeclock/public/dist"]
 }
