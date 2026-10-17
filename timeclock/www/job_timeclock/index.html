@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="UTF-8" />
 		<link rel="icon" href="/favicon.png" />
-		<link rel="stylesheet" href="/assets/timeclock/dist/js/job_timeclock/index.css" />
+		<link rel="stylesheet" href="{{ bundled_asset('job_timeclock.bundle.css') }}" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Project Tracker</title>
 	</head>
@@ -24,6 +24,6 @@
 			window.developer_mode = true;
 		</script>
 		{% endif %}
-		<script type="module" src="/assets/timeclock/dist/js/job_timeclock/index.js"></script>
+		<script type="module" src="{{ bundled_asset('job_timeclock.bundle.js') }}"></script>
 	</body>
 </html>

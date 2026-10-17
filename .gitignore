@@ -49,3 +49,6 @@ env
 __pycache__/
 /result-*
 # <<< frappe-nix <<<
+
+# unplugin-vue-components writes it on every Vite build
+/components.d.ts
