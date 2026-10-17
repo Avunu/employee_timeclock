@@ -251,7 +251,7 @@ def submit_checkin(
 
 	Raises:
 		frappe.PermissionError: The user is not a Timeclock Kiosk user.
-		frappe.AuthenticationError: The badge is not recognised.
+		timeclock.kiosk.KioskAuthenticationError: The badge is not recognised.
 		frappe.RateLimitExceededError: Too many scans from this client.
 	"""
 	require_kiosk_role()

@@ -15,7 +15,13 @@ from frappe.rate_limiter import rate_limit
 from frappe.utils.data import get_datetime
 
 from timeclock.auth import get_token_secret
-from timeclock.kiosk import KIOSK_SCAN_LIMIT, KIOSK_SCAN_WINDOW, require_kiosk_role, resolve_badge
+from timeclock.kiosk import (
+	KIOSK_SCAN_LIMIT,
+	KIOSK_SCAN_WINDOW,
+	KioskAuthenticationError,
+	require_kiosk_role,
+	resolve_badge,
+)
 from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin, insert_punch
 from timeclock.timeclock.custom.job_card import TimeclockJobCard
 from timeclock.timeclock.custom.job_card_time_log import (
@@ -281,7 +287,7 @@ def extract_employee_from_token(token: str) -> tuple[str, str]:
 			- refreshed_token: New JWT token with extended expiration
 
 	Raises:
-		frappe.AuthenticationError: If token is expired or invalid
+		KioskAuthenticationError: If token is expired or invalid
 	"""
 	try:
 		# Decode the JWT using the same secret key
@@ -300,13 +306,13 @@ def extract_employee_from_token(token: str) -> tuple[str, str]:
 		# The token has expired
 		frappe.throw(
 			_("Token has expired. Please re-authenticate."),
-			exc=frappe.AuthenticationError,
+			exc=KioskAuthenticationError,
 		)
 		raise  # This line will never be reached but satisfies type checker
 
 	except jwt.InvalidTokenError:
 		# The token is invalid for some other reason
-		frappe.throw(_("Invalid token. Please re-authenticate."), exc=frappe.AuthenticationError)
+		frappe.throw(_("Invalid token. Please re-authenticate."), exc=KioskAuthenticationError)
 		raise  # This line will never be reached but satisfies type checker
 
 
@@ -337,7 +343,7 @@ def _resolve_employee(token: str | None = None) -> tuple[str, str | None]:
 
 	Raises:
 		frappe.PermissionError: A token was sent from a session without the Timeclock Kiosk role.
-		frappe.AuthenticationError: When neither mechanism can resolve an employee.
+		KioskAuthenticationError: When neither mechanism can resolve an employee.
 	"""
 	# 1. Try Frappe session
 	employee_id = get_employee_for_user()
@@ -349,7 +355,7 @@ def _resolve_employee(token: str | None = None) -> tuple[str, str | None]:
 		require_kiosk_role()
 		return extract_employee_from_token(token)
 
-	frappe.throw(_("Authentication required."), exc=frappe.AuthenticationError)
+	frappe.throw(_("Authentication required."), exc=KioskAuthenticationError)
 	raise  # unreachable but satisfies type checker
 
 

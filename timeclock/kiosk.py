@@ -44,6 +44,15 @@ DEVICE_ID = "Employee Clock-in/out Device"
 """The device recorded on the punches the Employee Clock-in/out web form makes."""
 
 
+class KioskAuthenticationError(frappe.AuthenticationError):
+	"""A badge or badge JWT a kiosk sent was not accepted (HTTP 401).
+
+	A subclass on purpose: frappe signs the client out (it deletes the ``sid`` cookie) when a request
+	ends in exactly ``frappe.AuthenticationError``. A kiosk stays signed in as its kiosk user, so a
+	misread badge or an expired badge JWT must not end that session.
+	"""
+
+
 class IssuedBadge(TypedDict):
 	"""What ``issue_badge`` returns: the token, shown to HR once, and when it was issued."""
 
@@ -101,12 +110,12 @@ def verify_badge(scan: str | None) -> str:
 	"""Return the active Employee a scanned badge belongs to.
 
 	Raises:
-		frappe.AuthenticationError: The badge is not recognised, with the same message whatever
-			the reason.
+		KioskAuthenticationError: The badge is not recognised, with the same message whatever the
+			reason.
 	"""
 	employee = resolve_badge(scan)
 	if not employee:
-		frappe.throw(_("Badge not recognised."), exc=frappe.AuthenticationError, title=_("Timeclock"))
+		frappe.throw(_("Badge not recognised."), exc=KioskAuthenticationError, title=_("Timeclock"))
 	return str(employee)
 
 

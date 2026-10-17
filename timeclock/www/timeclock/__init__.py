@@ -13,6 +13,7 @@ from timeclock.auth import get_token_secret
 from timeclock.kiosk import (
 	KIOSK_SCAN_LIMIT,
 	KIOSK_SCAN_WINDOW,
+	KioskAuthenticationError,
 	require_kiosk_role,
 	resolve_badge,
 )
@@ -113,7 +114,7 @@ def extract_employee_from_token(token: str) -> tuple[str, str]:
 
 	Raises:
 		frappe.PermissionError: The user is not a Timeclock Kiosk user.
-		frappe.AuthenticationError: If token is expired or invalid
+		KioskAuthenticationError: If token is expired or invalid
 	"""
 	require_kiosk_role()
 	try:
@@ -133,13 +134,13 @@ def extract_employee_from_token(token: str) -> tuple[str, str]:
 		# The token has expired
 		frappe.throw(
 			_("Token has expired. Please re-authenticate."),
-			exc=frappe.AuthenticationError,
+			exc=KioskAuthenticationError,
 		)
 		raise  # This line will never be reached but satisfies type checker
 
 	except jwt.InvalidTokenError:
 		# The token is invalid for some other reason
-		frappe.throw(_("Invalid token. Please re-authenticate."), exc=frappe.AuthenticationError)
+		frappe.throw(_("Invalid token. Please re-authenticate."), exc=KioskAuthenticationError)
 		raise  # This line will never be reached but satisfies type checker
 
 
