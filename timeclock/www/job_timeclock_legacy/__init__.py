@@ -29,8 +29,7 @@ def refresh_token(employee_id):
 	return token
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: legacy kiosk page, deleted in a follow-up refactor
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 @rate_limit(limit=1, seconds=1)
 def authenticate_employee(rfid: str):
 	# mac_address = getmac.get_mac_address()
@@ -100,8 +99,7 @@ def extract_employee_from_token(token):
 	#     "token": token}
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: legacy kiosk page, deleted in a follow-up refactor
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def log_in_employee(token: str, time: str):
 
 	employee_id, token = extract_employee_from_token(token)
@@ -129,8 +127,7 @@ def log_in_employee(token: str, time: str):
 
 
 # Issue with logout. The log is made but _unsaved = True. so its not passing to workday management
-# nosemgrep: guest-whitelisted-method -- reviewed: legacy kiosk page, deleted in a follow-up refactor
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def log_out_employee(token: str, time: str):
 	employee_id, token = extract_employee_from_token(token)
 
@@ -151,8 +148,7 @@ def log_out_employee(token: str, time: str):
 		return {"status": "unsuccessful", "log": new_log}
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: legacy kiosk page, deleted in a follow-up refactor
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 @rate_limit(limit=1, seconds=1)
 def get_work_orders(token: str):
 	try:
@@ -245,8 +241,7 @@ def check_jobcard_active(employee_job_cards):
 	return active_cards
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: legacy kiosk page, deleted in a follow-up refactor
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 @rate_limit(limit=4, seconds=1)
 def get_job_cards(token: str, work_order: str):
 	# authenticate the employee
@@ -278,8 +273,7 @@ def get_job_cards(token: str, work_order: str):
 		}
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: legacy kiosk page, deleted in a follow-up refactor
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def sort_jobcard_by_workstation(jobCards: list[dict[str, Any]], workstation: str):
 	operation_workstation = [
 		{"workstation": "Planer", "operation": ["Planing Machine Time", "Pulling & Planing"]},
@@ -328,8 +322,7 @@ def sort_jobcard_by_workstation(jobCards: list[dict[str, Any]], workstation: str
 	return {"status": "success", "sorted_job_cards": new_jobCards}
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: legacy kiosk page, deleted in a follow-up refactor
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def log_end_time_of_jobcard(employee_id: str, end_time: str, jobcard_name: str):
 
 	job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
@@ -375,8 +368,7 @@ def log_end_time_of_jobcard(employee_id: str, end_time: str, jobcard_name: str):
 
 
 # Function to check out employee of a job card, when they start a new one.
-# nosemgrep: guest-whitelisted-method -- reviewed: legacy kiosk page, deleted in a follow-up refactor
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def check_all_job_cards(employee_id: str, time: str):
 	# work_orders = frappe.db.get_list('Work Order', filters=[{
 	#     'status':'Not Started'}, {'status':'In Process'}], pluck='name')
@@ -430,8 +422,7 @@ def check_all_job_cards(employee_id: str, time: str):
 	return card_logged_out
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: legacy kiosk page, deleted in a follow-up refactor
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def log_start_time_of_jobcard(employee_id: str, start_time: str, jobcard_name: str):
 
 	job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
@@ -489,8 +480,7 @@ def log_start_time_of_jobcard(employee_id: str, start_time: str, jobcard_name: s
 		return {"status": "failed", "job_card": job_card, "serverError": True}
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: legacy kiosk page, deleted in a follow-up refactor
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def check_for_erp_log_in():
 	if frappe.session.user != "Guest":
 		return {"user_id": frappe.session.user}
@@ -498,8 +488,7 @@ def check_for_erp_log_in():
 		return {"user_id": frappe.session.user}
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: legacy kiosk page, deleted in a follow-up refactor
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def submit_jobcard(jobCard: dict[str, Any], complete_time: str, employee_id: str):
 	completed_qty = 1
 	status = "Submitted"

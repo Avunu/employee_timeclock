@@ -34,7 +34,7 @@ invalid_values = ["", 0, "00:00", "undefined", None, "None", "null", "NULL"]
 check_range = range(1, 13)
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the guest employee-timelog web form shows the week's hours
+# nosemgrep: guest-whitelisted-method -- accepted risk, not reviewed: the guest employee-timelog web form shows the week's hours for a bare Employee ID with no token; tracked in the PR #15 follow-ups
 @frappe.whitelist(allow_guest=True)
 def get_weekly_hours(employee: str) -> list[str | float]:
 	employee_doc = cast(Employee, frappe.get_doc("Employee", employee))
@@ -62,7 +62,7 @@ def get_weekly_hours(employee: str) -> list[str | float]:
 	return employee_hours
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the guest employee-timelog web form picks IN or OUT
+# nosemgrep: guest-whitelisted-method -- accepted risk, not reviewed: the guest employee-timelog web form picks IN or OUT for a bare Employee ID with no token; tracked in the PR #15 follow-ups
 @frappe.whitelist(allow_guest=True)
 def determine_next_log_type(employee: str, data: Any = None) -> Literal["IN", "OUT"]:
 	# data is unused
@@ -228,7 +228,7 @@ def update_workday_from_checkin(checkin: EmployeeCheckin, method: str | None = N
 # frappe.set_value(doctype, name, fieldname, value)
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the guest employee-timelog web form records the punch
+# nosemgrep: guest-whitelisted-method -- accepted risk, not reviewed: the guest employee-timelog web form records the punch for a bare Employee ID with no token; tracked in the PR #15 follow-ups
 @frappe.whitelist(allow_guest=True)
 def submit_checkin(web_form: Any, data: str) -> LogType:
 	"""Save the web form"""
@@ -389,8 +389,7 @@ def update_checkins_from_workday(workday: Workday, method: str | None = None) ->
 					checkin_to_delete.delete(ignore_permissions=True)
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: an older entry point of the guest web form; no caller left in this app
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def submit_checkin2(data: str) -> None:
 	"""Save the web form"""
 	parsed_data = cast(CheckinData, frappe._dict(json.loads(data)))
