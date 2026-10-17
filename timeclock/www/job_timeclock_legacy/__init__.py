@@ -12,8 +12,7 @@ from frappe.query_builder import DocType
 from frappe.rate_limiter import rate_limit
 from frappe.utils.data import format_datetime, get_datetime, now_datetime
 
-# import secret key from site_config.json
-SECRET_KEY = frappe.get_site_config().get("encryption_key")
+from timeclock.auth import get_token_secret
 
 
 def refresh_token(employee_id):
@@ -22,7 +21,7 @@ def refresh_token(employee_id):
 	expires = (datetime.datetime.now() + datetime.timedelta(minutes=30)).timestamp()
 	token = jwt.encode(
 		payload={"employee_id": employee_id, "employee_name": employee_name, "exp": expires},
-		key=SECRET_KEY,
+		key=get_token_secret(),
 		algorithm="HS256",
 	)
 
@@ -73,7 +72,7 @@ def authenticate_employee(rfid):
 def extract_employee_from_token(token):
 	try:
 		# Decode the JWT using the same secret key
-		payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+		payload = jwt.decode(token, get_token_secret(), algorithms=["HS256"])
 		employee_id = payload.get("employee_id")
 
 		# refresh the token
