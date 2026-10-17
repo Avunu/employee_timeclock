@@ -4,11 +4,14 @@
 import frappe
 from frappe.sessions import get_csrf_token
 
+from timeclock.kiosk import require_login_page
+
 no_cache = True
 
 
 def get_context(context):
-	# check for valid requesting IPs
+	# a signed-in employee, or a Timeclock Kiosk user that employees badge into
+	require_login_page()
 	csrf_token = get_csrf_token()
 	context.csrf_token = csrf_token
 	context.sitename = frappe.local.site

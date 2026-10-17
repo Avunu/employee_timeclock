@@ -4,8 +4,12 @@
 from frappe.utils import nowdate
 from frappe.utils.jinja_globals import include_script, include_style
 
+from timeclock.kiosk import require_kiosk_page
+
 
 def get_context(context):
+	# the form is a kiosk: it runs signed in as a Timeclock Kiosk user, and employees scan a badge
+	require_kiosk_page()
 	# Replace the "Today" default with the actual current date in YYYY-MM-DD (internal) format.
 	# The Date control's validate() only accepts YYYY-MM-DD; display conversion happens later.
 	today = nowdate()  # always returns YYYY-MM-DD

@@ -3,27 +3,33 @@
 
 import calendar
 import datetime
-import json
 import re
 from typing import Any, Literal, TypedDict, cast
 
 import frappe
+from frappe import _
 from frappe.query_builder.functions import Sum
-from frappe.utils import get_first_day_of_week, now, now_datetime, today
+from frappe.rate_limiter import rate_limit
+from frappe.utils import cint, get_first_day_of_week, now, now_datetime, today
 
+from timeclock.kiosk import (
+	DEVICE_ID,
+	KIOSK_SCAN_LIMIT,
+	KIOSK_SCAN_WINDOW,
+	require_kiosk_role,
+	verify_badge,
+)
 from timeclock.timeclock.custom.employee import Employee
 from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
 from timeclock.timeclock.doctype.workday.workday import Workday
 
 
-class CheckinData(TypedDict):
-	"""Type definition for checkin data from web forms."""
+class KioskPunch(TypedDict):
+	"""What ``submit_checkin`` returns to the Employee Clock-in/out web form."""
 
-	employee: str
-	time: str
 	log_type: Literal["IN", "OUT"]
-	manual_override: int
-	device_id: str
+	employee_name: str
+	weekly_hours: float
 
 
 LogType = Literal["", "IN", "OUT"]
@@ -34,9 +40,8 @@ invalid_values = ["", 0, "00:00", "undefined", None, "None", "null", "NULL"]
 check_range = range(1, 13)
 
 
-# nosemgrep: guest-whitelisted-method -- accepted risk, not reviewed: the guest employee-timelog web form shows the week's hours for a bare Employee ID with no token; tracked in the PR #15 follow-ups
-@frappe.whitelist(allow_guest=True)
 def get_weekly_hours(employee: str) -> list[str | float]:
+	"""Return ``[employee_name, hours]``: the employee's display name and this week's total hours."""
 	employee_doc = cast(Employee, frappe.get_doc("Employee", employee))
 	employee_name = employee_doc.get_title()
 	# get the start and end dates of the week
@@ -62,12 +67,8 @@ def get_weekly_hours(employee: str) -> list[str | float]:
 	return employee_hours
 
 
-# nosemgrep: guest-whitelisted-method -- accepted risk, not reviewed: the guest employee-timelog web form picks IN or OUT for a bare Employee ID with no token; tracked in the PR #15 follow-ups
-@frappe.whitelist(allow_guest=True)
-def determine_next_log_type(employee: str, data: Any = None) -> Literal["IN", "OUT"]:
-	# data is unused
-	_ = data  # Explicitly mark as intentionally unused
-
+def determine_next_log_type(employee: str) -> Literal["IN", "OUT"]:
+	"""Return the employee's next punch: IN when today's last punch is OUT or there is none."""
 	# Get the checkins and checkouts of the employee for the current day
 	response: list[dict[str, Any]] = frappe.get_all(
 		"Employee Checkin",
@@ -126,7 +127,6 @@ def build_workday(checkin_times: list[datetime.datetime], workday: Workday) -> W
 	return workday
 
 
-# @frappe.whitelist(allow_guest=True)
 def update_workday_from_checkin(checkin: EmployeeCheckin, method: str | None = None) -> EmployeeCheckin:
 	_ = method  # Explicitly mark as intentionally unused
 	# if the workday was modified in the last minute, then break
@@ -228,39 +228,62 @@ def update_workday_from_checkin(checkin: EmployeeCheckin, method: str | None = N
 # frappe.set_value(doctype, name, fieldname, value)
 
 
-# nosemgrep: guest-whitelisted-method -- accepted risk, not reviewed: the guest employee-timelog web form records the punch for a bare Employee ID with no token; tracked in the PR #15 follow-ups
-@frappe.whitelist(allow_guest=True)
-def submit_checkin(web_form: Any, data: str) -> LogType:
-	"""Save the web form"""
-	_ = web_form  # Explicitly mark as intentionally unused
-	parsed_data = cast(CheckinData, frappe._dict(json.loads(data)))
-	entry_time = datetime.datetime.strptime(parsed_data["time"], "%Y-%m-%d %H:%M:%S")
-	checkin_time = entry_time.strftime("%Y-%m-%d %H:%M") + ":00"
-	# make sure that checkin doesn't exist with the same time
-	checkin_exists: list[dict[str, str]] = frappe.get_all(
-		"Employee Checkin",
-		filters={"employee": parsed_data["employee"], "time": entry_time.strftime("%Y-%m-%d %H:%M") + ":00"},
-		fields=["name"],
-		order_by="time desc",
-	)
-	if checkin_exists:
-		checkin = cast(EmployeeCheckin, frappe.get_doc("Employee Checkin", checkin_exists[0]["name"]))
-		# update the checkin
-		checkin.time = checkin_time
-		checkin.save(ignore_permissions=True)
-	else:
-		# create the checkin
-		checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
-		checkin.employee = parsed_data["employee"]
-		checkin.time = checkin_time
-		checkin.log_type = parsed_data["log_type"]
-		checkin.manual_override = parsed_data["manual_override"]
-		checkin.device_id = parsed_data["device_id"]
-		checkin.insert(ignore_permissions=True)
-		# update the workday
-		update_workday_from_checkin(checkin)
+@frappe.whitelist(methods=["POST"])
+@rate_limit(limit=KIOSK_SCAN_LIMIT, seconds=KIOSK_SCAN_WINDOW)
+def submit_checkin(
+	badge: str, time: str, log_type: str | None = None, manual_override: int | bool = 0
+) -> KioskPunch:
+	"""Record a punch from the Employee Clock-in/out web form for the employee whose badge was scanned.
 
-	return checkin.log_type
+	Only a Timeclock Kiosk user may call it, and the employee is the one the badge belongs to, never
+	an ID the client names. The punch is IN or OUT by today's last punch, unless the employee entered
+	the time by hand, when the form's IN/OUT choice is used. A second scan in the same minute keeps
+	the punch already recorded.
+
+	Args:
+		badge: The scanned badge: an issued badge token or a registered RFID tag.
+		time: The punch time, ``YYYY-MM-DD HH:MM:SS``; seconds are dropped.
+		log_type: ``IN`` or ``OUT``; used only with ``manual_override``.
+		manual_override: Whether the employee entered the time by hand.
+
+	Returns:
+		The punch's log type, the employee's name and their hours this week, for the form's toast.
+
+	Raises:
+		frappe.PermissionError: The user is not a Timeclock Kiosk user.
+		timeclock.kiosk.KioskAuthenticationError: The badge is not recognised.
+		frappe.RateLimitExceededError: Too many scans from this client.
+	"""
+	require_kiosk_role()
+	employee = verify_badge(badge)
+	checkin_time = datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M") + ":00"
+	if cint(manual_override):
+		if log_type not in ("IN", "OUT"):
+			frappe.throw(_("Choose Clock In or Clock Out."))
+		next_log_type = cast(Literal["IN", "OUT"], log_type)
+	else:
+		next_log_type = determine_next_log_type(employee)
+
+	# a second scan inside the same minute keeps the punch already recorded
+	existing = cast(
+		str | None,
+		frappe.db.get_value("Employee Checkin", {"employee": employee, "time": checkin_time}, "name"),
+	)
+	if existing:
+		recorded = cast(Literal["IN", "OUT"], frappe.db.get_value("Employee Checkin", existing, "log_type"))
+	else:
+		checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
+		checkin.employee = employee
+		checkin.time = checkin_time
+		checkin.log_type = next_log_type
+		checkin.manual_override = cint(manual_override)
+		checkin.device_id = DEVICE_ID
+		checkin.insert(ignore_permissions=True)
+		update_workday_from_checkin(checkin)
+		recorded = next_log_type
+
+	employee_name, weekly_hours = get_weekly_hours(employee)
+	return KioskPunch(log_type=recorded, employee_name=str(employee_name), weekly_hours=float(weekly_hours))
 
 
 def enqueue_update_workday_from_checkin(checkin: EmployeeCheckin, method: str | None = None) -> None:
@@ -387,38 +410,3 @@ def update_checkins_from_workday(workday: Workday, method: str | None = None) ->
 				if len(existing_checkins) >= i and check_in_out_time is None:
 					checkin_to_delete = frappe.get_doc("Employee Checkin", existing_checkins[i - 1]["name"])
 					checkin_to_delete.delete(ignore_permissions=True)
-
-
-@frappe.whitelist()
-def submit_checkin2(data: str) -> None:
-	"""Save the web form"""
-	parsed_data = cast(CheckinData, frappe._dict(json.loads(data)))
-	entry_time = datetime.datetime.strptime(parsed_data["time"], "%Y-%m-%d %H:%M:%S")
-	checkin_time = entry_time.strftime("%Y-%m-%d %H:%M") + ":00"
-	# make sure that checkin doesn't exist with the same time
-	checkin_exists: list[dict[str, str]] = frappe.get_all(
-		"Employee Checkin",
-		filters={
-			"employee": parsed_data["employee"],
-			"time": checkin_time,
-		},
-		fields=["name"],
-		order_by="time desc",
-	)
-	if checkin_exists:
-		# DO WE NEED THIS? THE EMPLOYEE AND TIME ARE ALREADY IN...
-		checkin = cast(EmployeeCheckin, frappe.get_doc("Employee Checkin", checkin_exists[0]["name"]))
-		# update the checkin
-		checkin.time = checkin_time
-		checkin.save(ignore_permissions=True)
-	else:
-		# create the checkin
-		checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
-		checkin.employee = parsed_data["employee"]
-		checkin.time = checkin_time
-		checkin.log_type = parsed_data["log_type"]
-		checkin.manual_override = parsed_data["manual_override"]
-		checkin.device_id = parsed_data["device_id"]
-		checkin.insert(ignore_permissions=True)
-		# update the workday
-		update_workday_from_checkin(checkin)

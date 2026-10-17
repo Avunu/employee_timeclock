@@ -19,6 +19,7 @@ doc_events = {
 		"on_update": "timeclock.timeclock.api.update_checkins_from_workday",
 	},
 	"Employee Checkin": {
+		"before_insert": "timeclock.kiosk.refuse_web_form_checkin",
 		"on_update": "timeclock.timeclock.api.update_workday_from_checkin",
 		"on_trash": "timeclock.timeclock.api.clear_workday_punch_on_checkin_trash",
 	},
@@ -26,10 +27,11 @@ doc_events = {
 
 extend_doctype_class = {"Job Card": "timeclock.timeclock.custom.job_card.TimeclockJobCard"}
 
-doctype_js = {"Job Card": "public/js/job_card.js"}
+doctype_js = {"Employee": "public/js/employee.js", "Job Card": "public/js/job_card.js"}
 
 doctype_list_js = {"Job Card": "public/js/job_card_list.js"}
 
 fixtures = [
 	{"dt": "List View Settings", "filters": {"name": ("in", ("Job Card"))}},
+	{"dt": "Role", "filters": [["name", "=", "Timeclock Kiosk"]]},
 ]
