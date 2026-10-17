@@ -33,6 +33,7 @@ from frappe.utils import add_to_date, now_datetime, random_string
 from frappe.utils.password import get_encryption_key
 from frappe.utils.redis_wrapper import RedisWrapper
 
+from timeclock.tests.utils import KIOSK_USER, make_kiosk_user
 from timeclock.timeclock.custom.job_card import TimeclockJobCard
 from timeclock.timeclock.test_api import _ensure_company
 
@@ -299,6 +300,7 @@ class JobTimeclockTestCase(IntegrationTestCase):
 		# something asks for it
 		get_encryption_key()
 		frappe.set_user("Administrator")
+		make_kiosk_user()
 		cls._create_test_fixtures()
 
 	@classmethod
@@ -427,8 +429,8 @@ class TestProjectTracker(JobTimeclockTestCase):
 		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
 		token: str = auth_result["token"]
 
-		# Log in the employee (use Guest so token auth is used)
-		frappe.set_user("Guest")
+		# Log in the employee (as the kiosk user, so token auth is used)
+		frappe.set_user(KIOSK_USER)
 		log_in_employee(str(now_datetime()), token=token)
 		frappe.set_user("Administrator")
 
@@ -453,8 +455,8 @@ class TestProjectTracker(JobTimeclockTestCase):
 		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
 		token: str = auth_result["token"]
 
-		# Log in (use Guest so token auth is used)
-		frappe.set_user("Guest")
+		# Log in (as the kiosk user, so token auth is used)
+		frappe.set_user(KIOSK_USER)
 		current_time = now_datetime()
 		result: dict[str, Any] = log_in_employee(str(current_time), token=token)
 		frappe.set_user("Administrator")
@@ -474,7 +476,7 @@ class TestProjectTracker(JobTimeclockTestCase):
 		outs = {"employee": self._test_employee.name, "log_type": "OUT"}
 		before = frappe.db.count("Employee Checkin", outs)
 
-		frappe.set_user("Guest")
+		frappe.set_user(KIOSK_USER)
 		first: dict[str, Any] = log_out_employee(punch, token=token)
 		second: dict[str, Any] = log_out_employee(punch, token=token)
 		frappe.set_user("Administrator")
@@ -501,14 +503,14 @@ class TestProjectTracker(JobTimeclockTestCase):
 		# Get a valid token and log in first
 		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
 		token: str = auth_result["token"]
-		frappe.set_user("Guest")
+		frappe.set_user(KIOSK_USER)
 		log_in_employee(str(now_datetime()), token=token)
 
 		# Get fresh token and log out
 		frappe.set_user("Administrator")
 		auth_result = authenticate_employee(self._test_device_id.id)
 		token = auth_result["token"]
-		frappe.set_user("Guest")
+		frappe.set_user(KIOSK_USER)
 		current_time = now_datetime()
 		result: dict[str, Any] = log_out_employee(str(current_time), token=token)
 		frappe.set_user("Administrator")
@@ -608,7 +610,7 @@ class TestProjectTracker(JobTimeclockTestCase):
 		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
 		token: str = auth_result["token"]
 
-		frappe.set_user("Guest")
+		frappe.set_user(KIOSK_USER)
 		result: dict[str, Any] = start_timer(
 			work_order=str(self._test_work_order.name),
 			operation=str(self._test_operation.name),
@@ -650,8 +652,8 @@ class TestProjectTracker(JobTimeclockTestCase):
 		auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
 		token: str = auth_result["token"]
 
-		# Start the timer (use Guest so token auth is used)
-		frappe.set_user("Guest")
+		# Start the timer (as the kiosk user, so token auth is used)
+		frappe.set_user(KIOSK_USER)
 		start_timer(
 			work_order=str(self._test_work_order.name),
 			operation=str(self._test_operation.name),
@@ -665,7 +667,7 @@ class TestProjectTracker(JobTimeclockTestCase):
 		# Re-authenticate for fresh token
 		auth_result = authenticate_employee(self._test_device_id.id)
 		token = auth_result["token"]
-		frappe.set_user("Guest")
+		frappe.set_user(KIOSK_USER)
 		result: dict[str, Any] = stop_timer(end_time=str(end_time), token=token)
 		frappe.set_user("Administrator")
 
@@ -716,9 +718,9 @@ class TestProjectTracker(JobTimeclockTestCase):
 			auth_result: dict[str, Any] = authenticate_employee(self._test_device_id.id)
 			token: str = auth_result["token"]
 
-			# Start time on first job card (use Guest so token auth is used)
+			# Start time on first job card (as the kiosk user, so token auth is used)
 			start_time1 = now_datetime()
-			frappe.set_user("Guest")
+			frappe.set_user(KIOSK_USER)
 			start_timer(
 				work_order=str(self._test_work_order.name),
 				operation=str(self._test_operation.name),
@@ -731,7 +733,7 @@ class TestProjectTracker(JobTimeclockTestCase):
 			start_time2 = add_to_date(start_time1, minutes=15)
 			auth_result = authenticate_employee(self._test_device_id.id)
 			token = auth_result["token"]
-			frappe.set_user("Guest")
+			frappe.set_user(KIOSK_USER)
 			start_timer(
 				work_order=str(self._test_work_order.name),
 				operation=str(self._test_operation.name),
@@ -1110,7 +1112,7 @@ class TestProjectTracker(JobTimeclockTestCase):
 			token: str = auth_result["token"]
 
 			start_time = now_datetime()
-			frappe.set_user("Guest")
+			frappe.set_user(KIOSK_USER)
 			result: dict[str, Any] = start_timer(
 				work_order=str(self._test_work_order.name),
 				operation=machine_op.name,
@@ -1300,7 +1302,7 @@ class TestProjectTracker(JobTimeclockTestCase):
 		try:
 			# Operator starts the machine timer
 			operator_token: str = authenticate_employee(self._test_device_id.id)["token"]
-			frappe.set_user("Guest")
+			frappe.set_user(KIOSK_USER)
 			start_result: dict[str, Any] = start_timer(
 				work_order=str(self._test_work_order.name),
 				operation=machine_op.name,
@@ -1312,7 +1314,7 @@ class TestProjectTracker(JobTimeclockTestCase):
 
 			# Operator (CNC group member) sees the timer
 			operator_token = authenticate_employee(self._test_device_id.id)["token"]
-			frappe.set_user("Guest")
+			frappe.set_user(KIOSK_USER)
 			operator_view: dict[str, Any] = get_machine_timers(token=operator_token)
 			frappe.set_user("Administrator")
 			self.assertEqual(operator_view["status"], "success")
@@ -1322,7 +1324,7 @@ class TestProjectTracker(JobTimeclockTestCase):
 
 			# General worker (different group) does NOT see the CNC timer
 			general_token: str = authenticate_employee(general_device.get("id"))["token"]
-			frappe.set_user("Guest")
+			frappe.set_user(KIOSK_USER)
 			general_view: dict[str, Any] = get_machine_timers(token=general_token)
 			frappe.set_user("Administrator")
 			self.assertEqual(general_view["status"], "success")
@@ -1332,7 +1334,7 @@ class TestProjectTracker(JobTimeclockTestCase):
 
 			# The operator stops the machine timer; it no longer shows
 			operator_token = authenticate_employee(self._test_device_id.id)["token"]
-			frappe.set_user("Guest")
+			frappe.set_user(KIOSK_USER)
 			stop_result: dict[str, Any] = stop_machine_timer(
 				work_order=str(self._test_work_order.name),
 				operation=machine_op.name,
@@ -1520,7 +1522,7 @@ class TestProjectTracker(JobTimeclockTestCase):
 	def test_get_active_timer_requires_authentication(self) -> None:
 		from timeclock.www.job_timeclock.job_timeclock import get_active_timer
 
-		frappe.set_user("Guest")
+		frappe.set_user(KIOSK_USER)
 		result: dict[str, Any] = get_active_timer(token="not-a-token")
 
 		self.assertEqual(result["status"], "error")
@@ -1556,7 +1558,7 @@ class TestProjectTracker(JobTimeclockTestCase):
 		work_order = str(self._test_work_order.name)
 		operation = str(self._test_operation.name)
 
-		frappe.set_user("Guest")
+		frappe.set_user(KIOSK_USER)
 		unauthenticated = stop_machine_timer(work_order, operation, now_datetime(), token="not-a-token")
 		self.assertEqual(unauthenticated["status"], "failed")
 

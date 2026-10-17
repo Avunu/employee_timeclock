@@ -15,6 +15,7 @@ from frappe.rate_limiter import rate_limit
 from frappe.utils.data import get_datetime
 
 from timeclock.auth import get_token_secret
+from timeclock.kiosk import KIOSK_SCAN_LIMIT, KIOSK_SCAN_WINDOW, require_kiosk_role, resolve_badge
 from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin, insert_punch
 from timeclock.timeclock.custom.job_card import TimeclockJobCard
 from timeclock.timeclock.custom.job_card_time_log import (
@@ -213,35 +214,33 @@ def refresh_token(employee_id: str) -> str:
 	return token
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk badge scan; rate limited, returns a signed token
-@frappe.whitelist(allow_guest=True)
-@rate_limit(limit=1, seconds=1)
+@frappe.whitelist(methods=["POST"])
+@rate_limit(limit=KIOSK_SCAN_LIMIT, seconds=KIOSK_SCAN_WINDOW)
 def authenticate_employee(rfid: str) -> AuthenticateEmployeeResponse:
 	"""
-	Authenticate an employee using their RFID badge.
+	Authenticate an employee by their badge, at a Timeclock Kiosk.
 
-	Validates the RFID against the database and generates a JWT token for the employee.
+	Resolves the badge (an issued badge token or a registered RFID tag) and generates a JWT for the employee.
 	Also retrieves the last check-in status to determine if the employee is clocked in or out.
 
 	Args:
-		rfid: The RFID identifier from the employee's badge
+		rfid: The scanned badge: an issued badge token or an RFID tag
 
 	Returns:
 		Dict containing:
 			- status: "success" or "error"
-			- message: Error message if authentication failed
+			- message: Error message if authentication failed, the same whatever the reason
 			- last_checkin: The last check-in type ("IN" or "OUT") if successful
 			- token: JWT authentication token if successful
 
 	Raises:
-		None: Returns error dict instead of raising exceptions
+		frappe.PermissionError: The user is not a Timeclock Kiosk user.
 	"""
-	# mac_address = getmac.get_mac_address()
-	# Validate the RFID against the database
-	employee_id = frappe.get_value("Attendance Device ID", {"id": rfid}, "parent")
+	require_kiosk_role()
+	employee_id = resolve_badge(rfid)
 
 	if not employee_id:
-		return AuthenticateEmployeeResponse(status="error", message="Invalid RFID").model_dump()
+		return AuthenticateEmployeeResponse(status="error", message=_("Badge not recognised.")).model_dump()
 
 	# If valid, generate a JWT
 	token = refresh_token(str(employee_id))
@@ -326,7 +325,8 @@ def _resolve_employee(token: str | None = None) -> tuple[str, str | None]:
 	"""Resolve the current employee from Frappe session or JWT token.
 
 	Tries the Frappe session first (logged-in user with linked Employee).
-	Falls back to JWT token authentication if no session employee is found.
+	Falls back to JWT token authentication if no session employee is found; a badge token is only
+	honoured from a Timeclock Kiosk user's session, so a leaked one is useless anywhere else.
 
 	Args:
 		token: Optional JWT token for NFC/RFID authentication.
@@ -336,6 +336,7 @@ def _resolve_employee(token: str | None = None) -> tuple[str, str | None]:
 		``None`` when authenticated via Frappe session.
 
 	Raises:
+		frappe.PermissionError: A token was sent from a session without the Timeclock Kiosk role.
 		frappe.AuthenticationError: When neither mechanism can resolve an employee.
 	"""
 	# 1. Try Frappe session
@@ -343,16 +344,16 @@ def _resolve_employee(token: str | None = None) -> tuple[str, str | None]:
 	if employee_id:
 		return employee_id, None
 
-	# 2. Fall back to JWT token
+	# 2. Fall back to the badge's JWT, at a kiosk
 	if token:
+		require_kiosk_role()
 		return extract_employee_from_token(token)
 
 	frappe.throw(_("Authentication required."), exc=frappe.AuthenticationError)
 	raise  # unreachable but satisfies type checker
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def log_in_employee(time: str, token: str | None = None) -> EmployeeCheckinResponse:
 	"""
 	Log an employee's clock-in (IN) time.
@@ -391,8 +392,7 @@ def log_in_employee(time: str, token: str | None = None) -> EmployeeCheckinRespo
 	return EmployeeCheckinResponse(status="unsuccessful", log=new_log).model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def log_out_employee(time: str, token: str | None = None) -> EmployeeCheckinResponse:
 	"""
 	Log an employee's clock-out (OUT) time.
@@ -428,8 +428,7 @@ def log_out_employee(time: str, token: str | None = None) -> EmployeeCheckinResp
 	return EmployeeCheckinResponse(status="unsuccessful", log=new_log).model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 @rate_limit(limit=2, seconds=1)
 def get_work_orders(token: str | None = None) -> GetWorkOrdersResponse:
 	"""
@@ -512,8 +511,7 @@ def get_work_orders(token: str | None = None) -> GetWorkOrdersResponse:
 	).model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 @rate_limit(limit=4, seconds=1)
 def get_operations(
 	work_order: str, workstations: str = "[]", token: str | None = None
@@ -742,8 +740,7 @@ def _close_open_timers_on_employee(employee_id: str, close_time: datetime) -> in
 	return closed
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_active_timer(token: str | None = None) -> GetActiveTimerResponse:
 	"""
 	Get the currently running labor timer for the authenticated employee.
@@ -797,8 +794,7 @@ def get_active_timer(token: str | None = None) -> GetActiveTimerResponse:
 	return GetActiveTimerResponse(status="success", token=token, active_timer=active_timer).model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def start_timer(
 	work_order: str,
 	operation: str,
@@ -940,8 +936,7 @@ def start_timer(
 		return StartTimerResponse(status="failed", error=str(e)).model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def stop_timer(
 	end_time: datetime | str,
 	token: str | None = None,
@@ -986,8 +981,7 @@ def stop_timer(
 		return StopTimerResponse(status="failed", error=str(e)).model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk asks before any badge scan; returns only the session user's employee
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_user_session_employee() -> UserSessionEmployee:
 	"""
 	Check if a user is logged into the ERP system.
@@ -1031,8 +1025,7 @@ def get_user_session_employee() -> UserSessionEmployee:
 	return UserSessionEmployee(user_id=user_id).model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk lists workstations before any badge scan; rate limited
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 @rate_limit(limit=4, seconds=1)
 def get_workstations() -> GetWorkstationsResponse:
 	"""
@@ -1051,8 +1044,7 @@ def get_workstations() -> GetWorkstationsResponse:
 	return GetWorkstationsResponse(status="success", workstations=workstations).model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk identifies its own device before any badge scan
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_device_info() -> GetDeviceInfoResponse:
 	"""Return the requesting client's IP address and MAC address.
 
@@ -1074,8 +1066,7 @@ def get_device_info() -> GetDeviceInfoResponse:
 	return GetDeviceInfoResponse(status="success", ip=ip, mac=mac).model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 @rate_limit(limit=4, seconds=1)
 def get_machine_timers(token: str | None = None) -> GetMachineTimersResponse:
 	"""Return all active machine timers visible to the authenticated employee.
@@ -1142,8 +1133,7 @@ def get_machine_timers(token: str | None = None) -> GetMachineTimersResponse:
 	).model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 @rate_limit(limit=4, seconds=1)
 def stop_machine_timer(
 	work_order: str,
@@ -1240,8 +1230,7 @@ def stop_machine_timer(
 	return StopMachineTimerResponse(status="success").model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def submit_jobcard(
 	jobCard: dict[str, Any], complete_time: str, token: str | None = None
 ) -> SubmitJobCardResponse:

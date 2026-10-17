@@ -28,18 +28,20 @@ function update_form_value(form_entry, field_name, value) {
 	frappe.web_form.set_value(field_name, value);
 }
 
+/**
+ * The punch timeclock.timeclock.api.submit_checkin records and reports back.
+ * @typedef {{ log_type: "IN" | "OUT", employee_name: string, weekly_hours: number }} KioskPunch
+ */
+
 /** @param {FormEntry} form_entry */
 function save_form(form_entry) {
-	// save the form
-	Object.assign(frappe.web_form.doc, form_entry);
-	frappe.web_form.doc.doctype = frappe.web_form.doc_type;
-	frappe.web_form.doc.web_form_name = frappe.web_form.name;
-	// make sure employee is set
-	if (!("employee" in form_entry)) {
+	// the scanned badge; the server works out whose it is
+	const badge = String(form_entry.employee || "").trim();
+	if (!badge) {
 		return;
 	}
 	// make sure time isn't in the future
-	else if (Date.parse(String(form_entry.time)) > Date.parse(frappe.datetime.now_datetime())) {
+	if (Date.parse(String(form_entry.time)) > Date.parse(frappe.datetime.now_datetime())) {
 		const time_travel_gif = "https://media4.giphy.com/media/3ov9jU4ycPvfrPTsly/giphy.gif";
 		const alert_message =
 			'<b>Time Traveler!</b><br>It looks like you are trying to clock in the future. Please check your time and try again.<br><img src="' +
@@ -55,62 +57,44 @@ function save_form(form_entry) {
 		reset_form(form_entry);
 		return;
 	}
-	// tests passed, save the form
-	else {
-		window.saving = true;
-		frappe.form_dirty = false;
-		frappe.call({
-			type: "POST",
-			method: "timeclock.timeclock.api.submit_checkin",
-			args: {
-				web_form: frappe.web_form.name,
-				data: frappe.web_form.doc,
-			},
-			callback: function (response) {
-				const employee = form_entry.employee;
-				const log_type = /** @type {"IN" | "OUT"} */ (response.message);
-				reset_form(form_entry);
-				frappe.call({
-					method: "timeclock.timeclock.api.get_weekly_hours",
-					args: {
-						employee: employee,
-					},
-					callback: function (hours_response) {
-						const [employee_name, weekly_hours] = /** @type {[string, number]} */ (hours_response.message);
-						const heading_color = log_type == "IN" ? "#4ade80" : "#f87171";
-						const alert_message =
-							"<div style='font-size: 2.5rem; font-weight: 700; line-height: 1.2; color: " +
-							heading_color +
-							";'>Clocked " +
-							log_type.toLowerCase() +
-							"!</div><div style='font-size: 2.5rem; font-weight: 600; line-height: 1.2; color: #ffffff;'>" +
-							employee_name +
-							", you have logged " +
-							weekly_hours +
-							" hours this week.</div>";
-						// set the alert color based on the log type
-						let alert_color;
-						if (log_type == "IN") {
-							alert_color = "green";
-						} else {
-							alert_color = "red";
-						}
-						frappe.show_alert(
-							{
-								message: __(alert_message),
-								indicator: alert_color,
-							},
-							7,
-						);
-					},
-					error: (_r) => {
-						reset_form(form_entry);
-					},
-				});
-			},
-		});
-		return;
-	}
+	window.saving = true;
+	frappe.form_dirty = false;
+	frappe.call({
+		type: "POST",
+		method: "timeclock.timeclock.api.submit_checkin",
+		args: {
+			badge: badge,
+			time: form_entry.time,
+			log_type: form_entry.log_type,
+			manual_override: form_entry.manual_override ? 1 : 0,
+		},
+		callback: function (response) {
+			reset_form(form_entry);
+			const punch = /** @type {KioskPunch} */ (response.message);
+			const heading_color = punch.log_type == "IN" ? "#4ade80" : "#f87171";
+			const alert_message =
+				"<div style='font-size: 2.5rem; font-weight: 700; line-height: 1.2; color: " +
+				heading_color +
+				";'>Clocked " +
+				punch.log_type.toLowerCase() +
+				"!</div><div style='font-size: 2.5rem; font-weight: 600; line-height: 1.2; color: #ffffff;'>" +
+				frappe.utils.escape_html(punch.employee_name) +
+				", you have logged " +
+				punch.weekly_hours +
+				" hours this week.</div>";
+			frappe.show_alert(
+				{
+					message: alert_message,
+					indicator: punch.log_type == "IN" ? "green" : "red",
+				},
+				7,
+			);
+		},
+		error: () => {
+			// an unknown badge, a missing kiosk role or the scan rate limit: frappe shows the message
+			reset_form(form_entry);
+		},
+	});
 }
 
 frappe.init_client_script = () => {
@@ -178,10 +162,7 @@ frappe.init_client_script = () => {
 			if (!form_entry) {
 				return;
 			}
-			let employee;
-			if ("employee" in form_entry) {
-				employee = form_entry.employee;
-			} else {
+			if (!form_entry.employee) {
 				return;
 			}
 			// set the time first
@@ -202,23 +183,8 @@ frappe.init_client_script = () => {
 			}
 			update_form_value(form_entry, "time", time);
 
-			if (form_entry.manual_override) {
-				save_form(form_entry);
-			} else {
-				// get the next log time from the API
-				frappe.call({
-					method: "timeclock.timeclock.api.determine_next_log_type",
-					args: {
-						employee: employee,
-						data: form_entry,
-					},
-					callback: function (response) {
-						const log_type = /** @type {"IN" | "OUT"} */ (response.message);
-						update_form_value(form_entry, "log_type", log_type);
-						save_form(form_entry);
-					},
-				});
-			}
+			// IN or OUT is the server's call, unless the time was entered by hand
+			save_form(form_entry);
 		});
 	} catch (e) {
 		console.error("Error in web form client script");

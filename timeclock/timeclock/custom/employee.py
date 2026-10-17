@@ -14,3 +14,5 @@ class Employee(BaseEmployee):
 	)
 
 	attendance_device_ids: DF.Table[AttendanceDeviceID]
+	timeclock_badge_hash: DF.Data | None
+	timeclock_badge_issued_on: DF.Datetime | None

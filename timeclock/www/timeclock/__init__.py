@@ -10,6 +10,12 @@ from frappe import _
 from frappe.rate_limiter import rate_limit
 
 from timeclock.auth import get_token_secret
+from timeclock.kiosk import (
+	KIOSK_SCAN_LIMIT,
+	KIOSK_SCAN_WINDOW,
+	require_kiosk_role,
+	resolve_badge,
+)
 from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin, insert_punch
 
 
@@ -42,32 +48,33 @@ def refresh_token(employee_id: str) -> str:
 	return token
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk badge scan; rate limited, returns a signed token
-@frappe.whitelist(allow_guest=True)
-@rate_limit(limit=1, seconds=1)
+@frappe.whitelist(methods=["POST"])
+@rate_limit(limit=KIOSK_SCAN_LIMIT, seconds=KIOSK_SCAN_WINDOW)
 def authenticate_employee(rfid: str) -> dict[str, Any]:
 	"""
-	Authenticate an employee using their RFID badge.
+	Authenticate an employee by their badge, at a Timeclock Kiosk.
 
-	Validates the RFID against the database and generates a JWT token for the employee.
-	Also retrieves the last check-in status to determine if the employee is clocked in or out.
+	Resolves the badge (an issued badge token or a registered RFID tag) and generates a JWT for the
+	employee. Also retrieves the last check-in status to determine if the employee is clocked in or out.
 
 	Args:
-		rfid: The RFID identifier from the employee's badge
+		rfid: The scanned badge: an issued badge token or an RFID tag
 
 	Returns:
 		Dict containing:
 			- status: "success" or "error"
-			- message: Error message if authentication failed
+			- message: Error message if authentication failed, the same whatever the reason
 			- last_checkin: The last check-in type ("IN" or "OUT") if successful
 			- token: JWT authentication token if successful
+
+	Raises:
+		frappe.PermissionError: The user is not a Timeclock Kiosk user.
 	"""
-	# mac_address = getmac.get_mac_address()
-	# Validate the RFID against the database
-	employee_id = frappe.get_value("Attendance Device ID", {"id": rfid}, "parent")
+	require_kiosk_role()
+	employee_id = resolve_badge(rfid)
 
 	if not employee_id:
-		return {"status": "error", "message": ("Invalid RFID")}
+		return {"status": "error", "message": _("Badge not recognised.")}
 
 	# If valid, generate a JWT
 	token: str = refresh_token(str(employee_id))
@@ -105,8 +112,10 @@ def extract_employee_from_token(token: str) -> tuple[str, str]:
 			- refreshed_token: New JWT token with extended expiration
 
 	Raises:
+		frappe.PermissionError: The user is not a Timeclock Kiosk user.
 		frappe.AuthenticationError: If token is expired or invalid
 	"""
+	require_kiosk_role()
 	try:
 		# Decode the JWT using the same secret key
 		payload: dict[str, Any] = jwt.decode(token, get_token_secret(), algorithms=["HS256"])
@@ -134,8 +143,7 @@ def extract_employee_from_token(token: str) -> tuple[str, str]:
 		raise  # This line will never be reached but satisfies type checker
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist(methods=["POST"])
 def log_in_employee(token: str, time: str) -> dict[str, Any]:
 	"""
 	Log an employee's clock-in (IN) time.
@@ -166,8 +174,7 @@ def log_in_employee(token: str, time: str) -> dict[str, Any]:
 	return {"status": "unsuccessful", "log": new_log}
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist(methods=["POST"])
 def log_out_employee(token: str, time: str) -> dict[str, Any]:
 	"""
 	Log an employee's clock-out (OUT) time.

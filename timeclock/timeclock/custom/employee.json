@@ -8,6 +8,31 @@
             "label": "Attendance Device IDs",
             "module": "Timeclock",
             "options": "Attendance Device ID"
+        },
+        {
+            "dt": "Employee",
+            "fieldname": "timeclock_badge_issued_on",
+            "fieldtype": "Datetime",
+            "insert_after": "attendance_device_ids",
+            "label": "Timeclock Badge Issued On",
+            "module": "Timeclock",
+            "no_copy": 1,
+            "read_only": 1,
+            "description": "When HR last issued this employee's timeclock badge. Use Timeclock > Issue Badge to issue or replace it."
+        },
+        {
+            "dt": "Employee",
+            "fieldname": "timeclock_badge_hash",
+            "fieldtype": "Data",
+            "insert_after": "timeclock_badge_issued_on",
+            "label": "Timeclock Badge Hash",
+            "module": "Timeclock",
+            "no_copy": 1,
+            "read_only": 1,
+            "hidden": 1,
+            "unique": 1,
+            "length": 64,
+            "description": "SHA-256 of the badge token; the token itself is never stored."
         }
     ],
     "doctype": "Employee",
