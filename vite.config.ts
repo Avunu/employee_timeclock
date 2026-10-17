@@ -9,7 +9,14 @@ import Components from "unplugin-vue-components/vite";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { existsSync } from "fs";
+import { createRequire } from "module";
 import type { Plugin, ResolvedConfig } from "vite";
+
+// frappe-ui's components declare props with imported types, which Vue's SFC compiler resolves
+// through TypeScript's JS API. The app's `typescript` is the native TS 7 build, which has none, so
+// point the compiler at the TS 6 copy (the `typescript6` alias), the same instance plugin-vue loads.
+const require = createRequire(import.meta.url);
+require("vue/compiler-sfc").registerTS(() => require("typescript6"));
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
