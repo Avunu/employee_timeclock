@@ -31,18 +31,15 @@ class TestWorkdayManagement(IntegrationTestCase):
 	def setUpClass(cls) -> None:
 		super().setUpClass()
 		cls.employee, cls.employee_name = _make_employee()
-		frappe.db.commit()
 
 	@classmethod
 	def tearDownClass(cls) -> None:
 		frappe.delete_doc("Employee", cls.employee, force=True, ignore_permissions=True)
-		frappe.db.commit()
 		super().tearDownClass()
 
 	def tearDown(self) -> None:
 		frappe.db.delete("Employee Checkin", {"employee": self.employee})
 		frappe.db.delete("Workday", {"employee": self.employee})
-		frappe.db.commit()
 
 	def _punch(self, time: str, log_type: str) -> str:
 		"""An Employee Checkin inserted without its hooks, as a device sync would leave it."""

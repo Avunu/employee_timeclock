@@ -13,13 +13,14 @@ typing-only ``EmployeeCheckin`` shell. Frappe type-checks whitelisted functions 
 request (and inside tests), so once the shell stopped being the registered controller
 every Employee Checkin save raised ``FrappeTypeError`` and the web form hung.
 
-The API commits, so nothing here relies on the test transaction being rolled back:
-every record is created by an ``_ensure_*``/``_make_*`` helper and deleted in teardown.
+Nothing commits: every record is created by an ``_ensure_*``/``_make_*`` helper inside the
+class's transaction, deleted in teardown, and rolled back when the class finishes.
 """
 
 import datetime
 import json
 from typing import Any, cast
+from unittest.mock import patch
 
 import frappe
 from frappe.tests import IntegrationTestCase
@@ -92,20 +93,17 @@ class TestTimeclockApi(IntegrationTestCase):
 		# none until something asks for it
 		get_encryption_key()
 		cls.employee, cls.employee_name = _make_employee()
-		frappe.db.commit()
 
 	@classmethod
 	def _delete_punches(cls) -> None:
 		"""Remove this employee's checkins and workdays without firing their hooks."""
 		frappe.db.delete("Employee Checkin", {"employee": cls.employee})
 		frappe.db.delete("Workday", {"employee": cls.employee})
-		frappe.db.commit()
 
 	@classmethod
 	def tearDownClass(cls) -> None:
 		cls._delete_punches()
 		frappe.delete_doc("Employee", cls.employee, force=True, ignore_permissions=True)
-		frappe.db.commit()
 		super().tearDownClass()
 
 	def setUp(self) -> None:
@@ -375,10 +373,17 @@ class TestTimeclockApi(IntegrationTestCase):
 
 		field = {"fieldname": "manual_override_date", "default": "Today"}
 		context = frappe._dict(web_form_doc={"web_form_fields": [field]})
+		# The bundles resolve through sites/assets/assets.json, which only a build writes; the
+		# test bench has none, so stand in the entries a build registers.
+		assets = {
+			"timeclock.bundle.css": "/assets/timeclock/dist/css/timeclock.bundle.TEST1234.css",
+			"employee_timelog.bundle.js": "/assets/timeclock/dist/js/employee_timelog.bundle.TEST1234.js",
+		}
 
-		employee_timelog.get_context(context)
+		with patch("frappe.utils.get_assets_json", return_value=assets):
+			employee_timelog.get_context(context)
 
 		self.assertEqual(field["default"], today())
 		head_include = cast(str, context.head_include)
-		self.assertIn("timeclock.bundle", head_include)
-		self.assertIn("employee_timelog.bundle", head_include)
+		self.assertIn(assets["timeclock.bundle.css"], head_include)
+		self.assertIn(assets["employee_timelog.bundle.js"], head_include)

@@ -4,7 +4,7 @@
   description = "timeclock: Timeclock";
 
   inputs = {
-    frappe-nix.url = "github:Avunu/frappe-nix/abdfa649ee09eb3d11de2cb5dba2aa673b77851a";
+    frappe-nix.url = "github:Avunu/frappe-nix/de60612a38409a61004f3d311a9e2748d2a3d341";
     nixpkgs.follows = "frappe-nix/nixpkgs";
     frappe = {
       url = "github:frappe/frappe/version-16";
@@ -46,7 +46,6 @@
         systems = [
           "aarch64-darwin"
           "aarch64-linux"
-          "x86_64-darwin"
           "x86_64-linux"
         ];
 
@@ -56,7 +55,7 @@
             formatter = pkgs.nixfmt;
             frappe-nix = {
               enable = true;
-              siteName = "timeclock.localhost";
+              defaultSite = "timeclock.localhost";
               app = {
                 enable = true;
                 frappeVersion = "version-16";

@@ -20,7 +20,7 @@ class TimeclockJobCard(BaseJobCard):
 	is_machine_time: DF.Check
 	# The rows carry the custom machine_operator field (custom/job_card_time_log.json). Table fields are
 	# lists, which are invariant, so narrowing the row type is reported as an incompatible override.
-	time_logs: DF.Table[JobCardTimeLog]  # ty: ignore[invalid-attribute-override]
+	time_logs: DF.Table[JobCardTimeLog]  # ty: ignore[invalid-attribute-override]  # list invariance, see above
 
 	def before_validate(self):
 		if self.is_machine_time:

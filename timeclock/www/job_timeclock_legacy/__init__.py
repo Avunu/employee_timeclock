@@ -4,6 +4,7 @@
 import datetime
 import time
 from operator import attrgetter, itemgetter
+from typing import Any
 
 import frappe
 import getmac
@@ -28,9 +29,9 @@ def refresh_token(employee_id):
 	return token
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 @rate_limit(limit=1, seconds=1)
-def authenticate_employee(rfid):
+def authenticate_employee(rfid: str):
 	# mac_address = getmac.get_mac_address()
 	# Validate the RFID against the database
 	employee_id = frappe.get_value("Attendance Device ID", {"id": rfid}, "parent")
@@ -98,8 +99,8 @@ def extract_employee_from_token(token):
 	#     "token": token}
 
 
-@frappe.whitelist(allow_guest=True)
-def log_in_employee(token, time):
+@frappe.whitelist()
+def log_in_employee(token: str, time: str):
 
 	employee_id, token = extract_employee_from_token(token)
 
@@ -126,8 +127,8 @@ def log_in_employee(token, time):
 
 
 # Issue with logout. The log is made but _unsaved = True. so its not passing to workday management
-@frappe.whitelist(allow_guest=True)
-def log_out_employee(token, time):
+@frappe.whitelist()
+def log_out_employee(token: str, time: str):
 	employee_id, token = extract_employee_from_token(token)
 
 	new_log = frappe.new_doc("Employee Checkin")
@@ -147,9 +148,9 @@ def log_out_employee(token, time):
 		return {"status": "unsuccessful", "log": new_log}
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 @rate_limit(limit=1, seconds=1)
-def get_work_orders(token):
+def get_work_orders(token: str):
 	try:
 		employee_id, token = extract_employee_from_token(token)
 	except Exception as e:
@@ -240,9 +241,9 @@ def check_jobcard_active(employee_job_cards):
 	return active_cards
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 @rate_limit(limit=4, seconds=1)
-def get_job_cards(token, work_order):
+def get_job_cards(token: str, work_order: str):
 	# authenticate the employee
 	try:
 		employee_id, token = extract_employee_from_token(token)
@@ -272,8 +273,8 @@ def get_job_cards(token, work_order):
 		}
 
 
-@frappe.whitelist(allow_guest=True)
-def sort_jobcard_by_workstation(jobCards, workstation):
+@frappe.whitelist()
+def sort_jobcard_by_workstation(jobCards: list[dict[str, Any]], workstation: str):
 	operation_workstation = [
 		{"workstation": "Planer", "operation": ["Planing Machine Time", "Pulling & Planing"]},
 		{"workstation": "CNC", "operation": ["CNC Labor", "CNC Machine Time"]},
@@ -321,8 +322,8 @@ def sort_jobcard_by_workstation(jobCards, workstation):
 	return {"status": "success", "sorted_job_cards": new_jobCards}
 
 
-@frappe.whitelist(allow_guest=True)
-def log_end_time_of_jobcard(employee_id, end_time, jobcard_name):
+@frappe.whitelist()
+def log_end_time_of_jobcard(employee_id: str, end_time: str, jobcard_name: str):
 
 	job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
 
@@ -367,8 +368,8 @@ def log_end_time_of_jobcard(employee_id, end_time, jobcard_name):
 
 
 # Function to check out employee of a job card, when they start a new one.
-@frappe.whitelist(allow_guest=True)
-def check_all_job_cards(employee_id, time):
+@frappe.whitelist()
+def check_all_job_cards(employee_id: str, time: str):
 	# work_orders = frappe.db.get_list('Work Order', filters=[{
 	#     'status':'Not Started'}, {'status':'In Process'}], pluck='name')
 	work_orders = frappe.db.get_list(
@@ -421,8 +422,8 @@ def check_all_job_cards(employee_id, time):
 	return card_logged_out
 
 
-@frappe.whitelist(allow_guest=True)
-def log_start_time_of_jobcard(employee_id, start_time, jobcard_name):
+@frappe.whitelist()
+def log_start_time_of_jobcard(employee_id: str, start_time: str, jobcard_name: str):
 
 	job_card = frappe.get_doc("Job Card", jobcard_name, ignore_permissions=True)
 	new_time_log = frappe.new_doc("Job Card Time Log")
@@ -479,7 +480,7 @@ def log_start_time_of_jobcard(employee_id, start_time, jobcard_name):
 		return {"status": "failed", "job_card": job_card, "serverError": True}
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def check_for_erp_log_in():
 	if frappe.session.user != "Guest":
 		return {"user_id": frappe.session.user}
@@ -487,8 +488,8 @@ def check_for_erp_log_in():
 		return {"user_id": frappe.session.user}
 
 
-@frappe.whitelist(allow_guest=True)
-def submit_jobcard(jobCard, complete_time, employee_id):
+@frappe.whitelist()
+def submit_jobcard(jobCard: dict[str, Any], complete_time: str, employee_id: str):
 	completed_qty = 1
 	status = "Submitted"
 	doc = frappe.get_doc("Job Card", jobCard["name"], ignore_permissions=True)
