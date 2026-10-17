@@ -71,7 +71,7 @@
 		"autoprefixer": "^10.5.0",
 		"frappe-types": "^16.5.0",
 		"json-schema-to-typescript": "^15.0.4",
-		"oxfmt": "^0.72.0",
+		"oxfmt": "^0.73.0",
 		"oxlint": "^1.87.0",
 		"postcss": "^8.5.14",
 		"postcss-load-config": "^6.0.1",
