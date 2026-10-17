@@ -1,122 +1,92 @@
 {
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
-	"plugins": [
-		"vue",
-		"typescript"
-	],
-	"env": {
-		"browser": true,
-		"node": true,
-		"es6": true
+	"plugins": ["typescript", "unicorn", "oxc", "import"],
+	"categories": {
+		"correctness": "error",
+		"suspicious": "error",
+		"perf": "warn",
+		"pedantic": "off"
 	},
-	"globals": {
-		"__": "readonly",
-		"$": "readonly",
-		"$a": "readonly",
-		"$bg": "readonly",
-		"$c_obj": "readonly",
-		"$c": "readonly",
-		"$i": "readonly",
-		"$y": "readonly",
-		"after": "readonly",
-		"AMEND": "readonly",
-		"Awesomplete": "readonly",
-		"before": "readonly",
-		"beforeEach": "readonly",
-		"CANCEL": "readonly",
-		"Chart": "readonly",
-		"cint": "readonly",
-		"Class": "readonly",
-		"comment_when": "readonly",
-		"context": "readonly",
-		"copy_dict": "readonly",
-		"CREATE": "readonly",
-		"cstr": "readonly",
-		"cur_dialog": "readonly",
-		"cur_frm": "readonly",
-		"cur_list": "readonly",
-		"cur_page": "readonly",
-		"cur_tree": "readonly",
-		"cy": "readonly",
-		"Cypress": "readonly",
-		"DataTable": "readonly",
-		"describe": "readonly",
-		"expect": "readonly",
-		"extend_cscript": "readonly",
-		"flt": "readonly",
-		"format_currency": "readonly",
-		"format_number": "readonly",
-		"frappe": "readonly",
-		"Gantt": "readonly",
-		"get_field_obj": "readonly",
-		"get_number_format_info": "readonly",
-		"get_number_format": "readonly",
-		"get_query_params": "readonly",
-		"get_url_arg": "readonly",
-		"getCookie": "readonly",
-		"getCookies": "readonly",
-		"has_common": "readonly",
-		"has_words": "readonly",
-		"hide_field": "readonly",
-		"hljs": "readonly",
-		"in_list": "readonly",
-		"io": "readonly",
-		"is_null": "readonly",
-		"it": "readonly",
-		"jQuery": "readonly",
-		"JsBarcode": "readonly",
-		"L": "readonly",
-		"Layout": "readonly",
-		"localforage": "readonly",
-		"locals": "readonly",
-		"lstrip": "readonly",
-		"md5": "readonly",
-		"moment": "readonly",
-		"msg_dialog": "readonly",
-		"NDEFReader": "readonly",
-		"open_url_post": "readonly",
-		"open_web_template_values_editor": "readonly",
-		"PhotoSwipe": "readonly",
-		"PhotoSwipeUI_Default": "readonly",
-		"posthog": "readonly",
-		"precision": "readonly",
-		"print_table": "readonly",
-		"qz": "readonly",
-		"refresh_field": "readonly",
-		"refresh_many": "readonly",
-		"repl": "readonly",
-		"replace_all": "readonly",
-		"rstrip": "readonly",
-		"set_field_options": "readonly",
-		"SetVueGlobals": "readonly",
-		"Showdown": "readonly",
-		"Slick": "readonly",
-		"Sortable": "readonly",
-		"strip_html": "readonly",
-		"strip_number_groups": "readonly",
-		"strip": "readonly",
-		"Taggle": "readonly",
-		"toggle_field": "readonly",
-		"toTitle": "readonly",
-		"unhide_field": "readonly",
-		"validate_email": "readonly",
-		"validate_name": "readonly",
-		"validate_phone": "readonly",
-		"validate_url": "readonly",
-		"Vue": "readonly",
-		"web_form_settings": "readonly",
-		"Webcam": "readonly"
+	"env": {
+		"builtin": true,
+		"es2024": true,
+		"browser": true
 	},
 	"rules": {
-		"no-console": "off",
-		"no-unused-vars": "off",
-		"no-useless-escape": "off",
-		"no-extra-boolean-cast": "off",
-		"no-control-regex": "off"
+		"typescript/no-explicit-any": "error",
+		"typescript/ban-ts-comment": "error",
+		"typescript/consistent-type-imports": "error",
+		"no-console": [
+			"warn",
+			{
+				"allow": ["error", "warn"]
+			}
+		],
+		"import/no-cycle": "off",
+		"no-underscore-dangle": "off",
+		"unicorn/consistent-function-scoping": "off",
+		"unicorn/no-array-sort": "off"
 	},
 	"ignorePatterns": [
-		"node_modules/",
-		"timeclock/public/dist/",
-		"timeclock/www/job_timeclock/"
+		"timeclock/public/dist/**",
+		".frappe-nix/**",
+		".dev-dist/**",
+		"nix/**",
+		"docs-site/**",
+		"types/doctypes.d.ts",
+		"components.d.ts",
+		"timeclock/public/js/job_timeclock/components.d.ts",
+		"timeclock/public/js/job_timeclock/types.ts",
+		"timeclock/www/job_timeclock_legacy/index.js"
+	],
+	"overrides": [
+		{
+			"files": ["scripts/**", "marketplace/**", "ci/**", "test/**"],
+			"env": {
+				"node": true
+			},
+			"rules": {
+				"no-console": "off",
+				"no-await-in-loop": "off",
+				"import/no-unassigned-import": "off"
+			}
+		},
+		{
+			"files": ["timeclock/public/js/*.bundle.ts", "timeclock/public/js/*.bundle.js"],
+			"rules": {
+				"import/no-unassigned-import": "off"
+			}
+		},
+		{
+			"files": [
+				"timeclock/public/js/job_card.js",
+				"timeclock/public/js/job_card_list.js",
+				"timeclock/timeclock/doctype/workday/workday.js",
+				"timeclock/timeclock/doctype/workday/workday_list.js",
+				"timeclock/timeclock/page/workday_management/workday_management.js",
+				"timeclock/timeclock/report/workday_management/workday_management.js"
+			],
+			"globals": {
+				"frappe": "readonly",
+				"__": "readonly",
+				"cur_frm": "readonly",
+				"cur_list": "readonly",
+				"locals": "readonly",
+				"$": "readonly",
+				"jQuery": "readonly",
+				"moment": "readonly",
+				"erpnext": "readonly",
+				"hrms": "readonly"
+			}
+		},
+		{
+			"files": ["timeclock/timeclock/web_form/employee_timelog/employee_timelog.js"],
+			"globals": {
+				"frappe": "readonly",
+				"__": "readonly",
+				"$": "readonly",
+				"jQuery": "readonly"
+			}
+		}
 	]
 }
