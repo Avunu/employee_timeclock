@@ -5,7 +5,8 @@
 Tests for the Workday DocType: its hooks (``before_save`` totals the punches, ``on_update`` writes
 them back to Employee Checkins) and ``bulk_add_punches``.
 
-The hooks commit, so every record is deleted in teardown rather than rolled back.
+The shared Employee is committed in setUpClass, so teardown deletes the records explicitly instead
+of relying on a rollback.
 """
 
 import datetime

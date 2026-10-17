@@ -5,7 +5,8 @@
 Tests for the Workday Management report: the rows it builds from Workdays and Employee Checkins,
 and the punch edits its grid sends (add, move, delete, rebuild).
 
-The edits commit, so every record is deleted in teardown rather than rolled back.
+The shared Employee is committed in setUpClass, so teardown deletes the records explicitly instead
+of relying on a rollback.
 """
 
 import datetime

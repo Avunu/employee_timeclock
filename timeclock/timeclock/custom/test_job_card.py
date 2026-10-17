@@ -10,9 +10,10 @@ Each test works on a Job Card of its own, built on the job timeclock's manufactu
 
 import datetime
 from typing import cast
+from unittest.mock import patch
 
 import frappe
-from erpnext.manufacturing.doctype.job_card.job_card import JobCard
+from erpnext.manufacturing.doctype.job_card.job_card import JobCard, OperationSequenceError
 from frappe.utils import get_datetime
 
 from timeclock.timeclock.custom.job_card import TimeclockJobCard
@@ -124,7 +125,18 @@ class TestTimeclockJobCard(JobTimeclockTestCase):
 		self.assertTrue(overlap)
 
 	def test_sequence_is_not_enforced_before_any_qty_is_completed(self) -> None:
-		self.card.validate_sequence_id()
+		"""A later operation can log time while an earlier one has nothing completed (v15 rule)."""
+		pending = frappe._dict(
+			name="earlier-op", operation="Earlier", status="Pending", completed_qty=0, finished_good=None
+		)
+		self.card.sequence_id = 2
+		with patch.object(self.card, "get_previous_operations", return_value=[pending]):
+			self.card.validate_sequence_id()
+
+			# once the card reports completed qty, upstream's sequence check applies again
+			self.card.total_completed_qty = 1
+			with self.assertRaises(OperationSequenceError):
+				self.card.validate_sequence_id()
 
 	def test_complete_clamps_the_end_time_to_the_open_log_start(self) -> None:
 		"""The End Time field drops seconds, so an end in the same minute would precede the start."""

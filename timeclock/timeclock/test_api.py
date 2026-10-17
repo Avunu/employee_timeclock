@@ -242,6 +242,53 @@ class TestTimeclockApi(IntegrationTestCase):
 		self.assertEqual(workdays[0]["total_hours"], 4.5)
 		self.assertEqual({c["workday"] for c in self._checkins()}, {workdays[0]["name"]})
 
+	# --- on_trash: clear_workday_punch_on_checkin_trash ---
+
+	def _clock_in_and_out(self) -> tuple[str, str]:
+		"""Punch 8:00 AM in and 12:30 PM out. Returns (workday, the OUT checkin's name)."""
+		api.submit_checkin("employee-timelog", self._form_data(_punch_time(8)))
+		workday = self._workdays()[0]["name"]
+		self._age_workday(workday)
+		api.submit_checkin("employee-timelog", self._form_data(_punch_time(12, 30), "OUT"))
+		out = frappe.get_all(
+			"Employee Checkin", filters={"employee": self.employee, "log_type": "OUT"}, pluck="name"
+		)
+		self.assertEqual(len(out), 1)
+		return workday, out[0]
+
+	def test_trashing_a_checkin_clears_its_workday_punch(self) -> None:
+		"""Deleting a checkin from the desk empties its Workday slot and re-totals the day."""
+		workday, out = self._clock_in_and_out()
+		self._age_workday(workday)
+
+		frappe.delete_doc("Employee Checkin", out, ignore_permissions=True)
+
+		row = frappe.db.get_value(
+			"Workday",
+			workday,
+			["check_in_1", "check_in_1_dt", "check_out_1", "check_out_1_dt", "total_hours"],
+			as_dict=True,
+		)
+		self.assertEqual(row.check_in_1, "8:00 AM")
+		self.assertEqual(row.check_in_1_dt, _punch_time(8))
+		self.assertIsNone(row.check_out_1)
+		self.assertIsNone(row.check_out_1_dt)
+		self.assertEqual(row.total_hours, 0)
+
+	def test_trashing_a_checkin_inside_the_resync_window_leaves_the_workday(self) -> None:
+		"""Inside 60 s of a Workday edit the hook does nothing: the edit itself deletes the checkins."""
+		workday, out = self._clock_in_and_out()
+		# a desk save of the Workday stamps last_modified (before_save) and then deletes its checkins
+		frappe.db.set_value("Workday", workday, "last_modified", now_datetime(), update_modified=False)
+		before = frappe.db.get_value("Workday", workday, ["check_out_1", "total_hours"], as_dict=True)
+
+		frappe.delete_doc("Employee Checkin", out, ignore_permissions=True)
+
+		after = frappe.db.get_value("Workday", workday, ["check_out_1", "total_hours"], as_dict=True)
+		self.assertEqual(after, before)
+		self.assertEqual(after.check_out_1, "12:30 PM")
+		self.assertEqual(after.total_hours, 4.5)
+
 	def test_submit_checkin_same_minute_does_not_duplicate(self) -> None:
 		"""A second scan inside the same minute reuses the existing checkin."""
 		api.submit_checkin("employee-timelog", self._form_data(_punch_time(8, 0, 5)))
