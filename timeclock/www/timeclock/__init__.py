@@ -42,6 +42,7 @@ def refresh_token(employee_id: str) -> str:
 	return token
 
 
+# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk badge scan; rate limited, returns a signed token
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=1, seconds=1)
 def authenticate_employee(rfid: str) -> dict[str, Any]:
@@ -133,6 +134,7 @@ def extract_employee_from_token(token: str) -> tuple[str, str]:
 		raise  # This line will never be reached but satisfies type checker
 
 
+# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk acts only with the signed badge token
 @frappe.whitelist(allow_guest=True)
 def log_in_employee(token: str, time: str) -> dict[str, Any]:
 	"""
@@ -164,6 +166,7 @@ def log_in_employee(token: str, time: str) -> dict[str, Any]:
 	return {"status": "unsuccessful", "log": new_log}
 
 
+# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk acts only with the signed badge token
 @frappe.whitelist(allow_guest=True)
 def log_out_employee(token: str, time: str) -> dict[str, Any]:
 	"""

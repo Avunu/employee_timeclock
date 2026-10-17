@@ -33,18 +33,15 @@ class TestWorkday(IntegrationTestCase):
 	def setUpClass(cls) -> None:
 		super().setUpClass()
 		cls.employee, cls.employee_name = _make_employee()
-		frappe.db.commit()
 
 	@classmethod
 	def tearDownClass(cls) -> None:
 		frappe.delete_doc("Employee", cls.employee, force=True, ignore_permissions=True)
-		frappe.db.commit()
 		super().tearDownClass()
 
 	def tearDown(self) -> None:
 		frappe.db.delete("Employee Checkin", {"employee": self.employee})
 		frappe.db.delete("Workday", {"employee": self.employee})
-		frappe.db.commit()
 
 	def _workdays(self) -> list[Workday]:
 		names = frappe.get_all("Workday", filters={"employee": self.employee}, pluck="name")

@@ -30,10 +30,7 @@
             "link_doctype": "Operation",
             "link_fieldname": "employee_group",
             "name": "employee_group_links_operation",
-            "parent": "Employee Group",
-            "parentfield": "links",
-            "parenttype": "Customize Form",
-            "table_fieldname": null
+            "parent": "Employee Group"
         }
     ],
     "property_setters": [],

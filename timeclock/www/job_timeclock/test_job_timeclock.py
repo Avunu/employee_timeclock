@@ -300,8 +300,6 @@ class JobTimeclockTestCase(IntegrationTestCase):
 		get_encryption_key()
 		frappe.set_user("Administrator")
 		cls._create_test_fixtures()
-		# Commit fixtures so they survive test rollbacks
-		frappe.db.commit()
 
 	@classmethod
 	def tearDownClass(cls) -> None:
@@ -334,7 +332,6 @@ class JobTimeclockTestCase(IntegrationTestCase):
 				)
 			if cls._test_employee and frappe.db.exists("Employee", cls._test_employee.name):
 				frappe.delete_doc("Employee", cls._test_employee.name, ignore_permissions=True, force=True)
-			frappe.db.commit()
 		except Exception:
 			frappe.db.rollback()
 		super().tearDownClass()
@@ -349,15 +346,14 @@ class JobTimeclockTestCase(IntegrationTestCase):
 			if job_card and frappe.db.exists("Job Card", job_card.name):
 				# Delete time logs directly from database to avoid validation issues
 				frappe.db.delete("Job Card Time Log", {"parent": job_card.name})
-				frappe.db.commit()
 				job_card.reload()
 
 	def tearDown(self) -> None:
 		"""
 		Clean up test data after each test.
 
-		Removes Employee Checkin records, resets job card time logs,
-		and commits changes to persist cleanup.
+		Removes Employee Checkin records and resets job card time logs, so each test
+		starts from the class fixtures (the class's transaction is rolled back at the end).
 		"""
 		frappe.set_user("Administrator")
 
@@ -375,21 +371,15 @@ class JobTimeclockTestCase(IntegrationTestCase):
 
 		# Reset test job card time logs and status
 		for job_card in self._test_job_cards:
-			try:
-				# Delete time logs directly from database
-				frappe.db.delete("Job Card Time Log", {"parent": job_card.name})
-				# Reset job card status
-				frappe.db.set_value("Job Card", job_card.name, "status", "Open")
-				# Clear document cache for this job card
-				frappe.clear_document_cache("Job Card", job_card.name)
-			except Exception:
-				pass
+			# Delete time logs directly from database
+			frappe.db.delete("Job Card Time Log", {"parent": job_card.name})
+			# Reset job card status
+			frappe.db.set_value("Job Card", job_card.name, "status", "Open")
+			# Clear document cache for this job card
+			frappe.clear_document_cache("Job Card", job_card.name)
 
 		# Clear value cache
 		frappe.db.value_cache.clear()
-
-		# Commit cleanup changes so they persist
-		frappe.db.commit()
 
 
 class TestProjectTracker(JobTimeclockTestCase):

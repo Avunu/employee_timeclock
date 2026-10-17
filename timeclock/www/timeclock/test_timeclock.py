@@ -48,7 +48,6 @@ class TestTimeclockKiosk(IntegrationTestCase):
 				"parentfield": "attendance_device_ids",
 			}
 		).insert(ignore_permissions=True)
-		frappe.db.commit()
 
 	@classmethod
 	def tearDownClass(cls) -> None:
@@ -57,7 +56,6 @@ class TestTimeclockKiosk(IntegrationTestCase):
 		frappe.db.delete("Employee Checkin", {"employee": cls.employee})
 		frappe.db.delete("Workday", {"employee": cls.employee})
 		frappe.delete_doc("Employee", cls.employee, force=True, ignore_permissions=True)
-		frappe.db.commit()
 		super().tearDownClass()
 
 	def setUp(self) -> None:
@@ -68,7 +66,6 @@ class TestTimeclockKiosk(IntegrationTestCase):
 		frappe.set_user("Administrator")
 		frappe.db.delete("Employee Checkin", {"employee": self.employee})
 		frappe.db.delete("Workday", {"employee": self.employee})
-		frappe.db.commit()
 
 	def _checkins(self) -> list[dict[str, Any]]:
 		return frappe.get_all(

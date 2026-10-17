@@ -13,8 +13,8 @@ typing-only ``EmployeeCheckin`` shell. Frappe type-checks whitelisted functions 
 request (and inside tests), so once the shell stopped being the registered controller
 every Employee Checkin save raised ``FrappeTypeError`` and the web form hung.
 
-The API commits, so nothing here relies on the test transaction being rolled back:
-every record is created by an ``_ensure_*``/``_make_*`` helper and deleted in teardown.
+Nothing commits: every record is created by an ``_ensure_*``/``_make_*`` helper inside the
+class's transaction, deleted in teardown, and rolled back when the class finishes.
 """
 
 import datetime
@@ -92,20 +92,17 @@ class TestTimeclockApi(IntegrationTestCase):
 		# none until something asks for it
 		get_encryption_key()
 		cls.employee, cls.employee_name = _make_employee()
-		frappe.db.commit()
 
 	@classmethod
 	def _delete_punches(cls) -> None:
 		"""Remove this employee's checkins and workdays without firing their hooks."""
 		frappe.db.delete("Employee Checkin", {"employee": cls.employee})
 		frappe.db.delete("Workday", {"employee": cls.employee})
-		frappe.db.commit()
 
 	@classmethod
 	def tearDownClass(cls) -> None:
 		cls._delete_punches()
 		frappe.delete_doc("Employee", cls.employee, force=True, ignore_permissions=True)
-		frappe.db.commit()
 		super().tearDownClass()
 
 	def setUp(self) -> None:
