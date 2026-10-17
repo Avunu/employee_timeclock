@@ -5,7 +5,7 @@
 Tests for the Employee Clock-in/out web form API (``timeclock.timeclock.api``).
 
 Covers the chain the ``/employee-timeclock`` web form runs on a badge scan
-(``determine_next_log_type`` -> ``submit_checkin`` -> ``get_weekly_hours``) and the
+(``submit_checkin``, which runs ``determine_next_log_type`` and ``get_weekly_hours``) and the
 Employee Checkin ``on_update`` hook that keeps the Workday in sync.
 
 Regression: ``update_workday_from_checkin`` was whitelisted while annotated with the
@@ -18,7 +18,6 @@ class's transaction, deleted in teardown, and rolled back when the class finishe
 """
 
 import datetime
-import json
 from typing import Any, cast
 from unittest.mock import patch
 
@@ -29,6 +28,7 @@ from frappe.utils.password import get_encryption_key
 from frappe.utils.typing_validations import transform_parameter_types
 
 from timeclock import hooks
+from timeclock.tests.utils import make_kiosk_user
 from timeclock.timeclock import api
 from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
 from timeclock.www.job_timeclock import job_timeclock
@@ -85,6 +85,7 @@ def _punch_time(hour: int, minute: int = 0, second: int = 0) -> datetime.datetim
 class TestTimeclockApi(IntegrationTestCase):
 	employee: str
 	employee_name: str
+	badge: str
 
 	@classmethod
 	def setUpClass(cls) -> None:
@@ -93,6 +94,16 @@ class TestTimeclockApi(IntegrationTestCase):
 		# none until something asks for it
 		get_encryption_key()
 		cls.employee, cls.employee_name = _make_employee()
+		cls.badge = f"RFID{random_string(10)}"
+		frappe.get_doc(
+			{
+				"doctype": "Attendance Device ID",
+				"id": cls.badge,
+				"parent": cls.employee,
+				"parenttype": "Employee",
+				"parentfield": "attendance_device_ids",
+			}
+		).insert(ignore_permissions=True)
 
 	@classmethod
 	def _delete_punches(cls) -> None:
@@ -103,30 +114,24 @@ class TestTimeclockApi(IntegrationTestCase):
 	@classmethod
 	def tearDownClass(cls) -> None:
 		cls._delete_punches()
+		frappe.db.delete("Attendance Device ID", {"parent": cls.employee})
 		frappe.delete_doc("Employee", cls.employee, force=True, ignore_permissions=True)
 		super().tearDownClass()
 
 	def setUp(self) -> None:
-		# the web form is a guest page, so run the API the way it is really called
-		frappe.set_user("Guest")
+		# the web form is a kiosk, so run the API the way it is really called
+		frappe.set_user(make_kiosk_user())
 
 	def tearDown(self) -> None:
 		frappe.set_user("Administrator")
 		self._delete_punches()
 
-	def _form_data(self, time: datetime.datetime, log_type: str = "IN", **overrides: Any) -> str:
-		"""The JSON payload the web form posts to submit_checkin."""
-		data = {
-			"doctype": "Employee Checkin",
-			"web_form_name": "employee-timelog",
-			"employee": self.employee,
-			"time": time.strftime("%Y-%m-%d %H:%M:%S"),
-			"log_type": log_type,
-			"manual_override": 0,
-			"device_id": DEVICE_ID,
-		}
-		data.update(overrides)
-		return json.dumps(data)
+	def _punch(self, time: datetime.datetime, log_type: str = "IN") -> str:
+		"""Scan the employee's badge at the web form, with the time entered by hand (these punch
+		on a fixed past date, and only a hand-entered time keeps the form's IN/OUT choice)."""
+		return api.submit_checkin(
+			self.badge, time.strftime("%Y-%m-%d %H:%M:%S"), log_type=log_type, manual_override=1
+		)["log_type"]
 
 	def _checkins(self) -> list[dict[str, Any]]:
 		return frappe.get_all(
@@ -206,7 +211,7 @@ class TestTimeclockApi(IntegrationTestCase):
 
 	def test_submit_checkin_clocks_in(self) -> None:
 		"""A badge scan creates the checkin, links a new Workday and reports the log type."""
-		result = api.submit_checkin("employee-timelog", self._form_data(_punch_time(8, 15, 42)))
+		result = self._punch(_punch_time(8, 15, 42))
 
 		self.assertEqual(result, "IN")
 		checkins = self._checkins()
@@ -225,10 +230,10 @@ class TestTimeclockApi(IntegrationTestCase):
 
 	def test_submit_checkin_in_then_out_totals_hours(self) -> None:
 		"""Clocking out fills the matching check-out slot and totals the day on the same Workday."""
-		api.submit_checkin("employee-timelog", self._form_data(_punch_time(8)))
+		self._punch(_punch_time(8))
 		self._age_workday(self._workdays()[0]["name"])
 
-		result = api.submit_checkin("employee-timelog", self._form_data(_punch_time(12, 30), "OUT"))
+		result = self._punch(_punch_time(12, 30), "OUT")
 
 		self.assertEqual(result, "OUT")
 		workdays = self._workdays()
@@ -244,10 +249,10 @@ class TestTimeclockApi(IntegrationTestCase):
 
 	def _clock_in_and_out(self) -> tuple[str, str]:
 		"""Punch 8:00 AM in and 12:30 PM out. Returns (workday, the OUT checkin's name)."""
-		api.submit_checkin("employee-timelog", self._form_data(_punch_time(8)))
+		self._punch(_punch_time(8))
 		workday = self._workdays()[0]["name"]
 		self._age_workday(workday)
-		api.submit_checkin("employee-timelog", self._form_data(_punch_time(12, 30), "OUT"))
+		self._punch(_punch_time(12, 30), "OUT")
 		out = frappe.get_all(
 			"Employee Checkin", filters={"employee": self.employee, "log_type": "OUT"}, pluck="name"
 		)
@@ -289,9 +294,9 @@ class TestTimeclockApi(IntegrationTestCase):
 
 	def test_submit_checkin_same_minute_does_not_duplicate(self) -> None:
 		"""A second scan inside the same minute reuses the existing checkin."""
-		api.submit_checkin("employee-timelog", self._form_data(_punch_time(8, 0, 5)))
+		self._punch(_punch_time(8, 0, 5))
 
-		result = api.submit_checkin("employee-timelog", self._form_data(_punch_time(8, 0, 40), "OUT"))
+		result = self._punch(_punch_time(8, 0, 40), "OUT")
 
 		# the existing punch is kept as-is, so the form reports its log type
 		self.assertEqual(result, "IN")
@@ -351,21 +356,6 @@ class TestTimeclockApi(IntegrationTestCase):
 		self.assertEqual(len(workdays), 1)
 		self.assertEqual(checkins[0]["workday"], workdays[0]["name"])
 		self.assertEqual(workdays[0]["check_in_1"], "7:45 AM")
-
-	def test_submit_checkin2_records_the_punch(self) -> None:
-		"""The older payload variant (no web form name) records the punch and builds the Workday."""
-		api.submit_checkin2(self._form_data(_punch_time(9, 5, 30)))
-
-		checkins = self._checkins()
-		self.assertEqual(len(checkins), 1)
-		self.assertEqual(checkins[0]["time"], _punch_time(9, 5))
-		self.assertEqual(self._workdays()[0]["check_in_1"], "9:05 AM")
-
-	def test_submit_checkin2_same_minute_does_not_duplicate(self) -> None:
-		api.submit_checkin2(self._form_data(_punch_time(9, 5, 10)))
-		api.submit_checkin2(self._form_data(_punch_time(9, 5, 50)))
-
-		self.assertEqual(len(self._checkins()), 1)
 
 	def test_web_form_context(self) -> None:
 		"""The form defaults the override date to today and loads its time picker bundles."""

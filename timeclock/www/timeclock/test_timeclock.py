@@ -4,7 +4,7 @@
 """
 Tests for the RFID kiosk at ``/timeclock`` (``timeclock.www.timeclock``) and the token signing key.
 
-The kiosk is a guest page: a badge scan calls ``authenticate_employee`` for a token, and the
+The kiosk runs signed in as a Timeclock Kiosk user: a badge scan calls ``authenticate_employee`` for a token, and the
 clock-in/out buttons send it back to ``log_in_employee`` / ``log_out_employee``.
 """
 
@@ -20,6 +20,7 @@ from frappe.utils.password import get_encryption_key
 from frappe.utils.redis_wrapper import RedisWrapper
 
 from timeclock import auth
+from timeclock.tests.utils import make_kiosk_user
 from timeclock.timeclock import api
 from timeclock.timeclock.test_api import _make_employee
 from timeclock.www import timeclock as kiosk
@@ -59,7 +60,7 @@ class TestTimeclockKiosk(IntegrationTestCase):
 		super().tearDownClass()
 
 	def setUp(self) -> None:
-		frappe.set_user("Guest")
+		frappe.set_user(make_kiosk_user())
 		cast(RedisWrapper, frappe.cache).delete_keys("rl:*")  # authenticate_employee is rate limited
 
 	def tearDown(self) -> None:
@@ -87,7 +88,7 @@ class TestTimeclockKiosk(IntegrationTestCase):
 	def test_authenticate_employee_rejects_an_unknown_badge(self) -> None:
 		result = kiosk.authenticate_employee("not-a-badge")
 
-		self.assertEqual(result, {"status": "error", "message": "Invalid RFID"})
+		self.assertEqual(result, {"status": "error", "message": "Badge not recognised."})
 
 	def test_log_in_and_out_record_checkins(self) -> None:
 		token = kiosk.refresh_token(self.employee)

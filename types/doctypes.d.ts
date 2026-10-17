@@ -6059,6 +6059,10 @@ declare global {
 			iban?: string | null;
 			/** Attendance Device IDs · Table → Attendance Device ID · Custom Field, timeclock/timeclock/timeclock/custom/employee.json */
 			attendance_device_ids: FrappeChildRow<"Attendance Device ID">[];
+			/** Timeclock Badge Issued On · Datetime · Custom Field, timeclock/timeclock/timeclock/custom/employee.json */
+			timeclock_badge_issued_on?: string | null;
+			/** Timeclock Badge Hash · Data · Custom Field, timeclock/timeclock/timeclock/custom/employee.json */
+			timeclock_badge_hash?: string | null;
 		}
 
 		/**

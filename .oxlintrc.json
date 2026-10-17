@@ -61,6 +61,7 @@
 		},
 		{
 			"files": [
+				"timeclock/public/js/employee.js",
 				"timeclock/public/js/job_card.js",
 				"timeclock/public/js/job_card_list.js",
 				"timeclock/timeclock/doctype/workday/workday.js",
