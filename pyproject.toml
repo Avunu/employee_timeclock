@@ -135,7 +135,7 @@ glob = "*/www/job_timeclock_legacy/*"
 reason = "Legacy job timeclock page, replaced by www/job_timeclock and deleted in a follow-up refactor PR"
 
 [tool.frappe-nix.dev-shell]
-frappe-nix-url = "github:Avunu/frappe-nix/a216ce95ce051fe0bc5b95f112fcb85529910ede"
+frappe-nix-url = "github:Avunu/frappe-nix/de60612a38409a61004f3d311a9e2748d2a3d341"
 
 [[tool.frappe-nix.typescript.spa]]
 root = "."
