@@ -32,6 +32,22 @@ select = ["F", "E", "W", "I", "UP", "B", "RUF", "SIM", "C4", "PIE", "PERF", "T20
 ignore = ["E501", "W191"]
 typing-modules = ["frappe.types.DF"]
 
+[tool.ruff.lint.per-file-ignores]
+# The legacy job timeclock page is replaced by www/job_timeclock and is deleted in a follow-up
+# refactor PR; its findings (unused imports, bare excepts, an undefined `_`) are left until then.
+"timeclock/www/job_timeclock_legacy/*" = [
+	"E402",
+	"E722",
+	"F401",
+	"F811",
+	"F821",
+	"F841",
+	"PERF401",
+	"RUF059",
+	"SIM105",
+	"SIM113",
+]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "tab"
@@ -47,8 +63,24 @@ generated = [
 	"components.d.ts",
 	"timeclock/public/js/job_timeclock/components.d.ts",
 	"timeclock/public/js/job_timeclock/types.ts",
+	"timeclock/www/job_timeclock_legacy/index.css",
 	"timeclock/www/job_timeclock_legacy/index.js",
 ]
+
+[tool.frappe-nix.js.oxlint]
+# The legacy job timeclock page is replaced by the job_timeclock SPA and is deleted in a follow-up refactor PR.
+ignore = ["timeclock/www/job_timeclock_legacy/**"]
+
+# These SPA modules import stylesheets for Vite to bundle.
+[[tool.frappe-nix.js.oxlint.overrides]]
+files = [
+	"timeclock/public/js/job_timeclock/components/Column.vue",
+	"timeclock/public/js/job_timeclock/job_timeclock.ts",
+	"timeclock/public/js/timeclock/timeclock.ts",
+]
+
+[tool.frappe-nix.js.oxlint.overrides.rules]
+"import/no-unassigned-import" = "off"
 
 [tool.frappe-nix.dev-shell]
 frappe-nix-url = "github:Avunu/frappe-nix/e95f67f97de1322c89df9ffbc9218c31d4ca83ba"

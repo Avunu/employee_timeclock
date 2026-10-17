@@ -1,3 +1,7 @@
+# Copyright (c) 2026, Avunu LLC and contributors
+# For license information, please see license.txt
+
+import contextlib
 from datetime import datetime, timedelta
 from typing import Any, Literal, cast
 
@@ -382,10 +386,8 @@ def log_in_employee(time: str, token: str | None = None) -> EmployeeCheckinRespo
 	new_log.log_type = "IN"
 	new_log.manual_override = False
 	new_log.device_id = "Job Timeclock Scanner"
-	try:
+	with contextlib.suppress(Exception):
 		new_log.insert(ignore_permissions=True)
-	except Exception as _e:
-		pass
 	if new_log:
 		return EmployeeCheckinResponse(status="success", log=new_log).model_dump()
 	else:
@@ -460,7 +462,7 @@ def get_work_orders(token: str | None = None) -> GetWorkOrdersResponse:
 	frappe.publish_realtime("test", "aye yooooo")
 
 	try:
-		employee_id, token = _resolve_employee(token)
+		_employee_id, token = _resolve_employee(token)
 	except Exception as e:
 		return GetWorkOrdersResponse(status="error", message=str(e)).model_dump()
 
@@ -558,7 +560,7 @@ def get_operations(
 
 	try:
 		ws_list: list[str] = _json.loads(workstations) if workstations else []
-	except (ValueError, TypeError):
+	except ValueError, TypeError:
 		ws_list = [workstations] if workstations else []
 
 	WorkOrderOperations = DocType("Work Order Operation")
@@ -793,14 +795,12 @@ def get_active_timer(token: str | None = None) -> GetActiveTimerResponse:
 	active_timer = None
 	if result:
 		row = result[0]
-		print(row)
 		active_timer = ActiveTimer(
 			work_order=row["work_order"],
 			operation=row["operation"],
 			from_time=row["from_time"],
 			is_corrective=bool(row["is_corrective_job_card"]),
 		)
-		print(active_timer)
 
 	return GetActiveTimerResponse(status="success", token=token, active_timer=active_timer).model_dump()
 
@@ -1071,10 +1071,8 @@ def get_device_info() -> GetDeviceInfoResponse:
 	"""
 	ip: str = frappe.local.request_ip or ""
 	mac: str = ""
-	try:
+	with contextlib.suppress(Exception):
 		mac = getmac.get_mac_address(ip=ip) or ""
-	except Exception:
-		pass
 
 	return GetDeviceInfoResponse(status="success", ip=ip, mac=mac).model_dump()
 

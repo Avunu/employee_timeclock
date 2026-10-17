@@ -90,6 +90,13 @@ class TestTimeclockApi(IntegrationTestCase):
 		frappe.db.commit()
 
 	@classmethod
+	def _delete_punches(cls) -> None:
+		"""Remove this employee's checkins and workdays without firing their hooks."""
+		frappe.db.delete("Employee Checkin", {"employee": cls.employee})
+		frappe.db.delete("Workday", {"employee": cls.employee})
+		frappe.db.commit()
+
+	@classmethod
 	def tearDownClass(cls) -> None:
 		cls._delete_punches()
 		frappe.delete_doc("Employee", cls.employee, force=True, ignore_permissions=True)
@@ -103,13 +110,6 @@ class TestTimeclockApi(IntegrationTestCase):
 	def tearDown(self) -> None:
 		frappe.set_user("Administrator")
 		self._delete_punches()
-
-	@classmethod
-	def _delete_punches(cls) -> None:
-		"""Remove this employee's checkins and workdays without firing their hooks."""
-		frappe.db.delete("Employee Checkin", {"employee": cls.employee})
-		frappe.db.delete("Workday", {"employee": cls.employee})
-		frappe.db.commit()
 
 	def _form_data(self, time: datetime.datetime, log_type: str = "IN", **overrides: Any) -> str:
 		"""The JSON payload the web form posts to submit_checkin."""

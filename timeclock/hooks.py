@@ -1,3 +1,6 @@
+# Copyright (c) 2026, Avunu LLC and contributors
+# For license information, please see license.txt
+
 app_name = "timeclock"
 app_title = "Timeclock"
 app_publisher = "Avunu LLC"

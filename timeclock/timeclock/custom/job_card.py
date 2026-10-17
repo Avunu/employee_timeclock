@@ -1,3 +1,6 @@
+# Copyright (c) 2026, Avunu LLC and contributors
+# For license information, please see license.txt
+
 import frappe
 from erpnext.manufacturing.doctype.job_card.job_card import JobCard as BaseJobCard
 from frappe.types import DF

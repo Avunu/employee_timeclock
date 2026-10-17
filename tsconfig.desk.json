@@ -19,6 +19,7 @@
 		"components.d.ts",
 		"timeclock/public/js/job_timeclock/components.d.ts",
 		"timeclock/public/js/job_timeclock/types.ts",
+		"timeclock/www/job_timeclock_legacy/index.css",
 		"timeclock/www/job_timeclock_legacy/index.js"
 	]
 }

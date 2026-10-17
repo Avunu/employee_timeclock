@@ -451,7 +451,7 @@ def _next_log_type(employee: str, time: datetime.datetime) -> LogType:
 
 
 def update_checkin(checkin: str, time: str) -> str:
-	""" Move an Employee Checkin to a new time within its day, then resync its Workday."""
+	"""Move an Employee Checkin to a new time within its day, then resync its Workday."""
 	frappe.has_permission("Workday", "write", throw=True)
 
 	doc = cast(EmployeeCheckin, frappe.get_doc("Employee Checkin", checkin))

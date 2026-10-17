@@ -1,52 +1,29 @@
 {
-  "compilerOptions": {
-    "target": "ESNext",
-    "useDefineForClassFields": true,
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "strict": false,
-    "strictNullChecks": false,
-    "jsx": "preserve",
-    "isolatedModules": true,
-    "esModuleInterop": true,
-    "lib": [
-      "ESNext",
-      "DOM",
-      "DOM.Iterable"
-    ],
-    "skipLibCheck": true,
-    "noEmit": true,
-    "allowJs": true,
-    "noImplicitAny": false,
-    "baseUrl": ".",
-    "paths": {
-      "@tiptap/pm/*": [
-        "node_modules/@tiptap/pm/*/index.ts"
-      ],
-      "@tiptap/*": [
-        "node_modules/@tiptap/*/src/index.ts"
-      ],
-      "@/*": [
-        "timeclock/public/js/*"
-      ],
-      "@job_timeclock/*": [
-        "timeclock/public/js/job_timeclock/*"
-      ],
-      "@timeclock/*": [
-        "timeclock/public/js/timeclock/*"
-      ],
-      "frappe-ui/src/*": [
-        "node_modules/frappe-ui/src/*"
-      ]
-    }
-  },
-  "include": [
-    "*.ts",
-    "*.d.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "timeclock/public/dist"
-  ]
+	"compilerOptions": {
+		"target": "ESNext",
+		"useDefineForClassFields": true,
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"strict": false,
+		"strictNullChecks": false,
+		"jsx": "preserve",
+		"isolatedModules": true,
+		"esModuleInterop": true,
+		"lib": ["ESNext", "DOM", "DOM.Iterable"],
+		"skipLibCheck": true,
+		"noEmit": true,
+		"allowJs": true,
+		"noImplicitAny": false,
+		"baseUrl": ".",
+		"paths": {
+			"@tiptap/pm/*": ["node_modules/@tiptap/pm/*/index.ts"],
+			"@tiptap/*": ["node_modules/@tiptap/*/src/index.ts"],
+			"@/*": ["timeclock/public/js/*"],
+			"@job_timeclock/*": ["timeclock/public/js/job_timeclock/*"],
+			"@timeclock/*": ["timeclock/public/js/timeclock/*"],
+			"frappe-ui/src/*": ["node_modules/frappe-ui/src/*"]
+		}
+	},
+	"include": ["*.ts", "*.d.ts"],
+	"exclude": ["node_modules", "dist", "timeclock/public/dist"]
 }
