@@ -151,8 +151,6 @@ def log_out_employee(token, time):
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=1, seconds=1)
 def get_work_orders(token):
-	frappe.publish_realtime("test", "aye yooooo")
-
 	try:
 		employee_id, token = extract_employee_from_token(token)
 	except Exception as e:
@@ -480,25 +478,6 @@ def log_start_time_of_jobcard(employee_id, start_time, jobcard_name):
 		# job_card = 'log_start_time_failed.'
 		job_card.save(ignore_permissions=True)
 		return {"status": "failed", "job_card": job_card, "serverError": True}
-
-
-@frappe.whitelist(allow_guest=True)
-def get_employees():
-	employees = [
-		{"id": 1, "name": "Nick Alzamora", "sCode": "1234512345"},
-		{"id": 2, "name": "Sammy Glick", "sCode": "2013620484"},
-		{"id": 3, "name": "Alan Mendoza", "sCode": "3234512345"},
-		{"id": 4, "name": "Elmer Sol", "sCode": "4234512345"},
-		{"id": 5, "name": "Nate Stoltzfus", "sCode": "5234512345"},
-		{"id": 6, "name": "Nate Vasquez", "sCode": "6234512345"},
-		{"id": 7, "name": "Levi Fisher", "sCode": "7234512345"},
-		{"id": 8, "name": "Sylvan Jr.", "sCode": "9234512345"},
-		{"id": 9, "name": "Omar Blank.", "sCode": "10234512345"},
-		{"id": 10, "name": "Mannie Fisher.", "sCode": "11234512345"},
-		{"id": 10, "name": "Tester Testing McTesterson", "sCode": "1939516420"},
-	]
-
-	return {"status": "success", "employees": employees}
 
 
 @frappe.whitelist(allow_guest=True)

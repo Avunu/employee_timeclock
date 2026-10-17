@@ -52,7 +52,8 @@ export default defineConfig({
 		include: ["frappe-ui"],
 	},
 	define: {
-		"process.env": process.env,
+		// only NODE_ENV: the whole of process.env would inline the build host's environment into the guest-served bundle
+		"process.env.NODE_ENV": JSON.stringify("production"),
 	},
 	css: {
 		preprocessorOptions: {
