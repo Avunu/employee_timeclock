@@ -474,6 +474,25 @@ class TestProjectTracker(JobTimeclockTestCase):
 		self.assertEqual(result["log"].log_type, "IN")
 		self.assertEqual(result["log"].employee, self._test_employee.name)
 
+	def test_a_rejected_punch_is_reported_unsuccessful(self) -> None:
+		"""A punch the checkin validation rejects (a duplicate) is reported, not swallowed."""
+		from timeclock.www.job_timeclock.job_timeclock import authenticate_employee, log_out_employee
+
+		assert self._test_employee is not None
+		token: str = authenticate_employee(self._test_device_id.id)["token"]
+		punch = str(now_datetime())
+		outs = {"employee": self._test_employee.name, "log_type": "OUT"}
+		before = frappe.db.count("Employee Checkin", outs)
+
+		frappe.set_user("Guest")
+		first: dict[str, Any] = log_out_employee(punch, token=token)
+		second: dict[str, Any] = log_out_employee(punch, token=token)
+		frappe.set_user("Administrator")
+
+		self.assertEqual(first["status"], "success")
+		self.assertEqual(second["status"], "unsuccessful")
+		self.assertEqual(frappe.db.count("Employee Checkin", outs), before + 1)
+
 	def test_log_out_employee(self) -> None:
 		"""
 		Test logging out an employee.

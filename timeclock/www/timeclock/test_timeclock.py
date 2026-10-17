@@ -10,6 +10,7 @@ clock-in/out buttons send it back to ``log_in_employee`` / ``log_out_employee``.
 
 import datetime
 from typing import Any, cast
+from unittest.mock import patch
 
 import frappe
 import jwt
@@ -19,6 +20,7 @@ from frappe.utils.password import get_encryption_key
 from frappe.utils.redis_wrapper import RedisWrapper
 
 from timeclock import auth
+from timeclock.timeclock import api
 from timeclock.timeclock.test_api import _make_employee
 from timeclock.www import timeclock as kiosk
 from timeclock.www.timeclock import index as kiosk_page
@@ -100,6 +102,25 @@ class TestTimeclockKiosk(IntegrationTestCase):
 		self.assertEqual([c["log_type"] for c in checkins], ["IN", "OUT"])
 		self.assertEqual({c["device_id"] for c in checkins}, {"Timeclock Scanner"})
 		self.assertEqual(checkins[0]["time"], datetime.datetime(2021, 3, 1, 7, 45))
+
+	def test_a_rejected_punch_is_reported_unsuccessful(self) -> None:
+		"""A punch the checkin validation rejects (here a duplicate) is not reported as saved."""
+		token = kiosk.refresh_token(self.employee)
+		kiosk.log_in_employee(token, PUNCH_TIME)
+
+		self.assertEqual(kiosk.log_in_employee(token, PUNCH_TIME)["status"], "unsuccessful")
+		self.assertEqual(len(self._checkins()), 1)
+
+	def test_a_punch_whose_workday_sync_fails_leaves_nothing_behind(self) -> None:
+		"""The checkin and its Workday sync are undone together when the on_update hook fails."""
+		token = kiosk.refresh_token(self.employee)
+
+		with patch.object(api, "update_workday_from_checkin", side_effect=RuntimeError("sync failed")):
+			result = kiosk.log_out_employee(token, PUNCH_TIME)
+
+		self.assertEqual(result["status"], "unsuccessful")
+		self.assertEqual(self._checkins(), [])
+		self.assertFalse(frappe.db.exists("Workday", {"employee": self.employee, "date": PUNCH_TIME[:10]}))
 
 	def test_last_checkin_is_reported_after_a_punch(self) -> None:
 		kiosk.log_in_employee(kiosk.refresh_token(self.employee), PUNCH_TIME)

@@ -15,7 +15,7 @@ from frappe.rate_limiter import rate_limit
 from frappe.utils.data import get_datetime
 
 from timeclock.auth import get_token_secret
-from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
+from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin, insert_punch
 from timeclock.timeclock.custom.job_card import TimeclockJobCard
 from timeclock.timeclock.custom.job_card_time_log import (
 	JobCardTimeLog,
@@ -384,15 +384,11 @@ def log_in_employee(time: str, token: str | None = None) -> EmployeeCheckinRespo
 	new_log.log_type = "IN"
 	new_log.manual_override = False
 	new_log.device_id = "Job Timeclock Scanner"
-	with contextlib.suppress(Exception):
-		new_log.insert(ignore_permissions=True)
-	if new_log:
+	if insert_punch(new_log):
 		return EmployeeCheckinResponse(status="success", log=new_log).model_dump()
-	else:
-		return EmployeeCheckinResponse(status="unsuccessful", log=new_log).model_dump()
+	return EmployeeCheckinResponse(status="unsuccessful", log=new_log).model_dump()
 
 
-# Issue with logout. The log is made but _unsaved = True. so its not passing to workday management
 @frappe.whitelist(allow_guest=True)
 def log_out_employee(time: str, token: str | None = None) -> EmployeeCheckinResponse:
 	"""
@@ -424,15 +420,9 @@ def log_out_employee(time: str, token: str | None = None) -> EmployeeCheckinResp
 	new_log.log_type = "OUT"
 	new_log.manual_override = False
 	new_log.device_id = "Job Timeclock Scanner"
-	try:
-		new_log.insert(ignore_permissions=True)
-		new_log.save()
-	except Exception as _e:
-		pass
-	if new_log:
+	if insert_punch(new_log):
 		return EmployeeCheckinResponse(status="success", log=new_log).model_dump()
-	else:
-		return EmployeeCheckinResponse(status="unsuccessful", log=new_log).model_dump()
+	return EmployeeCheckinResponse(status="unsuccessful", log=new_log).model_dump()
 
 
 @frappe.whitelist(allow_guest=True)

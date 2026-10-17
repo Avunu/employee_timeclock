@@ -1,7 +1,6 @@
 # Copyright (c) 2026, Avunu LLC and contributors
 # For license information, please see license.txt
 
-import contextlib
 import datetime
 from typing import Any, cast
 
@@ -11,7 +10,7 @@ from frappe import _
 from frappe.rate_limiter import rate_limit
 
 from timeclock.auth import get_token_secret
-from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
+from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin, insert_punch
 
 
 def refresh_token(employee_id: str) -> str:
@@ -160,12 +159,9 @@ def log_in_employee(token: str, time: str) -> dict[str, Any]:
 	new_log.log_type = "IN"
 	new_log.device_id = "Timeclock Scanner"
 	new_log.manual_override = False
-	with contextlib.suppress(Exception):
-		new_log.insert(ignore_permissions=True)
-	if new_log:
+	if insert_punch(new_log):
 		return {"status": "success", "log": new_log}
-	else:
-		return {"status": "unsuccessful", "log": new_log}
+	return {"status": "unsuccessful", "log": new_log}
 
 
 @frappe.whitelist(allow_guest=True)
@@ -193,9 +189,6 @@ def log_out_employee(token: str, time: str) -> dict[str, Any]:
 	new_log.log_type = "OUT"
 	new_log.manual_override = False
 	new_log.device_id = "Timeclock Scanner"
-	with contextlib.suppress(Exception):
-		new_log.insert(ignore_permissions=True)
-	if new_log:
+	if insert_punch(new_log):
 		return {"status": "success", "log": new_log}
-	else:
-		return {"status": "unsuccessful", "log": new_log}
+	return {"status": "unsuccessful", "log": new_log}
