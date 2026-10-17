@@ -351,7 +351,7 @@ def _resolve_employee(token: str | None = None) -> tuple[str, str | None]:
 	raise  # unreachable but satisfies type checker
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk acts only with the signed badge token
+# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
 @frappe.whitelist(allow_guest=True)
 def log_in_employee(time: str, token: str | None = None) -> EmployeeCheckinResponse:
 	"""
@@ -391,7 +391,7 @@ def log_in_employee(time: str, token: str | None = None) -> EmployeeCheckinRespo
 	return EmployeeCheckinResponse(status="unsuccessful", log=new_log).model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk acts only with the signed badge token
+# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
 @frappe.whitelist(allow_guest=True)
 def log_out_employee(time: str, token: str | None = None) -> EmployeeCheckinResponse:
 	"""
@@ -428,7 +428,7 @@ def log_out_employee(time: str, token: str | None = None) -> EmployeeCheckinResp
 	return EmployeeCheckinResponse(status="unsuccessful", log=new_log).model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk acts only with the signed badge token
+# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=2, seconds=1)
 def get_work_orders(token: str | None = None) -> GetWorkOrdersResponse:
@@ -512,7 +512,7 @@ def get_work_orders(token: str | None = None) -> GetWorkOrdersResponse:
 	).model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk acts only with the signed badge token
+# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=4, seconds=1)
 def get_operations(
@@ -742,7 +742,7 @@ def _close_open_timers_on_employee(employee_id: str, close_time: datetime) -> in
 	return closed
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk acts only with the signed badge token
+# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
 @frappe.whitelist(allow_guest=True)
 def get_active_timer(token: str | None = None) -> GetActiveTimerResponse:
 	"""
@@ -797,7 +797,7 @@ def get_active_timer(token: str | None = None) -> GetActiveTimerResponse:
 	return GetActiveTimerResponse(status="success", token=token, active_timer=active_timer).model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk acts only with the signed badge token
+# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
 @frappe.whitelist(allow_guest=True)
 def start_timer(
 	work_order: str,
@@ -940,7 +940,7 @@ def start_timer(
 		return StartTimerResponse(status="failed", error=str(e)).model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk acts only with the signed badge token
+# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
 @frappe.whitelist(allow_guest=True)
 def stop_timer(
 	end_time: datetime | str,
@@ -1074,7 +1074,7 @@ def get_device_info() -> GetDeviceInfoResponse:
 	return GetDeviceInfoResponse(status="success", ip=ip, mac=mac).model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk acts only with the signed badge token
+# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=4, seconds=1)
 def get_machine_timers(token: str | None = None) -> GetMachineTimersResponse:
@@ -1142,7 +1142,7 @@ def get_machine_timers(token: str | None = None) -> GetMachineTimersResponse:
 	).model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk acts only with the signed badge token
+# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=4, seconds=1)
 def stop_machine_timer(
@@ -1240,7 +1240,7 @@ def stop_machine_timer(
 	return StopMachineTimerResponse(status="success").model_dump()
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk acts only with the signed badge token
+# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
 @frappe.whitelist(allow_guest=True)
 def submit_jobcard(
 	jobCard: dict[str, Any], complete_time: str, token: str | None = None

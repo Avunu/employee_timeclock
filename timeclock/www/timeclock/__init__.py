@@ -134,7 +134,7 @@ def extract_employee_from_token(token: str) -> tuple[str, str]:
 		raise  # This line will never be reached but satisfies type checker
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk acts only with the signed badge token
+# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
 @frappe.whitelist(allow_guest=True)
 def log_in_employee(token: str, time: str) -> dict[str, Any]:
 	"""
@@ -166,7 +166,7 @@ def log_in_employee(token: str, time: str) -> dict[str, Any]:
 	return {"status": "unsuccessful", "log": new_log}
 
 
-# nosemgrep: guest-whitelisted-method -- reviewed: the kiosk acts only with the signed badge token
+# nosemgrep: guest-whitelisted-method -- reviewed: a guest acts only through the signed badge token
 @frappe.whitelist(allow_guest=True)
 def log_out_employee(token: str, time: str) -> dict[str, Any]:
 	"""
