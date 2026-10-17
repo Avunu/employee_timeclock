@@ -10,11 +10,11 @@
   Use this component exactly as you would <Button> from frappe-ui.
 -->
 <template>
-  <FrappeButton v-bind="{ ...$attrs, ...props }" :class="localClasses">
-    <template v-for="(_, name) in $slots" #[name]="slotData">
-      <slot :name="name" v-bind="slotData ?? {}" />
-    </template>
-  </FrappeButton>
+	<FrappeButton v-bind="{ ...$attrs, ...props }" :class="localClasses">
+		<template v-for="(_, name) in $slots" #[name]="slotData">
+			<slot :name="name" v-bind="slotData ?? {}" />
+		</template>
+	</FrappeButton>
 </template>
 
 <script lang="ts" setup>
@@ -27,12 +27,12 @@ defineOptions({ name: "Button", inheritAttrs: false });
 const props = defineProps<ButtonProps>();
 
 const localClasses = computed(() => {
-  const classes: string[] = ["font-semibold", "min-h-[3rem]", "px-6", "py-3"];
+	const classes: string[] = ["font-semibold", "min-h-[3rem]", "px-6", "py-3"];
 
-  if (props.variant === "outline") {
-    classes.push("!border-2");
-  }
+	if (props.variant === "outline") {
+		classes.push("!border-2");
+	}
 
-  return classes;
+	return classes;
 });
 </script>

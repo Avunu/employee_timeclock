@@ -1,13 +1,13 @@
-@import "node_modules/@eonasdan/tempus-dominus/src/scss/tempus-dominus.scss";
+@import "node_modules/@eonasdan/tempus-dominus/src/scss/tempus-dominus";
 
 .btn:not(label),
 .navbar,
 .page-breadcrumbs,
 div[data-fieldname="log_type"] {
-  display: none;
+	display: none;
 }
 
 input[type="radio"]:checked + label {
-  background-color: var(--blue);
-  color: white;
+	background-color: var(--blue);
+	color: white;
 }

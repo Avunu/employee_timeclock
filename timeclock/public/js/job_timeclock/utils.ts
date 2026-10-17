@@ -1,3 +1,6 @@
+// Copyright (c) 2026, Avunu LLC and contributors
+// For license information, please see license.txt
+
 /**
  * Branded type for Frappe datetime strings
  * Format: YYYY-MM-DD HH:MM:SS
@@ -18,8 +21,8 @@ export type FrappeDateTimeString = string & { readonly __brand: "FrappeDateTimeS
  * @returns True if the string matches the expected format
  */
 export function isFrappeDateTimeString(value: string): value is FrappeDateTimeString {
-  const pattern = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
-  return pattern.test(value);
+	const pattern = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+	return pattern.test(value);
 }
 
 /**
@@ -30,12 +33,10 @@ export function isFrappeDateTimeString(value: string): value is FrappeDateTimeSt
  * @throws Error if string doesn't match expected format
  */
 export function toFrappeDateTimeString(value: string): FrappeDateTimeString {
-  if (!isFrappeDateTimeString(value)) {
-    throw new Error(
-      `Invalid Frappe datetime format: ${value}. Expected format: YYYY-MM-DD HH:MM:SS`,
-    );
-  }
-  return value as FrappeDateTimeString;
+	if (!isFrappeDateTimeString(value)) {
+		throw new Error(`Invalid Frappe datetime format: ${value}. Expected format: YYYY-MM-DD HH:MM:SS`);
+	}
+	return value as FrappeDateTimeString;
 }
 
 /**
@@ -49,9 +50,9 @@ export function toFrappeDateTimeString(value: string): FrappeDateTimeString {
  * @returns Formatted FrappeDateTimeString in local time
  */
 export function dateToFrappeDateTimeString(date: Date): FrappeDateTimeString {
-  const pad = (num: number): string => String(num).padStart(2, "0");
+	const pad = (num: number): string => String(num).padStart(2, "0");
 
-  const formatted = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+	const formatted = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 
-  return formatted as FrappeDateTimeString;
+	return formatted as FrappeDateTimeString;
 }

@@ -1,3 +1,6 @@
+# Copyright (c) 2026, Avunu LLC and contributors
+# For license information, please see license.txt
+
 import calendar
 import datetime
 import json
@@ -271,11 +274,7 @@ def workday_update_total_hours(workday: Workday, method: str | None = None) -> W
 	_ = method  # Explicitly mark as intentionally unused
 	workday.last_modified = now()
 	date = workday.date
-	date_str: str
-	if isinstance(date, datetime.datetime):
-		date_str = date.strftime("%Y-%m-%d")
-	else:
-		date_str = str(date)
+	date_str: str = date.strftime("%Y-%m-%d") if isinstance(date, datetime.datetime) else str(date)
 	check_ins = cast(list[str | None], [workday.get("check_in_" + str(i)) for i in check_range])
 	check_outs = cast(list[str | None], [workday.get("check_out_" + str(i)) for i in check_range])
 	# test each check_in and check_out to see if it is a valid time string in the format '%I:%M %p'

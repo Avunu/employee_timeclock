@@ -1,3 +1,6 @@
+# Copyright (c) 2026, Avunu LLC and contributors
+# For license information, please see license.txt
+
 from erpnext.manufacturing.doctype.operation.operation import Operation as BaseOperation
 from frappe.types import DF
 

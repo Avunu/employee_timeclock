@@ -1,3 +1,6 @@
+# Copyright (c) 2026, Avunu LLC and contributors
+# For license information, please see license.txt
+
 from frappe.types import DF
 from hrms.hr.doctype.employee_checkin.employee_checkin import EmployeeCheckin as BaseEmployeeCheckin
 

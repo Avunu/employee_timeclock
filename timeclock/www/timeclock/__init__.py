@@ -1,3 +1,7 @@
+# Copyright (c) 2026, Avunu LLC and contributors
+# For license information, please see license.txt
+
+import contextlib
 import datetime
 from typing import Any
 
@@ -158,10 +162,8 @@ def log_in_employee(token: str, time: str) -> dict[str, Any]:
 	new_log.log_type = "IN"
 	new_log.device_id = "Timeclock Scanner"
 	new_log.manual_override = False
-	try:
+	with contextlib.suppress(Exception):
 		new_log.insert(ignore_permissions=True)
-	except Exception as _e:
-		pass
 	if new_log:
 		return {"status": "success", "log": new_log}
 	else:
@@ -193,10 +195,8 @@ def log_out_employee(token: str, time: str) -> dict[str, Any]:
 	new_log.log_type = "OUT"
 	new_log.manual_override = False
 	new_log.device_id = "Timeclock Scanner"
-	try:
+	with contextlib.suppress(Exception):
 		new_log.insert(ignore_permissions=True)
-	except Exception as _e:
-		pass
 	if new_log:
 		return {"status": "success", "log": new_log}
 	else:

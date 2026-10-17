@@ -1,3 +1,6 @@
+# Copyright (c) 2026, Avunu LLC and contributors
+# For license information, please see license.txt
+
 import datetime
 import time
 from operator import attrgetter, itemgetter
@@ -184,7 +187,7 @@ def update_job_cards_with_time_log(job_cards, employee_id):
 		all_logs.append(time_logs)
 
 		# filter for machine.
-		if card.operation in machines.keys():
+		if card.operation in machines:
 			for key, machine_id in machines.items():
 				if key == card.operation:
 					employee_logs = []
@@ -334,7 +337,7 @@ def log_end_time_of_jobcard(employee_id, end_time, jobcard_name):
 		"Planing Machine Time": "HR-MACH-PL-00054",
 	}
 
-	if job_card.operation in machines.keys():
+	if job_card.operation in machines:
 		for key, machine_id in machines.items():
 			if key == job_card.operation:
 				employee_id = machine_id
@@ -435,7 +438,7 @@ def log_start_time_of_jobcard(employee_id, start_time, jobcard_name):
 		"Planing Machine Time": "HR-MACH-PL-00054",
 	}
 
-	if job_card.operation in machines.keys():
+	if job_card.operation in machines:
 		for key, machine_id in machines.items():
 			if key == job_card.operation:
 				# log out other machine times.

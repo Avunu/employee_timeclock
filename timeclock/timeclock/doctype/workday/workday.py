@@ -73,7 +73,6 @@ class Workday(Document):
 		last_modified: DF.Datetime | None
 		total_hours: DF.Float
 	# end: auto-generated types
-	pass
 
 
 @frappe.whitelist()

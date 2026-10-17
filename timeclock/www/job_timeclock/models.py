@@ -1,3 +1,6 @@
+# Copyright (c) 2026, Avunu LLC and contributors
+# For license information, please see license.txt
+
 """Pydantic models for the Job Time Tracker API.
 
 This module is the **single source of truth** for the request/response

@@ -2,22 +2,22 @@
 name = "timeclock"
 authors = [{ name = "Avunu LLC", email = "mail@avu.nu" }]
 description = "Timeclock app for ERPNext"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 readme = "README.md"
 dynamic = ["version"]
-dependencies = [
-    "getmac",
-    "pydantic>=2.12.5",
-]
+dependencies = ["getmac", "pydantic>=2.12.5", "PyJWT>=2.13,<3"]
 
 [dependency-groups]
-dev = [
-    "pydantic-to-typescript>=2.0.0",
-]
+dev = ["pydantic-to-typescript>=2.0.0"]
 
 [build-system]
 requires = ["flit_core >=3.4,<4"]
 build-backend = "flit_core.buildapi"
+
+[tool.bench.frappe-dependencies]
+frappe = ">=16.0.0,<17.0.0"
+erpnext = ">=16.0.0,<17.0.0"
+hrms = ">=16.0.0,<17.0.0"
 
 # These dependencies are only installed when developer mode is enabled
 [tool.bench.dev-dependencies]
@@ -25,25 +25,102 @@ build-backend = "flit_core.buildapi"
 
 [tool.ruff]
 line-length = 110
-target-version = "py310"
+target-version = "py314"
 
 [tool.ruff.lint]
-select = [
-    "F",
-    "E",
-    "W",
-    "I",
-    "UP",
-    "B",
-]
-ignore = [
-    "B017", # assertRaises(Exception) - should be more specific
-    "E501", # line too long
-    "W191", # indentation contains tabs
-]
+select = ["F", "E", "W", "I", "UP", "B", "RUF", "SIM", "C4", "PIE", "PERF", "T20"]
+ignore = ["E501", "W191"]
 typing-modules = ["frappe.types.DF"]
+
+[tool.ruff.lint.per-file-ignores]
+# The legacy job timeclock page is replaced by www/job_timeclock and is deleted in a follow-up
+# refactor PR; its findings (unused imports, bare excepts, an undefined `_`) are left until then.
+"timeclock/www/job_timeclock_legacy/*" = [
+	"E402",
+	"E722",
+	"F401",
+	"F811",
+	"F821",
+	"F841",
+	"PERF401",
+	"RUF059",
+	"SIM105",
+	"SIM113",
+]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "tab"
 docstring-code-format = true
+
+[tool.frappe-nix]
+schema = 1
+profile = "github:Avunu/frappe-standards-profile/main"
+frappe-major = 16
+siblings = ["erpnext", "hrms"]
+integration-branch = "main"
+generated = [
+	"components.d.ts",
+	"timeclock/public/js/job_timeclock/components.d.ts",
+	"timeclock/public/js/job_timeclock/types.ts",
+	"timeclock/www/job_timeclock_legacy/index.css",
+	"timeclock/www/job_timeclock_legacy/index.js",
+]
+
+[tool.frappe-nix.js.oxfmt]
+# oxfmt parses the Jinja {{ colocated_js }} placeholder as JS blocks and breaks the page.
+ignore = ["timeclock/www/job_timeclock_legacy/index.html"]
+
+[tool.frappe-nix.js.oxlint]
+# The legacy job timeclock page is replaced by the job_timeclock SPA and is deleted in a follow-up refactor PR.
+ignore = ["timeclock/www/job_timeclock_legacy/**"]
+
+# These SPA modules import stylesheets for Vite to bundle.
+[[tool.frappe-nix.js.oxlint.overrides]]
+files = [
+	"timeclock/public/js/job_timeclock/components/Column.vue",
+	"timeclock/public/js/job_timeclock/job_timeclock.ts",
+	"timeclock/public/js/timeclock/timeclock.ts",
+]
+
+[tool.frappe-nix.js.oxlint.overrides.rules]
+"import/no-unassigned-import" = "off"
+
+[tool.frappe-nix.dev-shell]
+frappe-nix-url = "github:Avunu/frappe-nix/e95f67f97de1322c89df9ffbc9218c31d4ca83ba"
+
+[[tool.frappe-nix.typescript.spa]]
+root = "."
+include = [
+	"timeclock/public/js/FrappeCall.ts",
+	"timeclock/public/js/timeclock/**",
+	"timeclock/public/js/job_timeclock/**",
+	"timeclock/www/job_timeclock_legacy/**",
+]
+tsconfig = "tsconfig.json"
+check = "tsc --noEmit -p tsconfig.json"
+
+[tool.ty.environment]
+python-version = "3.14"
+
+[tool.ty.src]
+include = ["timeclock"]
+
+[tool.ty.terminal]
+error-on-warning = true
+
+[tool.coverage.run]
+omit = ["*/tests/*", "*/test_*.py", "*/patches/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+precision = 1
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "@(abc\\.)?abstractmethod"]
+fail_under = 0
+
+[tool.vulture]
+exclude = [".venv/", "node_modules/", ".frappe-nix/", ".dev-dist/"]
+
+[tool.test_utils.static-analysis]
+whitelist = ["frappe.*", "erpnext.*", "hrms.*"]

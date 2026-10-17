@@ -16,8 +16,9 @@ Tests use fixtures for Employee, Attendance Device ID, Work Order, Job Card,
 and related manufacturing documents (Item, BOM, Workstation, Operation).
 """
 
+import contextlib
 import datetime
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import frappe
 import jwt
@@ -55,7 +56,7 @@ class TestProjectTracker(FrappeTestCase):
 	_test_employee: Employee | None = None
 	_test_device_id: Any = None
 	_test_work_order: WorkOrder | None = None
-	_test_job_cards: list[TimeclockJobCard] = []
+	_test_job_cards: ClassVar[list[TimeclockJobCard]] = []
 	_test_item: Item | None = None
 	_test_bom: BOM | None = None
 	_test_workstation: Workstation | None = None
@@ -1403,10 +1404,8 @@ class TestProjectTracker(FrappeTestCase):
 				"Employee Checkin", filters={"employee": self._test_employee.name}, pluck="name"
 			)
 			for checkin in checkins:
-				try:
+				with contextlib.suppress(Exception):
 					frappe.delete_doc("Employee Checkin", checkin, ignore_permissions=True, force=True)
-				except Exception:
-					pass
 
 			# Delete ALL time logs for this employee across all job cards
 			frappe.db.delete("Job Card Time Log", {"employee": self._test_employee.name})

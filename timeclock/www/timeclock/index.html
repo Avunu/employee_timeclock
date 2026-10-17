@@ -1,21 +1,21 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<link rel="icon" href="/favicon.png" />
+		<link rel="stylesheet" href="/assets/timeclock/dist/js/timeclock/index.css" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Timeclock App</title>
+	</head>
 
-<head>
-    <meta charset="UTF-8" />
-    <link rel="icon" href="/favicon.png" />
-    <link rel="stylesheet" href="/assets/timeclock/dist/js/timeclock/index.css" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Timeclock App</title>
-</head>
+	<body>
+		<div id="app"></div>
+		<div id="modals"></div>
+		<div id="popovers"></div>
 
-<body>
-    <div id="app"></div>
-    <div id="modals"></div>
-    <div id="popovers"></div>
-
-    <script>window.csrf_token = '{{ csrf_token }}'</script>
-    <script type="module" src="/assets/timeclock/dist/js/timeclock/index.js"></script>
-</body>
-
+		<script>
+			window.csrf_token = "{{ csrf_token }}";
+		</script>
+		<script type="module" src="/assets/timeclock/dist/js/timeclock/index.js"></script>
+	</body>
 </html>
