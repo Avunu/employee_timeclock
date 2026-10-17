@@ -14,7 +14,8 @@ from frappe.query_builder.functions import Coalesce, Max, Sum
 from frappe.rate_limiter import rate_limit
 from frappe.utils.data import get_datetime
 
-from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
+from timeclock.auth import get_token_secret
+from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin, insert_punch
 from timeclock.timeclock.custom.job_card import TimeclockJobCard
 from timeclock.timeclock.custom.job_card_time_log import (
 	JobCardTimeLog,
@@ -38,9 +39,6 @@ from timeclock.www.job_timeclock.models import (
 	UserSessionEmployee,
 	WorkOrder,
 )
-
-# import secret key from site_config.json
-SECRET_KEY = frappe.get_site_config().get("encryption_key")
 
 
 def _get_machine_employee_ids(operation: str) -> list[str]:
@@ -208,7 +206,7 @@ def refresh_token(employee_id: str) -> str:
 			"employee_name": employee_name,
 			"exp": expires,
 		},
-		key=SECRET_KEY or "",
+		key=get_token_secret(),
 		algorithm="HS256",
 	)
 
@@ -287,7 +285,7 @@ def extract_employee_from_token(token: str) -> tuple[str, str]:
 	"""
 	try:
 		# Decode the JWT using the same secret key
-		payload: dict[str, Any] = jwt.decode(token, SECRET_KEY or "", algorithms=["HS256"])
+		payload: dict[str, Any] = jwt.decode(token, get_token_secret(), algorithms=["HS256"])
 		employee_id: str | None = payload.get("employee_id")
 
 		if not employee_id:
@@ -386,15 +384,11 @@ def log_in_employee(time: str, token: str | None = None) -> EmployeeCheckinRespo
 	new_log.log_type = "IN"
 	new_log.manual_override = False
 	new_log.device_id = "Job Timeclock Scanner"
-	with contextlib.suppress(Exception):
-		new_log.insert(ignore_permissions=True)
-	if new_log:
+	if insert_punch(new_log):
 		return EmployeeCheckinResponse(status="success", log=new_log).model_dump()
-	else:
-		return EmployeeCheckinResponse(status="unsuccessful", log=new_log).model_dump()
+	return EmployeeCheckinResponse(status="unsuccessful", log=new_log).model_dump()
 
 
-# Issue with logout. The log is made but _unsaved = True. so its not passing to workday management
 @frappe.whitelist(allow_guest=True)
 def log_out_employee(time: str, token: str | None = None) -> EmployeeCheckinResponse:
 	"""
@@ -426,15 +420,9 @@ def log_out_employee(time: str, token: str | None = None) -> EmployeeCheckinResp
 	new_log.log_type = "OUT"
 	new_log.manual_override = False
 	new_log.device_id = "Job Timeclock Scanner"
-	try:
-		new_log.insert(ignore_permissions=True)
-		new_log.save()
-	except Exception as _e:
-		pass
-	if new_log:
+	if insert_punch(new_log):
 		return EmployeeCheckinResponse(status="success", log=new_log).model_dump()
-	else:
-		return EmployeeCheckinResponse(status="unsuccessful", log=new_log).model_dump()
+	return EmployeeCheckinResponse(status="unsuccessful", log=new_log).model_dump()
 
 
 @frappe.whitelist(allow_guest=True)
@@ -459,8 +447,6 @@ def get_work_orders(token: str | None = None) -> GetWorkOrdersResponse:
 	Raises:
 		None: Returns error dict on exception
 	"""
-	frappe.publish_realtime("test", "aye yooooo")
-
 	try:
 		_employee_id, token = _resolve_employee(token)
 	except Exception as e:
@@ -600,7 +586,7 @@ def get_operations(
 			WorkOrderOperations.time_in_mins.as_("planned_time_mins"),
 			Operations.is_machine_time,
 			Coalesce(
-				Sum(Case().when(JobCards.is_corrective_job_card == 0, JobCardTimeLogs.time_in_mins).else_(0)),  # type: ignore
+				Sum(Case().when(JobCards.is_corrective_job_card == 0, JobCardTimeLogs.time_in_mins).else_(0)),
 				0,
 			).as_("actual_time_mins"),
 			Coalesce(
@@ -610,12 +596,12 @@ def get_operations(
 						(JobCards.is_corrective_job_card == 0) & (JobCardTimeLogs.employee == employee_case),
 						JobCardTimeLogs.time_in_mins,
 					)
-					.else_(0)  # type: ignore
+					.else_(0)
 				),
 				0,
 			).as_("employee_time_mins"),
 			Coalesce(
-				Sum(Case().when(JobCards.is_corrective_job_card == 1, JobCardTimeLogs.time_in_mins).else_(0)),  # type: ignore
+				Sum(Case().when(JobCards.is_corrective_job_card == 1, JobCardTimeLogs.time_in_mins).else_(0)),
 				0,
 			).as_("corrective_total_time_mins"),
 			Coalesce(
@@ -625,12 +611,12 @@ def get_operations(
 						(JobCards.is_corrective_job_card == 1) & (JobCardTimeLogs.employee == employee_case),
 						JobCardTimeLogs.time_in_mins,
 					)
-					.else_(0)  # type: ignore
+					.else_(0)
 				),
 				0,
 			).as_("corrective_employee_time_mins"),
 			Coalesce(
-				Max(Case().when(JobCards.is_corrective_job_card == 0, JobCards.docstatus).else_(None)),  # type: ignore
+				Max(Case().when(JobCards.is_corrective_job_card == 0, JobCards.docstatus).else_(None)),
 				0,
 			).as_("regular_docstatus"),
 		)
@@ -698,7 +684,7 @@ def _close_open_timers_on_operation(operation: str, close_time: datetime) -> int
 
 	closed = 0
 	for card_name, log_names in cards.items():
-		job_card: TimeclockJobCard = TimeclockJobCard("Job Card", card_name, ignore_permissions=True)
+		job_card: TimeclockJobCard = cast(TimeclockJobCard, frappe.get_doc("Job Card", card_name))
 		for tl in job_card.time_logs:
 			if tl.name in log_names:
 				tl.to_time = close_time
@@ -741,7 +727,7 @@ def _close_open_timers_on_employee(employee_id: str, close_time: datetime) -> in
 
 	closed = 0
 	for card_name, log_names in cards.items():
-		job_card: TimeclockJobCard = TimeclockJobCard("Job Card", card_name, ignore_permissions=True)
+		job_card: TimeclockJobCard = cast(TimeclockJobCard, frappe.get_doc("Job Card", card_name))
 		for tl in job_card.time_logs:
 			if tl.name in log_names:
 				tl.to_time = close_time
@@ -873,8 +859,8 @@ def start_timer(
 			_close_open_timers_on_employee(employee_id, start_time)
 
 		if is_corrective:
-			original_job_card: TimeclockJobCard = TimeclockJobCard(
-				"Job Card", jobcard_name, ignore_permissions=True
+			original_job_card: TimeclockJobCard = cast(
+				TimeclockJobCard, frappe.get_doc("Job Card", jobcard_name)
 			)
 
 			# Find or create corrective job card
@@ -885,8 +871,8 @@ def start_timer(
 			)
 
 			if existing_corrective:
-				target_card: TimeclockJobCard = TimeclockJobCard(
-					"Job Card", existing_corrective, ignore_permissions=True
+				target_card: TimeclockJobCard = cast(
+					TimeclockJobCard, frappe.get_doc("Job Card", existing_corrective)
 				)
 				target_card.reload()
 			else:
@@ -909,7 +895,7 @@ def start_timer(
 			target_card.append("time_logs", time_log)
 			target_card.save(ignore_permissions=True)
 		else:
-			job_card: TimeclockJobCard = TimeclockJobCard("Job Card", jobcard_name, ignore_permissions=True)
+			job_card: TimeclockJobCard = cast(TimeclockJobCard, frappe.get_doc("Job Card", jobcard_name))
 			job_card.reload()
 			job_card.append("time_logs", time_log)
 			job_card.save(ignore_permissions=True)
@@ -1209,7 +1195,7 @@ def stop_machine_timer(
 		cards.setdefault(row["parent"], []).append(row["name"])
 
 	for card_name, log_names in cards.items():
-		jc: TimeclockJobCard = TimeclockJobCard("Job Card", card_name, ignore_permissions=True)
+		jc: TimeclockJobCard = cast(TimeclockJobCard, frappe.get_doc("Job Card", card_name))
 		for tl in jc.time_logs:
 			if tl.name in log_names:
 				tl.to_time = end_time
@@ -1269,7 +1255,7 @@ def submit_jobcard(
 	frappe.flags.in_timeclock = True
 
 	completed_qty: int = 1
-	doc: TimeclockJobCard = TimeclockJobCard("Job Card", jobCard["name"], ignore_permissions=True)
+	doc: TimeclockJobCard = cast(TimeclockJobCard, frappe.get_doc("Job Card", jobCard["name"]))
 
 	last_row: JobCardTimeLog | None = None
 	if doc.time_logs and len(doc.time_logs) > 0:

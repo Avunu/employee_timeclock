@@ -100,22 +100,24 @@ async function notifyFrappeReload(changedFiles: string[]) {
 const appName = process.env.VITE_APP || "timeclock";
 
 interface AppConfig {
+	/** The bundle name: the build writes `<bundle>.bundle.[hash].js|css`, which the `www` page loads by
+	 * that name through `bundled_asset`. Not `timeclock`: esbuild already builds `timeclock.bundle.css`. */
+	bundle: string;
 	entry: string;
-	outDir: string;
 	srcDir: string;
 }
 
 // Map of app configurations
-// Source: public/js/<app>  |  Output: public/dist/js/<app>
+// Source: public/js/<app>  |  Output: public/dist/{js,css}/<bundle>.bundle.[hash].*
 const appConfigs: Record<string, AppConfig> = {
 	timeclock: {
+		bundle: "timeclock_kiosk",
 		entry: "timeclock.ts",
-		outDir: "timeclock/public/dist/js/timeclock",
 		srcDir: "timeclock/public/js/timeclock",
 	},
 	job_timeclock: {
+		bundle: "job_timeclock",
 		entry: "job_timeclock.ts",
-		outDir: "timeclock/public/dist/js/job_timeclock",
 		srcDir: "timeclock/public/js/job_timeclock",
 	},
 };
@@ -137,24 +139,29 @@ export default defineConfig({
 			dts: true,
 			resolvers: [IconsResolver()],
 		}),
-		frappeNotifyPlugin([`${appName}/index.js`]),
+		frappeNotifyPlugin([`${config.bundle}.bundle.js`]),
 	],
 	define: {
 		"process.env.NODE_ENV": JSON.stringify("production"),
 	},
 	build: {
-		outDir: resolve(__dirname, config.outDir),
-		emptyOutDir: true,
+		outDir: resolve(__dirname, "timeclock/public/dist"),
+		// esbuild's bundles and the other SPA's build live here too
+		emptyOutDir: false,
+		// one manifest per SPA, so the second build does not overwrite the first's;
+		// scripts/vite-register.mjs reads every .vite/manifest*.json
+		manifest: `.vite/manifest.${appName}.json`,
 		target: "es2020",
 		minify: true,
 		lib: {
 			entry: resolve(__dirname, config.srcDir, config.entry),
 			formats: ["es"],
-			fileName: () => "index.js",
 		},
 		rolldownOptions: {
 			output: {
-				assetFileNames: "index.css",
+				entryFileNames: `js/${config.bundle}.bundle.[hash].js`,
+				chunkFileNames: `js/${config.bundle}-[name]-[hash].js`,
+				assetFileNames: `css/${config.bundle}.bundle.[hash][extname]`,
 			},
 		},
 		sourcemap: true,

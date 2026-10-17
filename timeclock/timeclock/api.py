@@ -219,7 +219,6 @@ def update_workday_from_checkin(checkin: EmployeeCheckin, method: str | None = N
 	# checkin.save(ignore_permissions=True)
 	frappe.db.set_value("Employee Checkin", checkin.name, "workday", workday.name)
 	# workday.save(ignore_permissions=True)
-	frappe.db.commit()
 
 	return checkin
 
@@ -246,7 +245,6 @@ def submit_checkin(web_form: Any, data: str) -> LogType:
 		# update the checkin
 		checkin.time = checkin_time
 		checkin.save(ignore_permissions=True)
-		frappe.db.commit()
 	else:
 		# create the checkin
 		checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
@@ -333,11 +331,9 @@ def clear_workday_punch_on_checkin_trash(checkin: EmployeeCheckin, method: str |
 		workday.reload()
 		# recalculate the total hours
 		workday = workday_update_total_hours(workday)
-		# commit the changes
+		# store the recalculated workday
 		frappe.db.set_value("Workday", workday.name, "total_hours", workday.total_hours)
-		# commit the changes
 		workday.db_update()
-		frappe.db.commit()
 
 
 @frappe.whitelist(allow_guest=True)
@@ -374,7 +370,6 @@ def update_checkins_from_workday(workday: Workday, method: str | None = None) ->
 						checkin.time = check_in_out_time
 						checkin.workday_modified = now()
 						checkin.db_update()
-						frappe.db.commit()
 				else:
 					# create a new checkin
 					new_checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
@@ -391,7 +386,6 @@ def update_checkins_from_workday(workday: Workday, method: str | None = None) ->
 				if len(existing_checkins) >= i and check_in_out_time is None:
 					checkin_to_delete = frappe.get_doc("Employee Checkin", existing_checkins[i - 1]["name"])
 					checkin_to_delete.delete(ignore_permissions=True)
-					frappe.db.commit()
 
 
 @frappe.whitelist(allow_guest=True)
@@ -416,7 +410,6 @@ def submit_checkin2(data: str) -> None:
 		# update the checkin
 		checkin.time = checkin_time
 		checkin.save(ignore_permissions=True)
-		frappe.db.commit()
 	else:
 		# create the checkin
 		checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))

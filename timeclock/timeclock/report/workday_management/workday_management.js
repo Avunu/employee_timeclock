@@ -3,6 +3,30 @@
 
 const WM_METHOD = "timeclock.timeclock.report.workday_management.workday_management";
 
+/**
+ * A row of the report (workday_management.py `get_data`/`_day_rows`): a group (employee or day), a
+ * Workday under it, the day's punches (Employee Checkins) under that, a blank row to add a punch,
+ * and the closing total.
+ * @typedef {object} WMRow
+ * @property {"group" | "workday" | "checkin" | "new_punch" | "total"} row_type
+ * @property {string} [row_key]
+ * @property {number} [indent]
+ * @property {string} [label]
+ * @property {string} [employee]
+ * @property {string} [employee_name]
+ * @property {string} [date]
+ * @property {string} [status]
+ * @property {string} [issues]
+ * @property {number} [issue_count]
+ * @property {string} [workday]
+ * @property {string} [checkin]
+ * @property {string} [time_value]
+ * @property {string} [overridden_time]
+ */
+
+/** @typedef {{ employee: string; date: string }} WMDay */
+
+/** @type {Record<string, string>} */
 const WM_STATUS_COLORS = {
 	OK: "green",
 	"No Workday": "red",
@@ -18,15 +42,17 @@ const WM_REBUILD_STATUSES = ["No Workday", "Out of Sync", "Log Type Mismatch"];
 
 // Row backgrounds by tree level: groups darkest, workdays tinted, punches plain.
 // Theme surface variables, so the shades flip in dark mode.
+/** @type {Record<string, string>} */
 const WM_ROW_BACKGROUNDS = {
 	group: "var(--surface-gray-3)",
 	workday: "var(--surface-blue-1)",
 };
 
 // row_keys of tree nodes that were open before a refresh we triggered, reapplied after render
+/** @type {Set<string | undefined> | null} */
 let wm_open_nodes = null;
 
-frappe.query_reports["Workday Management"] = {
+frappe.provide("frappe.query_reports")["Workday Management"] = {
 	filters: [
 		{
 			fieldname: "from_date",
@@ -49,7 +75,7 @@ frappe.query_reports["Workday Management"] = {
 			options: "Employee\nDay",
 			default: "Employee",
 			on_change: function () {
-				frappe.query_report.refresh();
+				frappe.query_report?.refresh();
 			},
 		},
 		{
@@ -69,8 +95,9 @@ frappe.query_reports["Workday Management"] = {
 	tree: true,
 	initial_depth: 2,
 
-	formatter: function (value, row, column, data, default_formatter, _filter) {
-		if (!data) return default_formatter(value, row, column, data);
+	formatter: function (value, row, column, raw_data, default_formatter, _filter) {
+		if (!raw_data) return default_formatter(value, row, column, raw_data);
+		const data = /** @type {WMRow} */ (/** @type {unknown} */ (raw_data));
 
 		const row_type = data.row_type;
 		const field = column.fieldname;
@@ -79,7 +106,7 @@ frappe.query_reports["Workday Management"] = {
 		if (row_type === "total") {
 			if (field === "label") return `<strong>${frappe.utils.escape_html(value || "")}</strong>`;
 			if (value != null && value !== "")
-				return `<strong>${default_formatter(value, row, column, data)}</strong>`;
+				return `<strong>${default_formatter(value, row, column, raw_data)}</strong>`;
 			return "";
 		}
 
@@ -117,9 +144,9 @@ frappe.query_reports["Workday Management"] = {
 				return `<span class="indicator-pill orange">${__("{0} issue(s)", [data.issue_count])}</span>`;
 			}
 			if (row_type === "workday" && value) {
-				const color = WM_STATUS_COLORS[value] || "gray";
+				const color = WM_STATUS_COLORS[String(value)] || "gray";
 				const title = frappe.utils.escape_html(data.issues || "");
-				return `<span class="indicator-pill ${color}" title="${title}">${frappe.utils.escape_html(__(value))}</span>`;
+				return `<span class="indicator-pill ${color}" title="${title}">${frappe.utils.escape_html(__(String(value)))}</span>`;
 			}
 			return "";
 		}
@@ -134,7 +161,7 @@ frappe.query_reports["Workday Management"] = {
 		// ── Workday link only on workday rows; checkin rows sit right beneath it ──
 		if (field === "workday" && row_type !== "workday") return "";
 
-		return default_formatter(value, row, column, data);
+		return default_formatter(value, row, column, raw_data);
 	},
 
 	get_datatable_options: function (options) {
@@ -145,9 +172,19 @@ frappe.query_reports["Workday Management"] = {
 			cellHeight: 36,
 			layout: "fluid",
 
-			getEditor: function (colIndex, rowIndex, value, parent, column, row, data) {
+			/**
+			 * @param {number} colIndex
+			 * @param {number} rowIndex
+			 * @param {unknown} value
+			 * @param {HTMLElement} parent
+			 * @param {{ fieldname?: string; id?: string }} column
+			 * @param {unknown} row
+			 * @param {unknown} raw_data
+			 */
+			getEditor: function (colIndex, rowIndex, value, parent, column, row, raw_data) {
 				// Punches (Employee Checkin rows) are editable, plus the time on a day's new punch row
-				if (!data) return false;
+				if (!raw_data) return false;
+				const data = /** @type {WMRow} */ (/** @type {unknown} */ (raw_data));
 				const field = column.fieldname || column.id;
 				const is_new = data.row_type === "new_punch" && field === "time";
 				if (data.row_type !== "checkin" && !is_new) return false;
@@ -168,6 +205,7 @@ frappe.query_reports["Workday Management"] = {
 						getValue() {
 							return $input.value;
 						},
+						/** @param {string} newValue */
 						setValue(newValue) {
 							if (!newValue) return;
 							if (is_new) add_punch(data, newValue);
@@ -186,9 +224,13 @@ frappe.query_reports["Workday Management"] = {
 		report.$report.on("click", ".wm-add-punch", (e) => {
 			e.preventDefault();
 			const datatable = report.datatable;
+			if (!datatable) return;
 			const rowIndex = $(e.currentTarget).closest(".dt-cell").data("row-index");
 			const time_column = datatable.datamanager.getColumns().find((col) => col.id === "time");
-			const $cell = datatable.cellmanager.getCell$(time_column.colIndex, rowIndex);
+			if (time_column?.colIndex === undefined) return;
+			const $cell = /** @type {HTMLElement | undefined} */ (
+				datatable.cellmanager.getCell$(time_column.colIndex, rowIndex)
+			);
 			if ($cell) datatable.cellmanager.activateEditing($cell);
 		});
 		report.page.add_button(__("Add Punch"), () => open_add_punch_dialog(report), {
@@ -210,6 +252,10 @@ frappe.query_reports["Workday Management"] = {
 
 		const today = frappe.datetime.get_today();
 		const week_start = frappe.datetime.week_start();
+		/**
+		 * @param {string} from_date
+		 * @param {string} to_date
+		 */
 		const set_period = (from_date, to_date) => report.set_filter_value({ from_date, to_date });
 		report.page.add_inner_button(__("This Week"), () => set_period(week_start, today), __("Period"));
 		report.page.add_inner_button(
@@ -234,7 +280,7 @@ frappe.query_reports["Workday Management"] = {
 				datatable.rowmanager.checkMap.reduce((acc, val, i) => {
 					if (val) acc.push(i);
 					return acc;
-				}, []);
+				}, /** @type {number[]} */ ([]));
 		}
 
 		// Keep the tree the way the user had it across refreshes caused by edits
@@ -254,6 +300,7 @@ frappe.query_reports["Workday Management"] = {
 // One rule per shaded row in a stylesheet of our own, rewritten whole on each render.
 //datatable.style.setStyle scans every existing rule per call, so a rule per cell
 // (rows x columns) locks the page up once a refresh starts replacing them.
+/** @param {import("frappe-types").DataTable} datatable */
 function shade_rows(datatable) {
 	let style_el = datatable.wrapper.querySelector("style.wm-row-shading");
 	if (!style_el) {
@@ -265,7 +312,7 @@ function shade_rows(datatable) {
 	const scope = `.${datatable.style.scopeClass}`;
 	style_el.textContent = datatable.datamanager.data
 		.map((row, rowIndex) => {
-			const background = WM_ROW_BACKGROUNDS[row?.row_type];
+			const background = WM_ROW_BACKGROUNDS[/** @type {WMRow | undefined} */ (row)?.row_type ?? ""];
 			return background ? `${scope} .dt-row-${rowIndex} .dt-cell { background-color: ${background}; }` : "";
 		})
 		.join("\n");
@@ -276,33 +323,41 @@ function shade_rows(datatable) {
 // ---------------------------------------------------------------------------
 
 function refresh_report() {
-	const datatable = frappe.query_report.datatable;
+	const datatable = frappe.query_report?.datatable;
 	if (datatable) {
 		const data = datatable.datamanager.data;
 		wm_open_nodes = new Set(
 			datatable.datamanager
 				.getRows()
 				.filter((row) => !row.meta.isLeaf && !row.meta.isTreeNodeClose)
-				.map((row) => data[row.meta.rowIndex]?.row_key),
+				.map((row) => /** @type {WMRow | undefined} */ (data[row.meta.rowIndex])?.row_key),
 		);
 	}
-	frappe.query_report.refresh();
+	frappe.query_report?.refresh();
 }
 
+/**
+ * @param {import("frappe-types").DataTable} datatable
+ * @param {Set<string | undefined>} open_nodes
+ */
 function restore_tree_state(datatable, open_nodes) {
 	const data = datatable.datamanager.data;
+	/** @type {number[]} */
 	const visible = [];
 	// indent of the closed node whose descendants are currently being skipped
+	/** @type {number | null} */
 	let closed_indent = null;
 
 	datatable.datamanager.getRows().forEach((row) => {
 		const { indent, isLeaf, rowIndex } = row.meta;
-		const hidden = closed_indent !== null && indent > closed_indent;
-		if (!isLeaf) row.meta.isTreeNodeClose = hidden || !open_nodes.has(data[rowIndex]?.row_key);
+		const hidden = closed_indent !== null && (indent ?? 0) > closed_indent;
+		if (!isLeaf)
+			row.meta.isTreeNodeClose =
+				hidden || !open_nodes.has(/** @type {WMRow | undefined} */ (data[rowIndex])?.row_key);
 		if (hidden) return;
 
 		visible.push(rowIndex);
-		closed_indent = !isLeaf && row.meta.isTreeNodeClose ? indent : null;
+		closed_indent = !isLeaf && row.meta.isTreeNodeClose ? (indent ?? null) : null;
 	});
 
 	datatable.rowmanager.showRows(visible);
@@ -312,45 +367,62 @@ function restore_tree_state(datatable, open_nodes) {
 // Actions
 // ---------------------------------------------------------------------------
 
+/**
+ * @param {frappe.views.QueryReport} report
+ * @returns {WMRow[]}
+ */
 function get_checked_data(report) {
 	const datatable = report.datatable;
 	if (!datatable) return [];
 	return datatable.rowmanager
 		.getCheckedRows()
-		.map((rowIndex) => datatable.datamanager.data[rowIndex])
-		.filter((row) => row && row.row_type !== "total");
+		.map((rowIndex) => /** @type {WMRow | undefined} */ (datatable.datamanager.data[rowIndex]))
+		.filter(
+			/**
+			 * @param {WMRow | undefined} row
+			 * @returns {row is WMRow}
+			 */
+			(row) => row !== undefined && row.row_type !== "total",
+		);
 }
 
-// TODO: bug kept as-is in the formatting pass: the caller passes (data, newValue), so the new time arrives
-// as the second argument and is never sent, and `time` below is undefined. Fixed in a follow-up PR.
-function save_checkin(data, _fieldname, _value) {
+/**
+ * @param {WMRow} data
+ * @param {string} time
+ */
+function save_checkin(data, time) {
 	frappe.call({
 		method: `${WM_METHOD}.update_checkin`,
 		args: { checkin: data.checkin, time: time },
 		callback: (r) => {
-			if (r.message) frappe.show_alert({ message: r.message, indicator: "green" }, 3);
+			if (r.message) frappe.show_alert({ message: /** @type {string} */ (r.message), indicator: "green" }, 3);
 		},
 		// Refresh on failure too, so the cell drops the rejected value
 		always: () => refresh_report(),
 	});
 }
 
+/**
+ * @param {WMRow} data
+ * @param {string} time
+ */
 function add_punch(data, time) {
 	// log_type is left to the server, which picks it from where the time lands in the day
 	frappe.call({
 		method: `${WM_METHOD}.add_checkin`,
 		args: { employee: data.employee, date: data.date, time: time },
 		callback: (r) => {
-			if (r.message) frappe.show_alert({ message: r.message, indicator: "green" }, 3);
+			if (r.message) frappe.show_alert({ message: /** @type {string} */ (r.message), indicator: "green" }, 3);
 		},
 		// Refresh on failure too, so the row drops the rejected value
 		always: () => refresh_report(),
 	});
 }
 
+/** @param {frappe.views.QueryReport} report */
 function open_add_punch_dialog(report) {
 	// Prefill from the first selected row, suggesting the log type the day needs next
-	const selected = get_checked_data(report)[0] || {};
+	const selected = get_checked_data(report)[0];
 
 	const dialog = new frappe.ui.Dialog({
 		title: __("Add Punch"),
@@ -361,16 +433,16 @@ function open_add_punch_dialog(report) {
 				fieldtype: "Link",
 				options: "Employee",
 				reqd: 1,
-				default: selected.employee,
+				default: selected?.employee,
 			},
 			{
 				fieldname: "date",
 				label: __("Date"),
 				fieldtype: "Date",
 				reqd: 1,
-				default: selected.date || frappe.datetime.get_today(),
+				default: selected?.date || frappe.datetime.get_today(),
 			},
-			{ fieldtype: "Column Break" },
+			{ fieldname: "column_break", fieldtype: "Column Break" },
 			{
 				fieldname: "time",
 				label: __("Time"),
@@ -387,7 +459,7 @@ function open_add_punch_dialog(report) {
 				freeze_message: __("Adding punch..."),
 				callback: (r) => {
 					dialog.hide();
-					frappe.show_alert({ message: r.message, indicator: "green" }, 3);
+					frappe.show_alert({ message: /** @type {string} */ (r.message), indicator: "green" }, 3);
 					refresh_report();
 				},
 			});
@@ -396,6 +468,7 @@ function open_add_punch_dialog(report) {
 	dialog.show();
 }
 
+/** @param {frappe.views.QueryReport} report */
 function delete_selected_punches(report) {
 	const checkins = get_checked_data(report)
 		.filter((row) => row.row_type === "checkin")
@@ -413,15 +486,16 @@ function delete_selected_punches(report) {
 			freeze: true,
 			freeze_message: __("Deleting punches..."),
 			callback: (r) => {
-				frappe.show_alert({ message: r.message, indicator: "green" }, 5);
+				frappe.show_alert({ message: /** @type {string} */ (r.message), indicator: "green" }, 5);
 				refresh_report();
 			},
 		});
 	});
 }
 
+/** @param {frappe.views.QueryReport} report */
 function rebuild_selected_workdays(report) {
-	const data = report.data || [];
+	const data = /** @type {WMRow[]} */ (/** @type {unknown} */ (report.data || []));
 	const workday_rows = data.filter((row) => row.row_type === "workday");
 	const selected = get_checked_data(report);
 
@@ -435,7 +509,7 @@ function rebuild_selected_workdays(report) {
 			);
 		});
 	} else {
-		rows = workday_rows.filter((row) => WM_REBUILD_STATUSES.includes(row.status));
+		rows = workday_rows.filter((row) => WM_REBUILD_STATUSES.includes(row.status ?? ""));
 	}
 
 	const days = Object.values(
@@ -460,7 +534,7 @@ function rebuild_selected_workdays(report) {
 			freeze: true,
 			freeze_message: __("Rebuilding workdays..."),
 			callback: (r) => {
-				frappe.show_alert({ message: r.message, indicator: "green" }, 5);
+				frappe.show_alert({ message: /** @type {string} */ (r.message), indicator: "green" }, 5);
 				refresh_report();
 			},
 		});

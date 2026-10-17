@@ -1,19 +1,16 @@
 # Copyright (c) 2026, Avunu LLC and contributors
 # For license information, please see license.txt
 
-import contextlib
 import datetime
-from typing import Any
+from typing import Any, cast
 
 import frappe
 import jwt
 from frappe import _
 from frappe.rate_limiter import rate_limit
 
-from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
-
-# import secret key from site_config.json
-SECRET_KEY = frappe.get_site_config().get("encryption_key")
+from timeclock.auth import get_token_secret
+from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin, insert_punch
 
 
 def refresh_token(employee_id: str) -> str:
@@ -38,7 +35,7 @@ def refresh_token(employee_id: str) -> str:
 			"employee_name": employee_name,
 			"exp": expires,
 		},
-		key=SECRET_KEY or "",
+		key=get_token_secret(),
 		algorithm="HS256",
 	)
 
@@ -111,7 +108,7 @@ def extract_employee_from_token(token: str) -> tuple[str, str]:
 	"""
 	try:
 		# Decode the JWT using the same secret key
-		payload: dict[str, Any] = jwt.decode(token, SECRET_KEY or "", algorithms=["HS256"])
+		payload: dict[str, Any] = jwt.decode(token, get_token_secret(), algorithms=["HS256"])
 		employee_id: str | None = payload.get("employee_id")
 
 		if not employee_id:
@@ -156,18 +153,15 @@ def log_in_employee(token: str, time: str) -> dict[str, Any]:
 
 	employee_id, token = extract_employee_from_token(token)
 
-	new_log = EmployeeCheckin("Employee Checkin", {})
+	new_log = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
 	new_log.employee = employee_id
 	new_log.time = time
 	new_log.log_type = "IN"
 	new_log.device_id = "Timeclock Scanner"
 	new_log.manual_override = False
-	with contextlib.suppress(Exception):
-		new_log.insert(ignore_permissions=True)
-	if new_log:
+	if insert_punch(new_log):
 		return {"status": "success", "log": new_log}
-	else:
-		return {"status": "unsuccessful", "log": new_log}
+	return {"status": "unsuccessful", "log": new_log}
 
 
 @frappe.whitelist(allow_guest=True)
@@ -189,15 +183,12 @@ def log_out_employee(token: str, time: str) -> dict[str, Any]:
 	"""
 	employee_id, token = extract_employee_from_token(token)
 
-	new_log = EmployeeCheckin("Employee Checkin", {})
+	new_log = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
 	new_log.employee = employee_id
 	new_log.time = time
 	new_log.log_type = "OUT"
 	new_log.manual_override = False
 	new_log.device_id = "Timeclock Scanner"
-	with contextlib.suppress(Exception):
-		new_log.insert(ignore_permissions=True)
-	if new_log:
+	if insert_punch(new_log):
 		return {"status": "success", "log": new_log}
-	else:
-		return {"status": "unsuccessful", "log": new_log}
+	return {"status": "unsuccessful", "log": new_log}

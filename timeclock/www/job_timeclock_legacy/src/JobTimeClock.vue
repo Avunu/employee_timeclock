@@ -395,14 +395,6 @@ export default defineComponent({
 				console.log("Did not work. You are still logged in:", response.log);
 			}
 		},
-		async get_employees() {
-			const response = await FrappeCall("timeclock.www.job_timeclock.get_employees");
-			if (response?.status === "success") {
-				this.employees = response.employees;
-				// console.log(this.employees)
-			}
-		},
-
 		get_token_from_employee(employee: Employee) {
 			// console.log(employee)
 			this.authenticateEmployee(employee.sCode);
@@ -436,9 +428,6 @@ export default defineComponent({
 			this.getWorkOrders();
 		}
 		this.check_for_erp_log_in();
-
-		// This code is to hardwire employees logging in without scan.
-		this.employees = this.get_employees();
 
 		// This is to be used with scan.
 		const scanner = onScan.attachTo(document, {

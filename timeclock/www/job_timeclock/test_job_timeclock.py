@@ -28,14 +28,16 @@ from erpnext.manufacturing.doctype.work_order.work_order import WorkOrder
 from erpnext.manufacturing.doctype.workstation.workstation import Workstation
 from erpnext.setup.doctype.employee.employee import Employee
 from erpnext.stock.doctype.item.item import Item
-from frappe.defaults import get_defaults
-from frappe.tests.utils import FrappeTestCase
+from frappe.tests import IntegrationTestCase
 from frappe.utils import add_to_date, now_datetime, random_string
+from frappe.utils.password import get_encryption_key
+from frappe.utils.redis_wrapper import RedisWrapper
 
 from timeclock.timeclock.custom.job_card import TimeclockJobCard
+from timeclock.timeclock.test_api import _ensure_company
 
 
-class TestProjectTracker(FrappeTestCase):
+class JobTimeclockTestCase(IntegrationTestCase):
 	"""
 	Test cases for the Project Tracker page functions.
 
@@ -85,6 +87,7 @@ class TestProjectTracker(FrappeTestCase):
 					"date_of_birth": "1990-01-01",
 					"date_of_joining": "2020-01-01",
 					"status": "Active",
+					"company": _ensure_company(),
 				}
 			).insert(ignore_permissions=True),
 		)
@@ -121,6 +124,7 @@ class TestProjectTracker(FrappeTestCase):
 			frappe.get_doc(
 				{
 					"doctype": "Job Card",
+					"company": cls._test_work_order.company,
 					"work_order": cls._test_work_order.name,
 					"operation": cls._test_operation.name,
 					"workstation": cls._test_workstation.name,
@@ -155,7 +159,7 @@ class TestProjectTracker(FrappeTestCase):
 						"item_code": f"Test Item {unique_id}",
 						"item_name": f"Test Item {unique_id}",
 						"item_group": "Products",
-						"stock_uom": "Pieces",
+						"stock_uom": "Nos",
 						"is_stock_item": 1,
 					}
 				).insert(ignore_permissions=True),
@@ -206,7 +210,7 @@ class TestProjectTracker(FrappeTestCase):
 					"item_code": rm_item_code,
 					"item_name": rm_item_code,
 					"item_group": "Products",
-					"stock_uom": "Pieces",
+					"stock_uom": "Nos",
 					"is_stock_item": 1,
 				}
 			).insert(ignore_permissions=True)
@@ -216,6 +220,7 @@ class TestProjectTracker(FrappeTestCase):
 			frappe.get_doc(
 				{
 					"doctype": "BOM",
+					"company": _ensure_company(),
 					"item": cls._test_item.name,
 					"quantity": 1,
 					"is_active": 1,
@@ -240,7 +245,7 @@ class TestProjectTracker(FrappeTestCase):
 		cls._test_bom.submit()
 
 		# Create test work order
-		company = get_defaults().get("company")
+		company = _ensure_company()
 		# Get warehouse that belongs to the company
 		warehouse = frappe.get_value("Warehouse", {"is_group": 0, "company": company}, "name")
 		if not warehouse:
@@ -290,6 +295,9 @@ class TestProjectTracker(FrappeTestCase):
 		Item, BOM, Workstation, Operation, Work Order, and Job Cards.
 		"""
 		super().setUpClass()
+		# the badge tokens are signed with the site's encryption key; a fresh site has none until
+		# something asks for it
+		get_encryption_key()
 		frappe.set_user("Administrator")
 		cls._create_test_fixtures()
 		# Commit fixtures so they survive test rollbacks
@@ -335,7 +343,7 @@ class TestProjectTracker(FrappeTestCase):
 		"""Set up before each test - clear rate limiter cache and time logs."""
 		super().setUp()
 		# Clear rate limiter cache to avoid rate limiting between tests
-		frappe.cache.delete_keys("rl:*")
+		cast(RedisWrapper, frappe.cache).delete_keys("rl:*")
 		# Clear any existing time logs from job cards to start fresh
 		for job_card in self._test_job_cards:
 			if job_card and frappe.db.exists("Job Card", job_card.name):
@@ -343,6 +351,49 @@ class TestProjectTracker(FrappeTestCase):
 				frappe.db.delete("Job Card Time Log", {"parent": job_card.name})
 				frappe.db.commit()
 				job_card.reload()
+
+	def tearDown(self) -> None:
+		"""
+		Clean up test data after each test.
+
+		Removes Employee Checkin records, resets job card time logs,
+		and commits changes to persist cleanup.
+		"""
+		frappe.set_user("Administrator")
+
+		# Clean up employee checkins created during tests
+		if self._test_employee:
+			checkins: list[str] = frappe.get_all(
+				"Employee Checkin", filters={"employee": self._test_employee.name}, pluck="name"
+			)
+			for checkin in checkins:
+				with contextlib.suppress(Exception):
+					frappe.delete_doc("Employee Checkin", checkin, ignore_permissions=True, force=True)
+
+			# Delete ALL time logs for this employee across all job cards
+			frappe.db.delete("Job Card Time Log", {"employee": self._test_employee.name})
+
+		# Reset test job card time logs and status
+		for job_card in self._test_job_cards:
+			try:
+				# Delete time logs directly from database
+				frappe.db.delete("Job Card Time Log", {"parent": job_card.name})
+				# Reset job card status
+				frappe.db.set_value("Job Card", job_card.name, "status", "Open")
+				# Clear document cache for this job card
+				frappe.clear_document_cache("Job Card", job_card.name)
+			except Exception:
+				pass
+
+		# Clear value cache
+		frappe.db.value_cache.clear()
+
+		# Commit cleanup changes so they persist
+		frappe.db.commit()
+
+
+class TestProjectTracker(JobTimeclockTestCase):
+	"""The Project Tracker (``/job_timeclock``) page functions."""
 
 	def test_authenticate_employee_valid_rfid(self) -> None:
 		"""
@@ -422,6 +473,25 @@ class TestProjectTracker(FrappeTestCase):
 		self.assertIsNotNone(result["log"])
 		self.assertEqual(result["log"].log_type, "IN")
 		self.assertEqual(result["log"].employee, self._test_employee.name)
+
+	def test_a_rejected_punch_is_reported_unsuccessful(self) -> None:
+		"""A punch the checkin validation rejects (a duplicate) is reported, not swallowed."""
+		from timeclock.www.job_timeclock.job_timeclock import authenticate_employee, log_out_employee
+
+		assert self._test_employee is not None
+		token: str = authenticate_employee(self._test_device_id.id)["token"]
+		punch = str(now_datetime())
+		outs = {"employee": self._test_employee.name, "log_type": "OUT"}
+		before = frappe.db.count("Employee Checkin", outs)
+
+		frappe.set_user("Guest")
+		first: dict[str, Any] = log_out_employee(punch, token=token)
+		second: dict[str, Any] = log_out_employee(punch, token=token)
+		frappe.set_user("Administrator")
+
+		self.assertEqual(first["status"], "success")
+		self.assertEqual(second["status"], "unsuccessful")
+		self.assertEqual(frappe.db.count("Employee Checkin", outs), before + 1)
 
 	def test_log_out_employee(self) -> None:
 		"""
@@ -638,6 +708,7 @@ class TestProjectTracker(FrappeTestCase):
 			frappe.get_doc(
 				{
 					"doctype": "Job Card",
+					"company": self._test_work_order.company,
 					"work_order": self._test_work_order.name,
 					"operation": self._test_operation.name,
 					"workstation": self._test_workstation.name,
@@ -751,7 +822,8 @@ class TestProjectTracker(FrappeTestCase):
 		Verifies that extract_employee_from_token raises an
 		AuthenticationError when presented with an expired JWT token.
 		"""
-		from timeclock.www.job_timeclock.job_timeclock import SECRET_KEY, extract_employee_from_token
+		from timeclock.auth import get_token_secret
+		from timeclock.www.job_timeclock.job_timeclock import extract_employee_from_token
 
 		assert self._test_employee is not None
 
@@ -763,7 +835,7 @@ class TestProjectTracker(FrappeTestCase):
 				"employee_name": "Test Employee",
 				"exp": expired_time,
 			},
-			key=SECRET_KEY or "",
+			key=get_token_secret(),
 			algorithm="HS256",
 		)
 
@@ -882,6 +954,7 @@ class TestProjectTracker(FrappeTestCase):
 			frappe.get_doc(
 				{
 					"doctype": "Job Card",
+					"company": self._test_work_order.company,
 					"work_order": self._test_work_order.name,
 					"operation": self._test_operation.name,
 					"workstation": self._test_workstation.name,
@@ -954,6 +1027,7 @@ class TestProjectTracker(FrappeTestCase):
 			frappe.get_doc(
 				{
 					"doctype": "Job Card",
+					"company": self._test_work_order.company,
 					"work_order": self._test_work_order.name,
 					"operation": self._test_operation.name,
 					"workstation": self._test_workstation.name,
@@ -990,7 +1064,7 @@ class TestProjectTracker(FrappeTestCase):
 				{
 					"doctype": "Employee",
 					"first_name": f"Machine {unique_id}",
-					"company": get_defaults().get("company"),
+					"company": _ensure_company(),
 					"status": "Active",
 					"gender": "Other",
 					"date_of_birth": "2000-01-01",
@@ -1026,6 +1100,7 @@ class TestProjectTracker(FrappeTestCase):
 			frappe.get_doc(
 				{
 					"doctype": "Job Card",
+					"company": self._test_work_order.company,
 					"work_order": self._test_work_order.name,
 					"operation": machine_op.name,
 					"workstation": self._test_workstation.name,
@@ -1101,6 +1176,7 @@ class TestProjectTracker(FrappeTestCase):
 			frappe.get_doc(
 				{
 					"doctype": "Job Card",
+					"company": self._test_work_order.company,
 					"work_order": self._test_work_order.name,
 					"operation": machine_op.name,
 					"workstation": self._test_workstation.name,
@@ -1151,6 +1227,7 @@ class TestProjectTracker(FrappeTestCase):
 			authenticate_employee,
 			get_machine_timers,
 			start_timer,
+			stop_machine_timer,
 		)
 
 		assert self._test_employee is not None
@@ -1176,7 +1253,7 @@ class TestProjectTracker(FrappeTestCase):
 				{
 					"doctype": "Employee",
 					"first_name": f"General {unique_id}",
-					"company": get_defaults().get("company"),
+					"company": _ensure_company(),
 					"status": "Active",
 					"gender": "Other",
 					"date_of_birth": "1995-01-01",
@@ -1216,6 +1293,7 @@ class TestProjectTracker(FrappeTestCase):
 			frappe.get_doc(
 				{
 					"doctype": "Job Card",
+					"company": self._test_work_order.company,
 					"work_order": self._test_work_order.name,
 					"operation": machine_op.name,
 					"workstation": self._test_workstation.name,
@@ -1253,7 +1331,7 @@ class TestProjectTracker(FrappeTestCase):
 			self.assertIn(machine_op.name, operator_ops)
 
 			# General worker (different group) does NOT see the CNC timer
-			general_token: str = authenticate_employee(general_device.id)["token"]
+			general_token: str = authenticate_employee(general_device.get("id"))["token"]
 			frappe.set_user("Guest")
 			general_view: dict[str, Any] = get_machine_timers(token=general_token)
 			frappe.set_user("Administrator")
@@ -1261,6 +1339,33 @@ class TestProjectTracker(FrappeTestCase):
 			self.assertEqual(general_view["employee_groups"], [general_group.name])
 			general_ops = {t["operation"] for t in general_view["machine_timers"]}
 			self.assertNotIn(machine_op.name, general_ops)
+
+			# The operator stops the machine timer; it no longer shows
+			operator_token = authenticate_employee(self._test_device_id.id)["token"]
+			frappe.set_user("Guest")
+			stop_result: dict[str, Any] = stop_machine_timer(
+				work_order=str(self._test_work_order.name),
+				operation=machine_op.name,
+				end_time=cast(Any, add_to_date(now_datetime(), minutes=5).isoformat()),
+				token=operator_token,
+			)
+			frappe.set_user("Administrator")
+			self.assertEqual(stop_result["status"], "success")
+			job_card.reload()
+			self.assertTrue(all(log.to_time for log in job_card.time_logs))
+			operator_token = authenticate_employee(self._test_device_id.id)["token"]
+			operator_view = get_machine_timers(token=operator_token)
+			self.assertNotIn(machine_op.name, {t["operation"] for t in operator_view["machine_timers"]})
+
+			# ...and stopping it again finds nothing to stop
+			operator_token = authenticate_employee(self._test_device_id.id)["token"]
+			again: dict[str, Any] = stop_machine_timer(
+				work_order=str(self._test_work_order.name),
+				operation=machine_op.name,
+				end_time=now_datetime(),
+				token=operator_token,
+			)
+			self.assertEqual(again, {"status": "failed", "error": "No active machine timer found"})
 
 		finally:
 			frappe.set_user("Administrator")
@@ -1306,7 +1411,7 @@ class TestProjectTracker(FrappeTestCase):
 				{
 					"doctype": "Employee",
 					"first_name": f"General {unique_id}",
-					"company": get_defaults().get("company"),
+					"company": _ensure_company(),
 					"status": "Active",
 					"gender": "Other",
 					"date_of_birth": "1995-01-01",
@@ -1368,7 +1473,7 @@ class TestProjectTracker(FrappeTestCase):
 			self.assertTrue(any(not o["is_machine_time"] for o in operator_ops["operations"]))
 
 			# General worker (different group) does NOT see the machine operation
-			general_token: str = authenticate_employee(general_device.id)["token"]
+			general_token: str = authenticate_employee(general_device.get("id"))["token"]
 			general_ops: dict[str, Any] = get_operations(
 				work_order=str(self._test_work_order.name), token=general_token
 			)
@@ -1389,41 +1494,95 @@ class TestProjectTracker(FrappeTestCase):
 			)
 			frappe.delete_doc("Employee", general_employee.name, ignore_permissions=True, force=True)
 
-	def tearDown(self) -> None:
-		"""
-		Clean up test data after each test.
+	def test_get_active_timer(self) -> None:
+		"""The running labor timer is reported until it is stopped."""
+		from timeclock.www.job_timeclock.job_timeclock import (
+			authenticate_employee,
+			get_active_timer,
+			start_timer,
+			stop_timer,
+		)
 
-		Removes Employee Checkin records, resets job card time logs,
-		and commits changes to persist cleanup.
-		"""
-		frappe.set_user("Administrator")
+		assert self._test_work_order is not None
+		assert self._test_operation is not None
 
-		# Clean up employee checkins created during tests
-		if self._test_employee:
-			checkins: list[str] = frappe.get_all(
-				"Employee Checkin", filters={"employee": self._test_employee.name}, pluck="name"
-			)
-			for checkin in checkins:
-				with contextlib.suppress(Exception):
-					frappe.delete_doc("Employee Checkin", checkin, ignore_permissions=True, force=True)
+		token: str = authenticate_employee(self._test_device_id.id)["token"]
+		self.assertIsNone(get_active_timer(token=token)["active_timer"])
 
-			# Delete ALL time logs for this employee across all job cards
-			frappe.db.delete("Job Card Time Log", {"employee": self._test_employee.name})
+		start_time = now_datetime().replace(microsecond=0)
+		start_timer(
+			work_order=str(self._test_work_order.name),
+			operation=str(self._test_operation.name),
+			start_time=str(start_time),
+			token=token,
+		)
+		result: dict[str, Any] = get_active_timer(token=token)
 
-		# Reset test job card time logs and status
-		for job_card in self._test_job_cards:
-			try:
-				# Delete time logs directly from database
-				frappe.db.delete("Job Card Time Log", {"parent": job_card.name})
-				# Reset job card status
-				frappe.db.set_value("Job Card", job_card.name, "status", "Open")
-				# Clear document cache for this job card
-				frappe.clear_document_cache("Job Card", job_card.name)
-			except Exception:
-				pass
+		self.assertEqual(result["status"], "success")
+		self.assertTrue(result["token"])
+		self.assertEqual(result["active_timer"]["work_order"], self._test_work_order.name)
+		self.assertEqual(result["active_timer"]["operation"], self._test_operation.name)
+		self.assertFalse(result["active_timer"]["is_corrective"])
 
-		# Clear value cache
-		frappe.db.value_cache = {}
+		stop_timer(end_time=str(add_to_date(start_time, minutes=10)), token=token)
+		self.assertIsNone(get_active_timer(token=token)["active_timer"])
 
-		# Commit cleanup changes so they persist
-		frappe.db.commit()
+	def test_get_active_timer_requires_authentication(self) -> None:
+		from timeclock.www.job_timeclock.job_timeclock import get_active_timer
+
+		frappe.set_user("Guest")
+		result: dict[str, Any] = get_active_timer(token="not-a-token")
+
+		self.assertEqual(result["status"], "error")
+		self.assertIsNone(result["active_timer"])
+
+	def test_get_workstations(self) -> None:
+		from timeclock.www.job_timeclock.job_timeclock import get_workstations
+
+		assert self._test_workstation is not None
+		result: dict[str, Any] = get_workstations()
+
+		self.assertEqual(result["status"], "success")
+		self.assertIn(self._test_workstation.name, result["workstations"])
+
+	def test_get_device_info(self) -> None:
+		from timeclock.www.job_timeclock.job_timeclock import get_device_info
+
+		frappe.local.request_ip = "127.0.0.1"
+		try:
+			result: dict[str, Any] = get_device_info()
+		finally:
+			frappe.local.request_ip = None
+
+		self.assertEqual(result["status"], "success")
+		self.assertEqual(result["ip"], "127.0.0.1")
+		self.assertIsInstance(result["mac"], str)
+
+	def test_stop_machine_timer_rejects_bad_requests(self) -> None:
+		from timeclock.www.job_timeclock.job_timeclock import authenticate_employee, stop_machine_timer
+
+		assert self._test_work_order is not None
+		assert self._test_operation is not None
+		work_order = str(self._test_work_order.name)
+		operation = str(self._test_operation.name)
+
+		frappe.set_user("Guest")
+		unauthenticated = stop_machine_timer(work_order, operation, now_datetime(), token="not-a-token")
+		self.assertEqual(unauthenticated["status"], "failed")
+
+		token: str = authenticate_employee(self._test_device_id.id)["token"]
+		bad_time = stop_machine_timer(work_order, operation, cast(Any, "yesterday"), token=token)
+		self.assertEqual(bad_time, {"status": "failed", "error": "Invalid end_time format"})
+
+		token = authenticate_employee(self._test_device_id.id)["token"]
+		labor = stop_machine_timer(work_order, operation, now_datetime(), token=token)
+		self.assertEqual(labor, {"status": "failed", "error": "Not a machine operation"})
+
+	def test_page_context(self) -> None:
+		from timeclock.www.job_timeclock import index
+
+		context = frappe._dict()
+		index.get_context(context)
+
+		self.assertTrue(context.csrf_token)
+		self.assertEqual(context.sitename, frappe.local.site)

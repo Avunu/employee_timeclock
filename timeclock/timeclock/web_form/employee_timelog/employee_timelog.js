@@ -2,6 +2,10 @@
 // For license information, please see license.txt
 
 // frappe.web_form is employee_timelog.js
+
+/** @typedef {Record<string, unknown>} FormEntry the web form's values, as frappe.web_form.get_values() returns them */
+
+/** @param {FormEntry} form_entry */
 function reset_form(form_entry) {
 	// reset the form
 	update_form_value(form_entry, "manual_override", "");
@@ -14,22 +18,28 @@ function reset_form(form_entry) {
 	jQuery("input[data-fieldname='employee']").focus();
 }
 
+/**
+ * @param {FormEntry} form_entry
+ * @param {string} field_name
+ * @param {unknown} value
+ */
 function update_form_value(form_entry, field_name, value) {
 	form_entry[field_name] = value;
 	frappe.web_form.set_value(field_name, value);
 }
 
+/** @param {FormEntry} form_entry */
 function save_form(form_entry) {
 	// save the form
 	Object.assign(frappe.web_form.doc, form_entry);
 	frappe.web_form.doc.doctype = frappe.web_form.doc_type;
 	frappe.web_form.doc.web_form_name = frappe.web_form.name;
 	// make sure employee is set
-	if ((!"employee") in form_entry) {
+	if (!("employee" in form_entry)) {
 		return;
 	}
 	// make sure time isn't in the future
-	else if (Date.parse(form_entry.time) > Date.parse(frappe.datetime.now_datetime())) {
+	else if (Date.parse(String(form_entry.time)) > Date.parse(frappe.datetime.now_datetime())) {
 		const time_travel_gif = "https://media4.giphy.com/media/3ov9jU4ycPvfrPTsly/giphy.gif";
 		const alert_message =
 			'<b>Time Traveler!</b><br>It looks like you are trying to clock in the future. Please check your time and try again.<br><img src="' +
@@ -58,7 +68,7 @@ function save_form(form_entry) {
 			},
 			callback: function (response) {
 				const employee = form_entry.employee;
-				const log_type = response.message;
+				const log_type = /** @type {"IN" | "OUT"} */ (response.message);
 				reset_form(form_entry);
 				frappe.call({
 					method: "timeclock.timeclock.api.get_weekly_hours",
@@ -66,8 +76,7 @@ function save_form(form_entry) {
 						employee: employee,
 					},
 					callback: function (hours_response) {
-						const employee_name = hours_response.message[0];
-						const weekly_hours = hours_response.message[1];
+						const [employee_name, weekly_hours] = /** @type {[string, number]} */ (hours_response.message);
 						const heading_color = log_type == "IN" ? "#4ade80" : "#f87171";
 						const alert_message =
 							"<div style='font-size: 2.5rem; font-weight: 700; line-height: 1.2; color: " +
@@ -108,9 +117,8 @@ frappe.init_client_script = () => {
 	try {
 		var time;
 
-		// eslint-disable-next-line no-undef
 		const manual_override_time = new tempusDominus.TempusDominus(
-			document.querySelector("[data-fieldname='manual_override_time']"),
+			/** @type {HTMLElement} */ (document.querySelector("[data-fieldname='manual_override_time']")),
 			{
 				display: {
 					viewMode: "clock",
@@ -140,11 +148,11 @@ frappe.init_client_script = () => {
 
 		// create "clock in" and "clock out" buttons from the "log_type" select/dropdown
 		jQuery("select[data-fieldname='log_type'] option").each(function (i, e) {
-			const select_option = jQuery(this).val();
+			const select_option = /** @type {string} */ (jQuery(this).val());
 			jQuery("<input type='radio' name='r' style='display:none;' />")
 				.attr("value", select_option)
 				.attr("id", select_option)
-				.attr("checked", i == 0)
+				.attr("checked", i == 0 ? "checked" : null)
 				.click(function () {
 					jQuery("select[data-fieldname='log_type']").val(select_option);
 				})
@@ -167,6 +175,9 @@ frappe.init_client_script = () => {
 		// calculate and set form values, save the form after employee selection
 		frappe.web_form.on("employee", (_field, _value) => {
 			let form_entry = frappe.web_form.get_values();
+			if (!form_entry) {
+				return;
+			}
 			let employee;
 			if ("employee" in form_entry) {
 				employee = form_entry.employee;
@@ -202,7 +213,7 @@ frappe.init_client_script = () => {
 						data: form_entry,
 					},
 					callback: function (response) {
-						const log_type = response.message;
+						const log_type = /** @type {"IN" | "OUT"} */ (response.message);
 						update_form_value(form_entry, "log_type", log_type);
 						save_form(form_entry);
 					},
@@ -228,7 +239,9 @@ function updateClock() {
 	const amPm = now.getHours() < 12 ? "AM" : "PM";
 	const timeString = `${hours}:${minutes} ${amPm}`;
 	const dateString = now.toDateString();
-	document.getElementById("time").textContent = timeString;
-	document.getElementById("date").textContent = dateString;
+	const time = document.getElementById("time");
+	const date = document.getElementById("date");
+	if (time) time.textContent = timeString;
+	if (date) date.textContent = dateString;
 }
 setInterval(updateClock, 1000);

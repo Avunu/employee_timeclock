@@ -20,7 +20,26 @@
 <script lang="ts" setup>
 import { computed } from "vue";
 import { Button as FrappeButton } from "frappe-ui";
-import type { ButtonProps } from "../../../../../node_modules/frappe-ui/src/components/Button/types";
+import type { Component } from "vue";
+import type { RouterLinkProps } from "vue-router";
+
+// frappe-ui 0.1's ButtonProps (components/Button/types.ts), which the package does not export
+interface ButtonProps {
+	theme?: "gray" | "blue" | "green" | "red";
+	size?: "sm" | "md" | "lg" | "xl" | "2xl";
+	variant?: "solid" | "subtle" | "outline" | "ghost";
+	label?: string;
+	icon?: string | Component;
+	iconLeft?: string | Component;
+	iconRight?: string | Component;
+	tooltip?: string;
+	loading?: boolean;
+	loadingText?: string;
+	disabled?: boolean;
+	route?: RouterLinkProps["to"];
+	link?: string;
+	type?: "button" | "submit" | "reset";
+}
 
 defineOptions({ name: "Button", inheritAttrs: false });
 

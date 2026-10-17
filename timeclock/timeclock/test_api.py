@@ -24,10 +24,12 @@ from typing import Any, cast
 import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import get_first_day_of_week, now_datetime, random_string, today
+from frappe.utils.password import get_encryption_key
 from frappe.utils.typing_validations import transform_parameter_types
 
 from timeclock import hooks
 from timeclock.timeclock import api
+from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
 from timeclock.www.job_timeclock import job_timeclock
 
 # A fixed Monday, so slot labels and day_of_week are exact rather than "whatever today is"
@@ -72,7 +74,7 @@ def _make_employee() -> tuple[str, str]:
 			"status": "Active",
 		}
 	).insert(ignore_permissions=True)
-	return cast(str, employee.name), cast(str, employee.employee_name)
+	return cast(str, employee.name), cast(str, employee.get("employee_name"))
 
 
 def _punch_time(hour: int, minute: int = 0, second: int = 0) -> datetime.datetime:
@@ -86,6 +88,9 @@ class TestTimeclockApi(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls) -> None:
 		super().setUpClass()
+		# the job timeclock signs its badge tokens with the site's encryption key; a fresh site has
+		# none until something asks for it
+		get_encryption_key()
 		cls.employee, cls.employee_name = _make_employee()
 		frappe.db.commit()
 
@@ -182,7 +187,7 @@ class TestTimeclockApi(IntegrationTestCase):
 
 	def test_inserting_checkin_builds_workday(self) -> None:
 		"""Saving an Employee Checkin runs the on_update hook and files the punch on a Workday."""
-		checkin = frappe.new_doc("Employee Checkin")
+		checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
 		checkin.employee = self.employee
 		checkin.time = _punch_time(8)
 		checkin.log_type = "IN"
@@ -237,6 +242,53 @@ class TestTimeclockApi(IntegrationTestCase):
 		self.assertEqual(workdays[0]["total_hours"], 4.5)
 		self.assertEqual({c["workday"] for c in self._checkins()}, {workdays[0]["name"]})
 
+	# --- on_trash: clear_workday_punch_on_checkin_trash ---
+
+	def _clock_in_and_out(self) -> tuple[str, str]:
+		"""Punch 8:00 AM in and 12:30 PM out. Returns (workday, the OUT checkin's name)."""
+		api.submit_checkin("employee-timelog", self._form_data(_punch_time(8)))
+		workday = self._workdays()[0]["name"]
+		self._age_workday(workday)
+		api.submit_checkin("employee-timelog", self._form_data(_punch_time(12, 30), "OUT"))
+		out = frappe.get_all(
+			"Employee Checkin", filters={"employee": self.employee, "log_type": "OUT"}, pluck="name"
+		)
+		self.assertEqual(len(out), 1)
+		return workday, out[0]
+
+	def test_trashing_a_checkin_clears_its_workday_punch(self) -> None:
+		"""Deleting a checkin from the desk empties its Workday slot and re-totals the day."""
+		workday, out = self._clock_in_and_out()
+		self._age_workday(workday)
+
+		frappe.delete_doc("Employee Checkin", out, ignore_permissions=True)
+
+		row = frappe.db.get_value(
+			"Workday",
+			workday,
+			["check_in_1", "check_in_1_dt", "check_out_1", "check_out_1_dt", "total_hours"],
+			as_dict=True,
+		)
+		self.assertEqual(row.check_in_1, "8:00 AM")
+		self.assertEqual(row.check_in_1_dt, _punch_time(8))
+		self.assertIsNone(row.check_out_1)
+		self.assertIsNone(row.check_out_1_dt)
+		self.assertEqual(row.total_hours, 0)
+
+	def test_trashing_a_checkin_inside_the_resync_window_leaves_the_workday(self) -> None:
+		"""Inside 60 s of a Workday edit the hook does nothing: the edit itself deletes the checkins."""
+		workday, out = self._clock_in_and_out()
+		# a desk save of the Workday stamps last_modified (before_save) and then deletes its checkins
+		frappe.db.set_value("Workday", workday, "last_modified", now_datetime(), update_modified=False)
+		before = frappe.db.get_value("Workday", workday, ["check_out_1", "total_hours"], as_dict=True)
+
+		frappe.delete_doc("Employee Checkin", out, ignore_permissions=True)
+
+		after = frappe.db.get_value("Workday", workday, ["check_out_1", "total_hours"], as_dict=True)
+		self.assertEqual(after, before)
+		self.assertEqual(after.check_out_1, "12:30 PM")
+		self.assertEqual(after.total_hours, 4.5)
+
 	def test_submit_checkin_same_minute_does_not_duplicate(self) -> None:
 		"""A second scan inside the same minute reuses the existing checkin."""
 		api.submit_checkin("employee-timelog", self._form_data(_punch_time(8, 0, 5)))
@@ -274,7 +326,7 @@ class TestTimeclockApi(IntegrationTestCase):
 		"""Returns the display name and this week's total, ignoring other weeks."""
 		self.assertEqual(api.get_weekly_hours(self.employee), [self.employee_name, 0.0])
 
-		week_start = cast(datetime.date, get_first_day_of_week(today()))
+		week_start = get_first_day_of_week(today())
 		for date, hours in (
 			(week_start, 2.5),
 			(week_start + datetime.timedelta(days=6), 3.254),
@@ -301,3 +353,32 @@ class TestTimeclockApi(IntegrationTestCase):
 		self.assertEqual(len(workdays), 1)
 		self.assertEqual(checkins[0]["workday"], workdays[0]["name"])
 		self.assertEqual(workdays[0]["check_in_1"], "7:45 AM")
+
+	def test_submit_checkin2_records_the_punch(self) -> None:
+		"""The older payload variant (no web form name) records the punch and builds the Workday."""
+		api.submit_checkin2(self._form_data(_punch_time(9, 5, 30)))
+
+		checkins = self._checkins()
+		self.assertEqual(len(checkins), 1)
+		self.assertEqual(checkins[0]["time"], _punch_time(9, 5))
+		self.assertEqual(self._workdays()[0]["check_in_1"], "9:05 AM")
+
+	def test_submit_checkin2_same_minute_does_not_duplicate(self) -> None:
+		api.submit_checkin2(self._form_data(_punch_time(9, 5, 10)))
+		api.submit_checkin2(self._form_data(_punch_time(9, 5, 50)))
+
+		self.assertEqual(len(self._checkins()), 1)
+
+	def test_web_form_context(self) -> None:
+		"""The form defaults the override date to today and loads its time picker bundles."""
+		from timeclock.timeclock.web_form.employee_timelog import employee_timelog
+
+		field = {"fieldname": "manual_override_date", "default": "Today"}
+		context = frappe._dict(web_form_doc={"web_form_fields": [field]})
+
+		employee_timelog.get_context(context)
+
+		self.assertEqual(field["default"], today())
+		head_include = cast(str, context.head_include)
+		self.assertIn("timeclock.bundle", head_include)
+		self.assertIn("employee_timelog.bundle", head_include)

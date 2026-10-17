@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 from frappe.utils import nowdate
+from frappe.utils.jinja_globals import include_script, include_style
 
 
 def get_context(context):
@@ -12,3 +13,13 @@ def get_context(context):
 		if field.get("fieldname") == "manual_override_date":
 			field["default"] = today
 			break
+
+	# The time picker (tempus-dominus) and the form's stylesheet, as built bundles in the page head,
+	# so they load before the web form runs its client script.
+	context.head_include = "\n".join(
+		[
+			context.get("head_include") or "",
+			include_style("timeclock.bundle.css"),
+			include_script("employee_timelog.bundle.js"),
+		]
+	)

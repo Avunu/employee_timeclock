@@ -4,7 +4,7 @@
   description = "timeclock: Timeclock";
 
   inputs = {
-    frappe-nix.url = "github:Avunu/frappe-nix/e95f67f97de1322c89df9ffbc9218c31d4ca83ba";
+    frappe-nix.url = "github:Avunu/frappe-nix/abdfa649ee09eb3d11de2cb5dba2aa673b77851a";
     nixpkgs.follows = "frappe-nix/nixpkgs";
     frappe = {
       url = "github:frappe/frappe/version-16";

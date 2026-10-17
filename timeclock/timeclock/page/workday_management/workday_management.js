@@ -5,19 +5,26 @@ frappe.realtime.on("doc_update", (data) => console.log(data));
 
 // create a custom sort selector for the Workday Management Report
 class WorkdaySortSelector extends frappe.ui.SortSelector {
+	/** @override */
 	get_sql_string() {
 		return "`tabWorkday`.`employee_name` asc, `tabWorkday`.`date` asc";
 	}
 }
 
+// The list views' bundle defines frappe.views.ReportView before page scripts run.
+const ReportView = /** @type {NonNullable<typeof frappe.views.ReportView>} */ (frappe.views.ReportView);
+
 // create a custom Workday Management Report Class
-class WorkdayManagementReport extends frappe.views.ReportView {
+class WorkdayManagementReport extends ReportView {
+	/** @override */
 	setup_defaults() {
 		this.page_name = frappe.get_route_str();
 		this.page_title = __(this.doctype + "  Management");
-		this.meta = frappe.get_meta(this.doctype);
+		this.meta = /** @type {import("frappe-types").DocTypeMeta} */ (frappe.get_meta(this.doctype));
 		this.settings = frappe.listview_settings[this.doctype] || {};
-		this.user_settings = frappe.get_user_settings(this.doctype);
+		this.user_settings = /** @type {Record<string, import("frappe-types").ListViewUserSettings>} */ (
+			frappe.get_user_settings(this.doctype)
+		);
 
 		this.start = 0;
 		this.page_length = 500;
@@ -26,6 +33,7 @@ class WorkdayManagementReport extends frappe.views.ReportView {
 
 		this.can_create = frappe.model.can_create(this.doctype);
 		this.can_write = frappe.model.can_write(this.doctype);
+		/** @type {string[]} */
 		this.link_title_doctype_fields = [];
 
 		this.fields = [
@@ -63,6 +71,7 @@ class WorkdayManagementReport extends frappe.views.ReportView {
 		return this.get_list_view_settings();
 	}
 
+	/** @override */
 	setup_main_section() {
 		return frappe.run_serially(
 			[
@@ -80,10 +89,12 @@ class WorkdayManagementReport extends frappe.views.ReportView {
 	}
 
 	setup_extra_filters() {
+		const filter_area = this.filter_area;
+		if (!filter_area) return;
 		// append new buttons "This Week" and "This Month" to the filter area
 		let today = frappe.datetime.get_today();
-		let month_start = frappe.datetime.month_start(frappe.datetime.get_today());
-		let week_start = frappe.datetime.week_start(frappe.datetime.get_today());
+		let month_start = frappe.datetime.month_start();
+		let week_start = frappe.datetime.week_start();
 		let last_sunday = frappe.datetime.add_days(frappe.datetime.week_start(), -7);
 		let last_saturday = frappe.datetime.add_days(frappe.datetime.week_start(), -1);
 		let this_week_button = $(
@@ -96,45 +107,49 @@ class WorkdayManagementReport extends frappe.views.ReportView {
 			`<button class="btn btn-secondary btn-xs" style="margin: auto 5px; height: fit-content;">This Month</button>`,
 		);
 		this_week_button.on("click", () => {
+			/** @type {import("frappe-types").ListFilterTuple[]} */
 			let filters = [
 				["Workday", "date", ">=", week_start],
 				["Workday", "date", "<=", today],
 			];
 			this.filters = filters;
-			this.filter_area.clear();
-			this.filter_area.set(filters);
+			filter_area.clear();
+			filter_area.set(filters);
 			this.refresh();
 		});
 		last_week_button.on("click", () => {
+			/** @type {import("frappe-types").ListFilterTuple[]} */
 			let filters = [
 				["Workday", "date", ">=", last_sunday],
 				["Workday", "date", "<=", last_saturday],
 			];
 			this.filters = filters;
-			this.filter_area.clear();
-			this.filter_area.set(filters);
+			filter_area.clear();
+			filter_area.set(filters);
 			this.refresh();
 		});
 		this_month_button.on("click", () => {
+			/** @type {import("frappe-types").ListFilterTuple[]} */
 			let filters = [
 				["Workday", "date", ">=", month_start],
 				["Workday", "date", "<=", today],
 			];
 			this.filters = filters;
-			this.filter_area.clear();
-			this.filter_area.set(filters);
+			filter_area.clear();
+			filter_area.set(filters);
 			this.refresh();
 		});
-		this.filter_area.$filter_list_wrapper.prepend(this_month_button);
-		this.filter_area.$filter_list_wrapper.prepend(last_week_button);
-		this.filter_area.$filter_list_wrapper.prepend(this_week_button);
+		filter_area.$filter_list_wrapper.prepend(this_month_button);
+		filter_area.$filter_list_wrapper.prepend(last_week_button);
+		filter_area.$filter_list_wrapper.prepend(this_week_button);
 
 		// Add Bulk Add button
 		this.setup_bulk_add_button();
 
 		// hide filter sidebar
 		this.page.sidebar.toggle();
-		this.sort_selector.wrapper[0].hidden = 1;
+		const sort_wrapper = this.sort_selector?.wrapper[0];
+		if (sort_wrapper) sort_wrapper.hidden = true;
 	}
 
 	setup_bulk_add_button() {
@@ -146,28 +161,35 @@ class WorkdayManagementReport extends frappe.views.ReportView {
 		});
 	}
 
+	/** @override */
 	setup_view_menu() {
 		// do nothing
 	}
 
+	/** @override */
 	setup_sort_selector() {
+		const filter_area = this.filter_area;
+		if (!filter_area) return;
 		this.sort_selector = new WorkdaySortSelector({
-			parent: this.filter_area.$filter_list_wrapper,
+			parent: filter_area.$filter_list_wrapper,
 			doctype: this.doctype,
-			args: this.order_by,
+			...(this.order_by === undefined ? {} : { args: this.order_by }),
 			onchange: this.on_sort_change.bind(this),
 		});
 		this.group_by_control = new frappe.ui.GroupBy(this);
 	}
 
 	// the page's fixed columns/sort must not overwrite the user's own Workday report settings
+	/** @override */
 	save_report_settings() {}
 }
 
-frappe.pages["workday-management"].on_page_load = function () {
+// frappe creates the page's entry before it runs the page script
+const workday_management_page = /** @type {frappe.views.PageWrapper} */ (frappe.pages["workday-management"]);
+workday_management_page.on_page_load = function () {
 	const page_name = frappe.get_route_str();
 	const parent = frappe.make_page(true, page_name, null);
-	window.cur_list = frappe.views.list_view[page_name] = new WorkdayManagementReport({
+	window.cur_list = frappe.provide("frappe.views.list_view")[page_name] = new WorkdayManagementReport({
 		doctype: "Workday",
 		parent: parent,
 	});

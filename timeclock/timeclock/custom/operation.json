@@ -22,6 +22,20 @@
         }
     ],
     "doctype": "Operation",
+    "links": [
+        {
+            "custom": 1,
+            "group": "Manufacturing",
+            "is_child_table": 0,
+            "link_doctype": "Operation",
+            "link_fieldname": "employee_group",
+            "name": "employee_group_links_operation",
+            "parent": "Employee Group",
+            "parentfield": "links",
+            "parenttype": "Customize Form",
+            "table_fieldname": null
+        }
+    ],
     "property_setters": [],
     "sync_on_migrate": 1
 }
