@@ -24,10 +24,12 @@ from typing import Any, cast
 import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import get_first_day_of_week, now_datetime, random_string, today
+from frappe.utils.password import get_encryption_key
 from frappe.utils.typing_validations import transform_parameter_types
 
 from timeclock import hooks
 from timeclock.timeclock import api
+from timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
 from timeclock.www.job_timeclock import job_timeclock
 
 # A fixed Monday, so slot labels and day_of_week are exact rather than "whatever today is"
@@ -72,7 +74,7 @@ def _make_employee() -> tuple[str, str]:
 			"status": "Active",
 		}
 	).insert(ignore_permissions=True)
-	return cast(str, employee.name), cast(str, employee.employee_name)
+	return cast(str, employee.name), cast(str, employee.get("employee_name"))
 
 
 def _punch_time(hour: int, minute: int = 0, second: int = 0) -> datetime.datetime:
@@ -86,6 +88,9 @@ class TestTimeclockApi(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls) -> None:
 		super().setUpClass()
+		# the job timeclock signs its badge tokens with the site's encryption key; a fresh site has
+		# none until something asks for it
+		get_encryption_key()
 		cls.employee, cls.employee_name = _make_employee()
 		frappe.db.commit()
 
@@ -182,7 +187,7 @@ class TestTimeclockApi(IntegrationTestCase):
 
 	def test_inserting_checkin_builds_workday(self) -> None:
 		"""Saving an Employee Checkin runs the on_update hook and files the punch on a Workday."""
-		checkin = frappe.new_doc("Employee Checkin")
+		checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
 		checkin.employee = self.employee
 		checkin.time = _punch_time(8)
 		checkin.log_type = "IN"
@@ -274,7 +279,7 @@ class TestTimeclockApi(IntegrationTestCase):
 		"""Returns the display name and this week's total, ignoring other weeks."""
 		self.assertEqual(api.get_weekly_hours(self.employee), [self.employee_name, 0.0])
 
-		week_start = cast(datetime.date, get_first_day_of_week(today()))
+		week_start = get_first_day_of_week(today())
 		for date, hours in (
 			(week_start, 2.5),
 			(week_start + datetime.timedelta(days=6), 3.254),
@@ -301,3 +306,32 @@ class TestTimeclockApi(IntegrationTestCase):
 		self.assertEqual(len(workdays), 1)
 		self.assertEqual(checkins[0]["workday"], workdays[0]["name"])
 		self.assertEqual(workdays[0]["check_in_1"], "7:45 AM")
+
+	def test_submit_checkin2_records_the_punch(self) -> None:
+		"""The older payload variant (no web form name) records the punch and builds the Workday."""
+		api.submit_checkin2(self._form_data(_punch_time(9, 5, 30)))
+
+		checkins = self._checkins()
+		self.assertEqual(len(checkins), 1)
+		self.assertEqual(checkins[0]["time"], _punch_time(9, 5))
+		self.assertEqual(self._workdays()[0]["check_in_1"], "9:05 AM")
+
+	def test_submit_checkin2_same_minute_does_not_duplicate(self) -> None:
+		api.submit_checkin2(self._form_data(_punch_time(9, 5, 10)))
+		api.submit_checkin2(self._form_data(_punch_time(9, 5, 50)))
+
+		self.assertEqual(len(self._checkins()), 1)
+
+	def test_web_form_context(self) -> None:
+		"""The form defaults the override date to today and loads its time picker bundles."""
+		from timeclock.timeclock.web_form.employee_timelog import employee_timelog
+
+		context = frappe._dict(
+			web_form_doc={"web_form_fields": [{"fieldname": "manual_override_date", "default": "Today"}]}
+		)
+
+		employee_timelog.get_context(context)
+
+		self.assertEqual(context.web_form_doc["web_form_fields"][0]["default"], today())
+		self.assertIn("timeclock.bundle", context.head_include)
+		self.assertIn("employee_timelog.bundle", context.head_include)
