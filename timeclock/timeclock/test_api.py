@@ -326,12 +326,12 @@ class TestTimeclockApi(IntegrationTestCase):
 		"""The form defaults the override date to today and loads its time picker bundles."""
 		from timeclock.timeclock.web_form.employee_timelog import employee_timelog
 
-		context = frappe._dict(
-			web_form_doc={"web_form_fields": [{"fieldname": "manual_override_date", "default": "Today"}]}
-		)
+		field = {"fieldname": "manual_override_date", "default": "Today"}
+		context = frappe._dict(web_form_doc={"web_form_fields": [field]})
 
 		employee_timelog.get_context(context)
 
-		self.assertEqual(context.web_form_doc["web_form_fields"][0]["default"], today())
-		self.assertIn("timeclock.bundle", context.head_include)
-		self.assertIn("employee_timelog.bundle", context.head_include)
+		self.assertEqual(field["default"], today())
+		head_include = cast(str, context.head_include)
+		self.assertIn("timeclock.bundle", head_include)
+		self.assertIn("employee_timelog.bundle", head_include)

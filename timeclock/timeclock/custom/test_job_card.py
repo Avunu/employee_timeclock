@@ -16,7 +16,6 @@ from erpnext.manufacturing.doctype.job_card.job_card import JobCard
 from frappe.utils import get_datetime
 
 from timeclock.timeclock.custom.job_card import TimeclockJobCard
-from timeclock.timeclock.custom.job_card_time_log import JobCardTimeLog
 from timeclock.www.job_timeclock.test_job_timeclock import JobTimeclockTestCase
 
 DAY = "2021-03-01"
@@ -76,7 +75,7 @@ class TestTimeclockJobCard(JobTimeclockTestCase):
 		)
 
 	def test_get_doc_returns_the_extended_controller(self) -> None:
-		card = frappe.get_doc("Job Card", self.card.name)
+		card = frappe.get_doc("Job Card", cast(str, self.card.name))
 
 		self.assertIsInstance(card, TimeclockJobCard)
 		self.assertIsInstance(card, JobCard)
@@ -90,7 +89,7 @@ class TestTimeclockJobCard(JobTimeclockTestCase):
 
 		self.card.save(ignore_permissions=True)
 
-		log = cast(JobCardTimeLog, self.card.time_logs[0])
+		log = self.card.time_logs[0]
 		self.assertEqual(log.employee, self._test_employee.name if self._test_employee else None)
 		self.assertFalse(log.machine_operator)
 

@@ -1,7 +1,6 @@
 # Copyright (c) 2026, Avunu LLC and contributors
 # For license information, please see license.txt
 
-import frappe
 from frappe.sessions import get_csrf_token
 
 no_cache = True
