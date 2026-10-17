@@ -20,6 +20,7 @@ class's transaction, deleted in teardown, and rolled back when the class finishe
 import datetime
 import json
 from typing import Any, cast
+from unittest.mock import patch
 
 import frappe
 from frappe.tests import IntegrationTestCase
@@ -372,10 +373,17 @@ class TestTimeclockApi(IntegrationTestCase):
 
 		field = {"fieldname": "manual_override_date", "default": "Today"}
 		context = frappe._dict(web_form_doc={"web_form_fields": [field]})
+		# The bundles resolve through sites/assets/assets.json, which only a build writes; the
+		# test bench has none, so stand in the entries a build registers.
+		assets = {
+			"timeclock.bundle.css": "/assets/timeclock/dist/css/timeclock.bundle.TEST1234.css",
+			"employee_timelog.bundle.js": "/assets/timeclock/dist/js/employee_timelog.bundle.TEST1234.js",
+		}
 
-		employee_timelog.get_context(context)
+		with patch("frappe.utils.get_assets_json", return_value=assets):
+			employee_timelog.get_context(context)
 
 		self.assertEqual(field["default"], today())
 		head_include = cast(str, context.head_include)
-		self.assertIn("timeclock.bundle", head_include)
-		self.assertIn("employee_timelog.bundle", head_include)
+		self.assertIn(assets["timeclock.bundle.css"], head_include)
+		self.assertIn(assets["employee_timelog.bundle.js"], head_include)
