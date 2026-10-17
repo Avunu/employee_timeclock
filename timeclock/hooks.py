@@ -24,7 +24,7 @@ doc_events = {
 	},
 }
 
-override_doctype_class = {"Job Card": "timeclock.timeclock.custom.job_card.TimeclockJobCard"}
+extend_doctype_class = {"Job Card": "timeclock.timeclock.custom.job_card.TimeclockJobCard"}
 
 doctype_js = {"Job Card": "public/js/job_card.js"}
 

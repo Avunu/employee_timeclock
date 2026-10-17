@@ -1,6 +1,9 @@
 # Copyright (c) 2026, Avunu LLC and contributors
 # For license information, please see license.txt
 
+from datetime import datetime
+from typing import cast
+
 import frappe
 from erpnext.manufacturing.doctype.job_card.job_card import JobCard as BaseJobCard
 from frappe.types import DF
@@ -15,7 +18,9 @@ class TimeclockJobCard(BaseJobCard):
 	# Custom fields from job_card.json
 
 	is_machine_time: DF.Check
-	time_logs: DF.Table[JobCardTimeLog]
+	# The rows carry the custom machine_operator field (custom/job_card_time_log.json). Table fields are
+	# lists, which are invariant, so narrowing the row type is reported as an incompatible override.
+	time_logs: DF.Table[JobCardTimeLog]  # ty: ignore[invalid-attribute-override]
 
 	def before_validate(self):
 		if self.is_machine_time:
@@ -51,10 +56,12 @@ class TimeclockJobCard(BaseJobCard):
 		# The End Time field drops seconds (HH:mm), so finishing in the same minute as a resume
 		# sends an end time earlier than the open log's start
 		open_starts = [
-			get_datetime(log.from_time) for log in self.time_logs if log.from_time and not log.to_time
+			cast(datetime, get_datetime(log.from_time))
+			for log in self.time_logs
+			if log.from_time and not log.to_time
 		]
 		if kwargs.get("end_time") and open_starts:
-			kwargs["end_time"] = max(get_datetime(kwargs["end_time"]), *open_starts)
+			kwargs["end_time"] = max(cast(datetime, get_datetime(kwargs["end_time"])), *open_starts)
 		elif kwargs.get("end_time") and self.time_logs:
 			# the timeclock stops timers on clock-out without pausing the card, so there may be no
 			# open log for upstream to record the completed qty on, and it silently saves nothing

@@ -3,6 +3,7 @@
 
 import datetime
 import json
+from typing import cast
 
 import frappe
 from frappe.model.document import Document
@@ -106,8 +107,7 @@ def bulk_add_punches(date: str | datetime.datetime, employees: str | list, punch
 			workday.set(f"check_in_{i + 1}", punches[i]["checkin"])
 			workday.set(f"check_out_{i + 1}", punches[i]["checkout"])
 		workday.db_insert()
-		frappe.db.commit()
-		workday = Workday("Workday", workday.name)
+		workday = cast(Workday, frappe.get_doc("Workday", workday.name))
 		workday.employee = str(employee)
 		workday.save()
 
