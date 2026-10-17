@@ -321,6 +321,8 @@ function get_checked_data(report) {
 		.filter((row) => row && row.row_type !== "total");
 }
 
+// TODO: bug kept as-is in the formatting pass: the caller passes (data, newValue), so the new time arrives
+// as the second argument and is never sent, and `time` below is undefined. Fixed in a follow-up PR.
 function save_checkin(data, _fieldname, _value) {
 	frappe.call({
 		method: `${WM_METHOD}.update_checkin`,

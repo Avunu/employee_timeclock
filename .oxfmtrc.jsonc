@@ -21,5 +21,6 @@
 		"timeclock/public/js/job_timeclock/types.ts",
 		"timeclock/www/job_timeclock_legacy/index.css",
 		"timeclock/www/job_timeclock_legacy/index.js",
+		"timeclock/www/job_timeclock_legacy/index.html",
 	],
 }

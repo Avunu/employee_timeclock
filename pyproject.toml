@@ -67,6 +67,10 @@ generated = [
 	"timeclock/www/job_timeclock_legacy/index.js",
 ]
 
+[tool.frappe-nix.js.oxfmt]
+# oxfmt parses the Jinja {{ colocated_js }} placeholder as JS blocks and breaks the page.
+ignore = ["timeclock/www/job_timeclock_legacy/index.html"]
+
 [tool.frappe-nix.js.oxlint]
 # The legacy job timeclock page is replaced by the job_timeclock SPA and is deleted in a follow-up refactor PR.
 ignore = ["timeclock/www/job_timeclock_legacy/**"]
