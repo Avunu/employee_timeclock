@@ -3253,10 +3253,10 @@ pkg-types@^2.1.0, pkg-types@^2.3.0:
     exsolve "^1.0.7"
     pathe "^2.0.3"
 
-plotly.js-dist-min@^3.5.1:
-  version "3.5.1"
-  resolved "https://registry.yarnpkg.com/plotly.js-dist-min/-/plotly.js-dist-min-3.5.1.tgz#c4498ca604777e1244da32416af6d2e14ac85e86"
-  integrity sha512-N2R4RXKFSRTapdMc/+CDIbvcgFk3HNhs3tR6cKK499tNrSo7C3X7p20Wqi7qpf03s+3oH+DC/hDINYlsE8hxxA==
+plotly.js-dist-min@^4.1.2:
+  version "4.1.2"
+  resolved "https://registry.yarnpkg.com/plotly.js-dist-min/-/plotly.js-dist-min-4.1.2.tgz#6ce58e12a5430c14594e22ebdabbb3d037967acb"
+  integrity sha512-VSmS9KVNun16S8qFYYp9LlL/XBby4ueeGqB+K9AqRCVsup8dSpGULap4UyR1f2mz4pV3qjWp1sR5chwLgIKPoQ==
 
 postcss-import@^15.1.0:
   version "15.1.0"
