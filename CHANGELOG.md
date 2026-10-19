@@ -1,5 +1,12 @@
 # Changelog
 
+## [16.0.1](https://github.com/Avunu/timeclock/compare/v16.0.0...v16.0.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* **security:** authenticate timeclock kiosk check-ins ([#25](https://github.com/Avunu/timeclock/issues/25)) ([21aed9a](https://github.com/Avunu/timeclock/commit/21aed9ab17fc08c4a7aeedcac19008c556c44769))
+
 ## [16.0.0](https://github.com/Avunu/timeclock/compare/v0.0.1...v16.0.0) (2026-10-17)
 
 
