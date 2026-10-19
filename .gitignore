@@ -9,7 +9,7 @@ node_modules
 package-lock.json
 result
 tags
-timeclock/docs/current
+employee_timeclock/docs/current
 # >>> frappe-nix >>> (managed block — edits here are overwritten)
 # The materialized dev bench: frappe copied out of the store, sites/, logs/,
 # config/pids, the env symlink. Runtime state, never source — deleting it costs

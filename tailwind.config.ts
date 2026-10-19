@@ -7,8 +7,8 @@ import defaultTheme from "tailwindcss/defaultTheme";
 const config: Config = {
 	presets: [require("./node_modules/frappe-ui/tailwind/preset.js")],
 	content: [
-		"./timeclock/public/js/**/*.{html,vue,js,ts,jsx,tsx}",
-		"./timeclock/www/**/*.{html,vue,js,ts,jsx,tsx}",
+		"./employee_timeclock/public/js/**/*.{html,vue,js,ts,jsx,tsx}",
+		"./employee_timeclock/www/**/*.{html,vue,js,ts,jsx,tsx}",
 		"./node_modules/frappe-ui/src/components/**/*.{vue,js,ts,jsx,tsx}",
 	],
 	theme: {
