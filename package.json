@@ -1,5 +1,5 @@
 {
-	"name": "timeclock",
+	"name": "employee_timeclock",
 	"version": "16.0.0",
 	"private": true,
 	"license": "MIT",
@@ -15,7 +15,7 @@
 		"format": "oxfmt",
 		"format:check": "oxfmt --check",
 		"lint": "oxlint",
-		"lint:css": "stylelint \"timeclock/public/**/*.scss\"",
+		"lint:css": "stylelint \"employee_timeclock/public/**/*.scss\"",
 		"typecheck": "tsc --build tsconfig.solution.json && node scripts/vue-tsc.cjs --noEmit -p tsconfig.json",
 		"lint:py": "uv run --frozen --project tools ruff check . && uv run --frozen --project tools ruff format --check .",
 		"typecheck:py": "uv run --frozen --project tools ty check --python \"${FRAPPE_BENCH_ROOT:-.frappe-nix/bench}/env\"",

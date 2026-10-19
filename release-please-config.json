@@ -6,12 +6,12 @@
 	"packages": {
 		".": {
 			"release-type": "node",
-			"package-name": "timeclock",
+			"package-name": "employee-timeclock",
 			"changelog-path": "CHANGELOG.md",
 			"extra-files": [
 				{
 					"type": "generic",
-					"path": "timeclock/__init__.py"
+					"path": "employee_timeclock/__init__.py"
 				}
 			]
 		}

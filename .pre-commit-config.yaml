@@ -10,7 +10,7 @@ default_stages: [pre-commit]
 default_language_version:
   python: python3.14
 fail_fast: false
-exclude: ^(nix/|\.frappe-nix/|docs-site/|CHANGELOG\.md$|types/doctypes\.d\.ts$|components\.d\.ts$|timeclock/public/js/job_timeclock/components\.d\.ts$|timeclock/public/js/job_timeclock/types\.ts$|timeclock/www/job_timeclock_legacy/index\.css$|timeclock/www/job_timeclock_legacy/index\.js$)
+exclude: ^(nix/|\.frappe-nix/|docs-site/|CHANGELOG\.md$|types/doctypes\.d\.ts$|components\.d\.ts$|employee_timeclock/public/js/job_timeclock/components\.d\.ts$|employee_timeclock/public/js/job_timeclock/types\.ts$|employee_timeclock/www/job_timeclock_legacy/index\.css$|employee_timeclock/www/job_timeclock_legacy/index\.js$)
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -70,7 +70,7 @@ repos:
       - id: stylelint
         name: stylelint
         language: system
-        entry: yarn -s stylelint "timeclock/public/**/*.scss"
+        entry: yarn -s stylelint "employee_timeclock/public/**/*.scss"
         pass_filenames: false
         types: [scss]
       - id: zizmor
@@ -141,11 +141,11 @@ repos:
         args: ["."]
       - id: validate_doctype_python_types
       - id: validate_copyright
-        args: [--app, timeclock]
+        args: [--app, employee_timeclock]
         # Never stamp a managed file (its header is line 1, or it is the profile's), or a generated one (its
         # freshness diff would fail), nor a script: a stamp above `#!/usr/bin/env node` breaks it (scripts/ and
         # ci/ hold the node tools).
-        exclude: ^(docs/|docs-site/|scripts/|ci/|marketplace/shots\.d\.ts$|types/doctypes\.d\.ts$|tsconfig[^/]*\.json$|components\.d\.ts$|timeclock/public/js/job_timeclock/components\.d\.ts$|timeclock/public/js/job_timeclock/types\.ts$|timeclock/www/job_timeclock_legacy/index\.css$|timeclock/www/job_timeclock_legacy/index\.js$)
+        exclude: ^(docs/|docs-site/|scripts/|ci/|marketplace/shots\.d\.ts$|types/doctypes\.d\.ts$|tsconfig[^/]*\.json$|components\.d\.ts$|employee_timeclock/public/js/job_timeclock/components\.d\.ts$|employee_timeclock/public/js/job_timeclock/types\.ts$|employee_timeclock/www/job_timeclock_legacy/index\.css$|employee_timeclock/www/job_timeclock_legacy/index\.js$)
         exclude_types: [executable]
       # Bench-aware: silent no-ops outside a bench. CI runs them in a mini-bench (`frappe-nix minibench`).
       - id: validate_customizations
