@@ -28,18 +28,18 @@
 		"unicorn/no-array-sort": "off"
 	},
 	"ignorePatterns": [
-		"timeclock/public/dist/**",
+		"employee_timeclock/public/dist/**",
 		".frappe-nix/**",
 		".dev-dist/**",
 		"nix/**",
 		"docs-site/**",
 		"types/doctypes.d.ts",
 		"components.d.ts",
-		"timeclock/public/js/job_timeclock/components.d.ts",
-		"timeclock/public/js/job_timeclock/types.ts",
-		"timeclock/www/job_timeclock_legacy/index.css",
-		"timeclock/www/job_timeclock_legacy/index.js",
-		"timeclock/www/job_timeclock_legacy/**"
+		"employee_timeclock/public/js/job_timeclock/components.d.ts",
+		"employee_timeclock/public/js/job_timeclock/types.ts",
+		"employee_timeclock/www/job_timeclock_legacy/index.css",
+		"employee_timeclock/www/job_timeclock_legacy/index.js",
+		"employee_timeclock/www/job_timeclock_legacy/**"
 	],
 	"overrides": [
 		{
@@ -54,20 +54,20 @@
 			}
 		},
 		{
-			"files": ["timeclock/public/js/*.bundle.ts", "timeclock/public/js/*.bundle.js"],
+			"files": ["employee_timeclock/public/js/*.bundle.ts", "employee_timeclock/public/js/*.bundle.js"],
 			"rules": {
 				"import/no-unassigned-import": "off"
 			}
 		},
 		{
 			"files": [
-				"timeclock/public/js/employee.js",
-				"timeclock/public/js/job_card.js",
-				"timeclock/public/js/job_card_list.js",
-				"timeclock/timeclock/doctype/workday/workday.js",
-				"timeclock/timeclock/doctype/workday/workday_list.js",
-				"timeclock/timeclock/page/workday_management/workday_management.js",
-				"timeclock/timeclock/report/workday_management/workday_management.js"
+				"employee_timeclock/public/js/employee.js",
+				"employee_timeclock/public/js/job_card.js",
+				"employee_timeclock/public/js/job_card_list.js",
+				"employee_timeclock/timeclock/doctype/workday/workday.js",
+				"employee_timeclock/timeclock/doctype/workday/workday_list.js",
+				"employee_timeclock/timeclock/page/workday_management/workday_management.js",
+				"employee_timeclock/timeclock/report/workday_management/workday_management.js"
 			],
 			"globals": {
 				"frappe": "readonly",
@@ -83,7 +83,7 @@
 			}
 		},
 		{
-			"files": ["timeclock/timeclock/web_form/employee_timelog/employee_timelog.js"],
+			"files": ["employee_timeclock/timeclock/web_form/employee_timelog/employee_timelog.js"],
 			"globals": {
 				"frappe": "readonly",
 				"__": "readonly",
@@ -93,9 +93,9 @@
 		},
 		{
 			"files": [
-				"timeclock/public/js/job_timeclock/components/Column.vue",
-				"timeclock/public/js/job_timeclock/job_timeclock.ts",
-				"timeclock/public/js/timeclock/timeclock.ts"
+				"employee_timeclock/public/js/job_timeclock/components/Column.vue",
+				"employee_timeclock/public/js/job_timeclock/job_timeclock.ts",
+				"employee_timeclock/public/js/timeclock/timeclock.ts"
 			],
 			"rules": {
 				"import/no-unassigned-import": "off"

@@ -6,24 +6,24 @@
 		"types": ["frappe-types/web"]
 	},
 	"include": [
-		"timeclock/www/**/*.js",
-		"timeclock/**/web_form/**/*.js",
-		"timeclock/templates/**/*.js",
+		"employee_timeclock/www/**/*.js",
+		"employee_timeclock/**/web_form/**/*.js",
+		"employee_timeclock/templates/**/*.js",
 		"types/doctypes.d.ts",
-		"types/timeclock.augment.d.ts"
+		"types/employee_timeclock.augment.d.ts"
 	],
 	"exclude": [
 		"node_modules",
 		"**/public/dist/**",
-		"timeclock/public/js/FrappeCall.ts",
-		"timeclock/public/js/timeclock/**",
-		"timeclock/public/js/job_timeclock/**",
-		"timeclock/public/js/types/**",
-		"timeclock/www/job_timeclock_legacy/**",
+		"employee_timeclock/public/js/FrappeCall.ts",
+		"employee_timeclock/public/js/timeclock/**",
+		"employee_timeclock/public/js/job_timeclock/**",
+		"employee_timeclock/public/js/types/**",
+		"employee_timeclock/www/job_timeclock_legacy/**",
 		"components.d.ts",
-		"timeclock/public/js/job_timeclock/components.d.ts",
-		"timeclock/public/js/job_timeclock/types.ts",
-		"timeclock/www/job_timeclock_legacy/index.css",
-		"timeclock/www/job_timeclock_legacy/index.js"
+		"employee_timeclock/public/js/job_timeclock/components.d.ts",
+		"employee_timeclock/public/js/job_timeclock/types.ts",
+		"employee_timeclock/www/job_timeclock_legacy/index.css",
+		"employee_timeclock/www/job_timeclock_legacy/index.js"
 	]
 }

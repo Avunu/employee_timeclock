@@ -96,12 +96,12 @@ async function notifyFrappeReload(changedFiles: string[]) {
 	}
 }
 
-// Get the app name from environment variable (defaults to 'timeclock')
+// Get the SPA to build from the environment (defaults to the 'timeclock' kiosk)
 const appName = process.env.VITE_APP || "timeclock";
 
 interface AppConfig {
 	/** The bundle name: the build writes `<bundle>.bundle.[hash].js|css`, which the `www` page loads by
-	 * that name through `bundled_asset`. Not `timeclock`: esbuild already builds `timeclock.bundle.css`. */
+	 * that name through `bundled_asset`. Not `timeclock`, so it stays apart from the bundles esbuild builds for the app. */
 	bundle: string;
 	entry: string;
 	srcDir: string;
@@ -113,12 +113,12 @@ const appConfigs: Record<string, AppConfig> = {
 	timeclock: {
 		bundle: "timeclock_kiosk",
 		entry: "timeclock.ts",
-		srcDir: "timeclock/public/js/timeclock",
+		srcDir: "employee_timeclock/public/js/timeclock",
 	},
 	job_timeclock: {
 		bundle: "job_timeclock",
 		entry: "job_timeclock.ts",
-		srcDir: "timeclock/public/js/job_timeclock",
+		srcDir: "employee_timeclock/public/js/job_timeclock",
 	},
 };
 
@@ -145,7 +145,7 @@ export default defineConfig({
 		"process.env.NODE_ENV": JSON.stringify("production"),
 	},
 	build: {
-		outDir: resolve(__dirname, "timeclock/public/dist"),
+		outDir: resolve(__dirname, "employee_timeclock/public/dist"),
 		// esbuild's bundles and the other SPA's build live here too
 		emptyOutDir: false,
 		// one manifest per SPA, so the second build does not overwrite the first's;
