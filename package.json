@@ -82,7 +82,7 @@
 		"tsx": "^4.23.15",
 		"typescript": "^7.0.2",
 		"typescript6": "npm:typescript@^6.0.3",
-		"unplugin-icons": "^23.0.1",
+		"unplugin-icons": "^24.0.0",
 		"unplugin-vue-components": "^32.1.0",
 		"vite": "^8",
 		"vite-plugin-compression": "^0.5.1",
