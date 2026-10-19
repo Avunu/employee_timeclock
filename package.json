@@ -26,7 +26,7 @@
 		"@headlessui/vue": "^1.7.23",
 		"@popperjs/core": "^2.11.8",
 		"@tiptap/vue-3": "^3.32.0",
-		"@vueuse/core": "^14.3.0",
+		"@vueuse/core": "^15.0.0",
 		"canvas": "^3.2.3",
 		"frappe-ui": "^0.1.278",
 		"getmac": "^6.6.0",
