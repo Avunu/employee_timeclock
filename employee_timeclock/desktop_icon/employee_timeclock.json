@@ -1,0 +1,19 @@
+{
+ "app": "employee_timeclock",
+ "creation": "2026-10-21 21:45:03.740772",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon_type": "App",
+ "idx": 100,
+ "label": "Employee Timeclock",
+ "link": "/app/workday",
+ "link_type": "External",
+ "logo_url": "/assets/employee_timeclock/images/employee_timeclock-logo.svg",
+ "modified": "2026-10-21 21:45:03.740772",
+ "modified_by": "Administrator",
+ "name": "Employee Timeclock",
+ "owner": "Administrator",
+ "roles": [],
+ "standard": 1
+}

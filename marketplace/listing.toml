@@ -1,0 +1,14 @@
+# The app's registry listing (docs/app-standards/marketplace.md); frappe-listing check validates it.
+schema = 1
+title = "Employee Timeclock"
+tagline = "Badge-scan timeclock kiosks and job-card time tracking for ERPNext and HRMS"
+type = "application"
+category = "Applications"
+categories = ["Human Resources", "Productivity"]
+website = "https://avunu.net/open-source/employee_timeclock/"
+documentation = "https://github.com/Avunu/employee_timeclock#readme"
+apps_screen = true
+
+[apps_screen_entry]
+route = "/app/workday"
+has_permission = "employee_timeclock.permissions.has_app_permission"

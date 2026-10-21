@@ -1,7 +1,7 @@
 [project]
 name = "employee_timeclock"
 authors = [{ name = "Avunu LLC", email = "mail@avu.nu" }]
-description = "Employee Timeclock app for ERPNext"
+description = "Badge-scan timeclock kiosks and job-card time tracking for ERPNext and HRMS"
 requires-python = ">=3.14"
 readme = "README.md"
 dynamic = ["version"]
