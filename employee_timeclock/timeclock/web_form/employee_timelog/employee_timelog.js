@@ -30,7 +30,10 @@ function update_form_value(form_entry, field_name, value) {
 
 /**
  * The punch employee_timeclock.timeclock.api.submit_checkin records and reports back.
- * @typedef {{ log_type: "IN" | "OUT", employee_name: string, weekly_hours: number }} KioskPunch
+ * @typedef {object} KioskPunch
+ * @property {"IN" | "OUT"} log_type
+ * @property {string} employee_name
+ * @property {number} wekkly_hours
  */
 
 /** @param {FormEntry} form_entry */
@@ -109,8 +112,8 @@ frappe.init_client_script = () => {
 					theme: "light",
 					icons: {
 						type: "icons",
-						up: "octicon octicon-chevron-up",
-						down: "octicon octicon-chevron-down",
+						up: "tc-chevron tc-chevron-up",
+						down: "tc-chevron tc-chevron-down",
 					},
 					components: {
 						decades: false,
