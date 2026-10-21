@@ -20,10 +20,11 @@ jobs:
       pull-requests: write
       actions: write
       checks: read
-    uses: Avunu/frappe-nix/.github/workflows/app-release.yml@028d07aabdffcf5329aea333176189e90ba35772 # v1.0.2
+    uses: Avunu/frappe-nix/.github/workflows/app-release.yml@512da46b94979ea91fa0457704a204c8f3704b3e # v1.1.1
     with:
       app: employee_timeclock
       integration-branch: main
+      runs-on: '["self-hosted","nixos"]'
       release-branch: "version-16"
       publish: ${{ vars.MARKETPLACE_PUBLISH == 'true' }}
       registry-fork: Avunu/marketplace
