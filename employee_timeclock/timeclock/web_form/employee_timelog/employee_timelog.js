@@ -33,7 +33,7 @@ function update_form_value(form_entry, field_name, value) {
  * @typedef {object} KioskPunch
  * @property {"IN" | "OUT"} log_type
  * @property {string} employee_name
- * @property {number} wekkly_hours
+ * @property {number} weekly_hours
  */
 
 /** @param {FormEntry} form_entry */
