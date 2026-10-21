@@ -1,43 +1,148 @@
 <!-- Copyright (c) 2026, Avunu LLC and contributors
 For license information, please see license.txt-->
 
-## Employee Timeclock
+<!-- frappe-nix:begin header -->
 
-ERPNext Employee Timeclock
+<div align="center">
 
-### The kiosks
+<img src="employee_timeclock/public/images/employee_timeclock-logo.svg" width="80" alt="">
 
-| Page                                                   | Who signs in                             | How an employee identifies                                          |
-| ------------------------------------------------------ | ---------------------------------------- | ------------------------------------------------------------------- |
-| `/employee-timeclock` (Employee Clock-in/out web form) | a kiosk user                             | scans their badge                                                   |
-| `/timeclock` (badge kiosk)                             | a kiosk user                             | scans their badge                                                   |
-| `/job_timeclock` (job time tracker)                    | a kiosk user, or the employee's own user | scans their badge at a kiosk; a signed-in employee is already known |
+# Employee Timeclock
 
-None of the pages or their API methods accept Guest. An employee is never identified by their
-Employee ID, which is guessable. A badge is either:
+Badge-scan timeclock kiosks and job-card time tracking for ERPNext and HRMS
 
-- a **badge token** HR issues from the Employee form. It is random, it is shown once for printing
-  on the badge (as a barcode or QR code), and only its SHA-256 hash is stored; or
-- an **RFID tag** registered in the Employee's _Attendance Device IDs_ table.
+[![CI](https://github.com/Avunu/employee_timeclock/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Avunu/employee_timeclock/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/Avunu/employee_timeclock)](https://github.com/Avunu/employee_timeclock/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](license.txt)
+[![Frappe v16](https://img.shields.io/badge/Frappe-v16-blue)](https://github.com/frappe/frappe/tree/version-16)
 
-Badge scans are rate limited per client IP, and an unrecognised badge is refused with the same
-message whatever the reason, so a kiosk never reveals whether an employee exists.
+<picture>
+  <img src="docs/screenshots/job-tracker-light.webp" alt="The job time tracker: open work orders, the workbench order's operations with logged time, and a welding timer running">
+</picture>
 
-### Setting up a kiosk
+</div>
 
-1. **Create the kiosk user.** In _User_, add a user for the kiosk device (one per device makes it
-   easy to revoke one), as a _Website User_, with only the **Timeclock Kiosk** role. The app
-   installs that role. Give it a strong password.
-2. **Issue badges.** For each employee who will clock in, open the Employee and choose
-   _Timeclock → Issue Badge_ (HR Manager or System Manager only). Print the token shown on the
-   employee's badge as a barcode or QR code that the kiosk's scanner reads. Issuing again replaces
-   the badge; _Timeclock → Revoke Badge_ disables it for a lost badge or a leaver. Employees who
-   already badge in with an RFID tag in _Attendance Device IDs_ keep working without a new badge.
-3. **Sign the kiosk in.** On the kiosk device, open the kiosk page, sign in as the kiosk user and
-   leave the browser on that page.
+<!-- frappe-nix:end header -->
 
-Only Active employees can clock in.
+## Overview
 
-#### License
+Paper time cards and shared logins make payroll slow and hard to trust. Employee Timeclock puts a kiosk on a tablet or PC by the door: employees scan a badge to clock in and out, and the punches land in ERPNext as Employee Checkins. Each employee's punches for a day are gathered into one **Workday** record that HR reviews and corrects. On the shop floor, the same badge starts and stops timers on Job Cards, so labour time reaches the work order without anyone re-keying it.
 
-MIT
+It is for ERPNext sites that pay hourly staff and, optionally, track manufacturing labour. It needs ERPNext and HRMS.
+
+## Features
+
+- **Three kiosk pages**, none of which accept Guest:
+
+  | Page                                                   | Who signs in                             | How an employee identifies                                          |
+  | ------------------------------------------------------ | ---------------------------------------- | ------------------------------------------------------------------- |
+  | `/employee-timeclock` (Employee Clock-in/out web form) | a kiosk user                             | scans their badge                                                   |
+  | `/timeclock` (badge kiosk)                             | a kiosk user                             | scans their badge                                                   |
+  | `/job_timeclock` (job time tracker)                    | a kiosk user, or the employee's own user | scans their badge at a kiosk; a signed-in employee is already known |
+
+- **Badges.** HR issues a random badge token from the Employee form (_Timeclock → Issue Badge_) and prints it on the badge as a barcode or QR code. It is shown once and only its SHA-256 hash is stored; issuing again replaces it, and _Revoke Badge_ disables it. RFID tags in the Employee's _Attendance Device IDs_ table work too. An employee is never identified by their Employee ID, which is guessable.
+- **The clock-in form** decides IN or OUT from the employee's punches today, or takes a date, a time and a Clock In / Clock Out choice when _Enter Time Manually_ is ticked. After a punch it shows the employee's name and their hours this week.
+- **Workdays.** One Workday per employee per day holds up to twelve in and out pairs and the total hours. Punches update their Workday, and editing a Workday's times updates, adds or deletes the matching Employee Checkins. The Workday list has a **Bulk Add** button that enters the same punches for several employees on one date.
+- **Workday Management report**, grouped by employee or by day. It shows every punch under its Workday and flags each day as OK, Missing Punch, Out of Sync, Log Type Mismatch, No Workday, Duplicate Workday or No Punches. From the report HR can edit a punch's time in the grid, add and delete punches, rebuild Workdays from the punches, and jump to this week, last week or this month.
+- **Job time tracker.** An employee picks an open work order, sees each operation's estimated and logged time, and starts or stops a timer that is written to the operation's Job Card as a time log. Starting a timer stops the employee's open one. **Start Rework** logs time to a corrective Job Card. Employees can pin the jobs they use most, and a kiosk can be set to put its own workstations' operations first.
+- **Machine time.** An Operation marked _Is Machine Time_ is timed against the machine: the person who started it is recorded as the time log's _Machine Operator_, and only members of the operation's _Machine Employee Group_ see it. Running machine timers show in a bar along the bottom of the tracker.
+- **Reports:** Workday Payroll Report (regular and overtime hours per employee, from Workdays), Payroll Report and Work Day Hours Report (from Employee Checkins), and the Punch List.
+- **Kiosk safety.** Only Active employees can clock in, badge scans are rate limited per client IP (30 a minute), and an unrecognised badge gets the same answer whatever the reason, so a kiosk never reveals whether an employee exists.
+- An **Employee Timeclock** tile on the desk's apps screen, for users who can read Workdays.
+
+<!-- frappe-nix:begin compatibility -->
+
+## Compatibility
+
+| Frappe | Branch       |
+| ------ | ------------ |
+| v16    | `version-16` |
+
+| Requires                                     | Version            |
+| -------------------------------------------- | ------------------ |
+| [erpnext](https://github.com/frappe/erpnext) | `>=16.0.0,<17.0.0` |
+| [hrms](https://github.com/frappe/hrms)       | `>=16.0.0,<17.0.0` |
+
+<!-- frappe-nix:end compatibility -->
+
+<!-- frappe-nix:begin installation -->
+
+## Installation
+
+On Frappe Cloud, install Employee Timeclock from the [Frappe marketplace](https://cloud.frappe.io/marketplace/apps/employee_timeclock).
+
+On a bench of your own:
+
+```bash
+bench get-app https://github.com/Avunu/employee_timeclock --branch version-16
+bench --site <site> install-app employee_timeclock
+```
+
+<!-- frappe-nix:end installation -->
+
+The `version-16` branch still holds 16.0.0, from before the app was renamed from `timeclock`. Until the next release moves it, install from `main` instead: `bench get-app https://github.com/Avunu/employee_timeclock --branch main`.
+
+## Configuration
+
+1. **Create the kiosk user.** In _User_, add a user for the kiosk device (one per device makes it easy to revoke one), as a _Website User_, with only the **Timeclock Kiosk** role. The app installs that role. Give it a strong password.
+2. **Issue badges.** For each employee who will clock in, open the Employee and choose _Timeclock → Issue Badge_ (HR Manager or System Manager only). Print the token shown on the employee's badge as a barcode or QR code that the kiosk's scanner reads. Issuing again replaces the badge; _Timeclock → Revoke Badge_ disables it for a lost badge or a leaver. Employees who already badge in with an RFID tag in _Attendance Device IDs_ keep working without a new badge.
+3. **Sign the kiosk in.** On the kiosk device, open the kiosk page, sign in as the kiosk user and leave the browser on that page. The scanner must type the badge into the page like a keyboard, ending with Enter, as most USB scanners do by default.
+4. **Check the site has an encryption key.** The badge kiosk and the badge sign-in of the job tracker sign their tokens with the site's `encryption_key` (see [Limitations](#limitations)).
+
+For job time tracking:
+
+- Employees who use the tracker from their own desk login need their user set in the Employee's _User ID_.
+- To time an operation against a machine, tick _Is Machine Time_ on the Operation and set its _Machine Employee Group_ to the Employee Group of the people who run it.
+- On a kiosk, the tracker's settings panel (the gear) picks the workstations at that kiosk. The choice is kept in the browser, and _My Station_ then shows only their operations.
+
+## How It Works
+
+- Every punch is an **Employee Checkin**. Its _Device ID_ says where it came from: `Employee Clock-in/out Device` (the web form), `Timeclock Scanner` (the badge kiosk) or `Workday Management` (a Workday edit or the report).
+- The web form posts the scanned badge to `employee_timeclock.timeclock.api.submit_checkin`. The server resolves the badge, picks IN or OUT, ignores a second scan in the same minute and returns the employee's hours this week. Frappe's own web form submit is refused for this form, so a punch can't be made for an Employee ID typed into the form.
+- The badge kiosk and the job tracker exchange a badge for a 30-minute JWT (`authenticate_employee`), signed with the site's `encryption_key`, and send it with each call; the job tracker's calls return a refreshed token, so an active session keeps going. Signing out of the tracker does not stop a running timer. The badge kiosk then punches the opposite of the employee's last punch.
+- `doc_events` keep Workdays and Employee Checkins in step. A new or changed Employee Checkin rebuilds its Workday; saving a Workday parses its `h:mm AM/PM` times, recalculates the total and rewrites the day's Employee Checkins, keeping a moved punch's original time in _Overridden Time_; deleting an Employee Checkin clears its slot.
+- The job tracker's timers are Job Card Time Logs. `TimeclockJobCard` (an `extend_doctype_class` on Job Card) moves the employee to _Machine Operator_ on machine-time cards, skips ERPNext's overlap check for the tracker's own saves (it closes the employee's open timers itself), and enforces the operation sequence only once a card reports a completed quantity. Machine timer starts and stops are broadcast over Frappe's realtime socket, so every open tracker updates.
+- The kiosk SPAs are Vue 3 and frappe-ui, built with Vite by `yarn build` (which `bench build` runs) and loaded by the `www` pages.
+
+## Limitations
+
+- **A site with no `encryption_key` can't use badge sign-in on `/timeclock` or `/job_timeclock`.** The app reads the key from `site_config.json` and refuses to sign tokens without one, but it doesn't create it, and Frappe only writes one the first time something encrypts a password. On such a site every scan at the badge kiosk fails, and the kiosk shows nothing. The clock-in form doesn't use tokens and keeps working.
+- The badge kiosk (`/timeclock`) punches the opposite of the employee's last punch on any day, so after a forgotten clock-out the next morning's scan records an OUT. The clock-in form looks only at today's punches.
+- A Workday holds at most twelve in and out pairs.
+- A punch recorded less than a minute after its Workday was created or saved is not copied into the Workday; this guard stops the two sync hooks from triggering each other. The Workday Management report shows the day as Out of Sync, and _Rebuild Workdays_ fixes it.
+- Overtime in the payroll reports is hours over 40 in a week, and the 40 can't be configured. The Payroll Report pairs a week's punches in order, so one missing punch shifts every pair after it that week; the Workday Payroll Report, built from Workdays, does not. Both group by employee name, so two employees with the same name are added together.
+- The kiosk pages are in English only and have no dark theme. The job tracker's page is titled "Project Tracker".
+- The old job time tracker at `/job_timeclock_legacy` still ships; it is replaced by `/job_timeclock` and will be removed.
+
+<!-- frappe-nix:begin support -->
+
+## Support
+
+- Bug reports and questions: [GitHub issues](https://github.com/Avunu/employee_timeclock/issues)
+- E-mail: <mail@avu.nu>
+
+<!-- frappe-nix:end support -->
+
+<!-- frappe-nix:begin development -->
+
+## Development
+
+```bash
+nix develop        # or: direnv allow
+prek install       # the git hooks CI runs
+frappe-test        # the tests, the way CI runs them
+```
+
+The managed files, checks and release flow are described in the [app standards documentation](https://docs.avunu.net/frappe-nix/docs/app-standards/).
+
+<!-- frappe-nix:end development -->
+
+The build commands, the source layout and the rename shim are described in [docs/development.md](docs/development.md).
+
+<!-- frappe-nix:begin license -->
+
+## License
+
+MIT, Copyright (c) 2022–present Avunu LLC → [license.txt](license.txt)
+
+<!-- frappe-nix:end license -->

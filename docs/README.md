@@ -1,5 +1,7 @@
 # Employee Timeclock
 
+Badge-scan timeclock kiosks and job-card time tracking for ERPNext and HRMS
+
 Badge-scan timeclock kiosks for ERPNext and HRMS. Employees clock in and out by scanning a badge, and on the shop floor the same badge starts and stops timers on Job Cards. Each employee's punches for a day are kept in one Workday record, in sync with their Employee Checkins.
 
 ## The kiosks
@@ -25,7 +27,7 @@ message whatever the reason, so a kiosk never reveals whether an employee exists
 The app needs ERPNext and HRMS on the site. From the bench directory:
 
 ```bash
-bench get-app https://github.com/Avunu/employee_timeclock
+bench get-app https://github.com/Avunu/employee_timeclock --branch main
 bench --site <site> install-app employee_timeclock
 ```
 
@@ -44,6 +46,10 @@ bench --site <site> install-app employee_timeclock
 
 Only Active employees can clock in.
 
+## Development
+
+The build commands, the source layout and the rename shim are described in [Development](development.md).
+
 ## License
 
-MIT
+[MIT](https://github.com/Avunu/employee_timeclock/blob/main/license.txt), Copyright (c) 2022–present Avunu LLC.
