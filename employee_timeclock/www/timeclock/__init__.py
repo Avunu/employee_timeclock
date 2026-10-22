@@ -8,6 +8,7 @@ import frappe
 import jwt
 from frappe import _
 from frappe.rate_limiter import rate_limit
+from frappe.utils import now_datetime
 
 from employee_timeclock.auth import get_token_secret
 from employee_timeclock.kiosk import (
@@ -17,7 +18,24 @@ from employee_timeclock.kiosk import (
 	require_kiosk_role,
 	resolve_badge,
 )
+from employee_timeclock.timeclock.api import KioskPunch, submit_checkin
 from employee_timeclock.timeclock.custom.employee_checkin import EmployeeCheckin, insert_punch
+
+
+@frappe.whitelist(methods=["POST"])
+def punch(badge: str) -> KioskPunch:
+	"""Record a punch, at the server's time, for the employee whose badge was scanned at the kiosk.
+
+	The kiosk's one call per scan. ``submit_checkin`` does the work: IN or OUT by today's last punch,
+	a second scan inside the same minute keeps the punch already recorded, and the rate limit
+	applies to this endpoint.
+
+	Raises:
+		frappe.PermissionError: The user is not a Timeclock Kiosk user.
+		employee_timeclock.kiosk.KioskAuthenticationError: The badge is not recognised.
+		frappe.RateLimitExceededError: Too many scans from this client.
+	"""
+	return submit_checkin(badge, now_datetime().strftime("%Y-%m-%d %H:%M:%S"))
 
 
 def refresh_token(employee_id: str) -> str:
