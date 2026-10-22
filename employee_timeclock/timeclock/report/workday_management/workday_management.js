@@ -21,6 +21,7 @@ const WM_METHOD = "employee_timeclock.timeclock.report.workday_management.workda
  * @property {string} [workday]
  * @property {string} [checkin]
  * @property {string} [time_value]
+ * @property {number | null} [hours]
  * @property {string} [overridden_time]
  */
 
@@ -182,7 +183,8 @@ frappe.provide("frappe.query_reports")["Workday Management"] = {
 			 * @param {unknown} raw_data
 			 */
 			getEditor: function (colIndex, rowIndex, value, parent, column, row, raw_data) {
-				// Punches (Employee Checkin rows) are editable, plus the time on a day's new punch row
+				// Punches (Employee Checkin rows) are editable, (time, and hours on an OUT), plus the time on a
+				// day's new punch row
 				if (!raw_data) return false;
 				const data = /** @type {WMRow} */ (/** @type {unknown} */ (raw_data));
 				const field = column.fieldname || column.id;
@@ -210,6 +212,34 @@ frappe.provide("frappe.query_reports")["Workday Management"] = {
 							if (!newValue) return;
 							if (is_new) add_punch(data, newValue);
 							else if (newValue !== data.time_value) save_checkin(data, newValue);
+						},
+					};
+				}
+
+				if (field === "hours" && data.hours != null) {
+					const current = data.hours;
+					const $input = document.createElement("input");
+					$input.type = "number";
+					$input.step = "0.01";
+					$input.min = "0";
+					$input.className = "dt-input";
+					$input.style.width = "100%";
+					parent.appendChild($input);
+
+					return {
+						initValue() {
+							$input.value = String(Math.round(current * 100) / 100);
+							$input.focus();
+						},
+						getValue() {
+							return $input.value;
+						},
+						/** @param {string} newValue */
+						setValue(newValue) {
+							const hours = parseFloat(newValue);
+							// the editor shows two decimals, so leaving it as shown is not a change
+							if (!(hours > 0) || Math.abs(hours - current) < 0.005) return;
+							save_hours(data, hours);
 						},
 					};
 				}
@@ -396,6 +426,23 @@ function save_checkin(data, time) {
 		args: { checkin: data.checkin, time: time },
 		callback: (r) => {
 			if (r.message) frappe.show_alert({ message: /** @type {string} */ (r.message), indicator: "green" }, 3);
+		},
+		// Refresh on failure too, so the cell drops the rejected value
+		always: () => refresh_report(),
+	});
+}
+
+
+/**
+ * @param {WMRow} data
+ * @param {number} hours
+ */
+function save_hours(data, hours) {
+	frappe.call({
+		method: `${WM_METHOD}.set_punch_hours`,
+		args: { checkin: data.checkin, hours: hours },
+		callback: (r) => {
+			if (r.message) frappe.show_alert({ message: /** @type {string} */ (r.message), indicator: "green"}, 3);
 		},
 		// Refresh on failure too, so the cell drops the rejected value
 		always: () => refresh_report(),
