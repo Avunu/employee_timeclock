@@ -2,7 +2,7 @@
 	{
 		"name": "badge-kiosk",
 		"theme": "light",
-		"alt": "The badge kiosk after a scan: Maria Lopez has punched in",
+		"alt": "The badge kiosk after a scan: Maria Lopez, on the clock since this morning, has punched out",
 		"featured": true,
 		"readme": null,
 		"width": 2880,
