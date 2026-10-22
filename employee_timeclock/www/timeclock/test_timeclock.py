@@ -15,7 +15,7 @@ from unittest.mock import patch
 import frappe
 import jwt
 from frappe.tests import IntegrationTestCase
-from frappe.utils import random_string
+from frappe.utils import now_datetime, random_string, today
 from frappe.utils.password import get_encryption_key
 from frappe.utils.redis_wrapper import RedisWrapper
 
@@ -85,6 +85,27 @@ class TestTimeclockKiosk(IntegrationTestCase):
 		self.assertEqual(payload["employee_id"], self.employee)
 		self.assertEqual(payload["employee_name"], self.employee_name)
 
+	def _write_punch(self, time: datetime.datetime, log_type: str) -> None:
+		"""Write a punch directly, without the Workday hooks, so its modified order is under test control."""
+		frappe.get_doc(
+			{"doctype": "Employee Checkin", "employee": self.employee, "time": time, "log_type": log_type}
+		).db_insert()
+
+	def test_authenticate_employee_ignores_a_punch_left_open_on_an_earlier_day(self) -> None:
+		"""A forgotten clock-out yesterday does not make today's first scan an OUT."""
+		midnight = now_datetime().replace(hour=0, minute=0, second=0, microsecond=0)
+		self._write_punch(midnight - datetime.timedelta(hours=16), "IN")
+
+		self.assertIsNone(kiosk.authenticate_employee(self.rfid)["last_checkin"])
+
+	def test_authenticate_employee_reports_todays_latest_punch_by_time(self) -> None:
+		"""Today's last punch by time decides, not the punch saved last (a punch fixed later in the day)."""
+		midnight = now_datetime().replace(hour=0, minute=0, second=0, microsecond=0)
+		self._write_punch(midnight + datetime.timedelta(minutes=2), "OUT")
+		self._write_punch(midnight + datetime.timedelta(minutes=1), "IN")
+
+		self.assertEqual(kiosk.authenticate_employee(self.rfid)["last_checkin"], "OUT")
+
 	def test_authenticate_employee_rejects_an_unknown_badge(self) -> None:
 		result = kiosk.authenticate_employee("not-a-badge")
 
@@ -121,7 +142,7 @@ class TestTimeclockKiosk(IntegrationTestCase):
 		self.assertFalse(frappe.db.exists("Workday", {"employee": self.employee, "date": PUNCH_TIME[:10]}))
 
 	def test_last_checkin_is_reported_after_a_punch(self) -> None:
-		kiosk.log_in_employee(kiosk.refresh_token(self.employee), PUNCH_TIME)
+		kiosk.log_in_employee(kiosk.refresh_token(self.employee), f"{today()} 00:01:00")
 
 		self.assertEqual(kiosk.authenticate_employee(self.rfid)["last_checkin"], "IN")
 
