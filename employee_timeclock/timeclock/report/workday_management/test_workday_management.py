@@ -175,3 +175,86 @@ class TestWorkdayManagement(IntegrationTestCase):
 				report.add_checkin(self.employee, DATE, "08:00")
 		finally:
 			frappe.set_user("Administrator")
+
+	def test_set_punch_hours_moves_the_out_after_its_in(self) -> None:
+		self._punch("08:00:00", "IN")
+		out = self._punch("12:00:00", "OUT")
+
+		report.set_punch_hours(out, cast(Any, "4.25"))
+
+		checkin = self._checkins()[1]
+		self.assertEqual(checkin["name"], out)
+		self.assertEqual(checkin["time"], datetime.datetime(2021, 3, 1, 12, 15))
+		self.assertEqual(checkin["workday_override"], 1)
+		self.assertEqual(checkin["overridden_time"], datetime.datetime(2021, 3, 1, 12))
+		workday = self._workday()
+		self.assertEqual(workday["check_out_1"], "12:15 PM")
+		self.assertEqual(workday["total_hours"], 4.25)
+
+	def test_set_punch_hours_counts_from_the_in_it_pairs_with(self) -> None:
+		self._punch("08:00:00", "IN")
+		self._punch("12:00:00", "OUT")
+		self._punch("13:00:00", "IN")
+		out = self._punch("17:00:00", "OUT")
+
+		report.set_punch_hours(out, 3.5)
+
+		self.assertEqual(self._checkins()[3]["time"], datetime.datetime(2021, 3, 1, 16, 30))
+		self.assertEqual(self._workday()["total_hours"], 7.5)
+
+	def test_set_punch_hours_to_the_current_hours_changes_nothing(self) -> None:
+		self._punch("08:00:00", "IN")
+		out = self._punch("12:00:00", "OUT")
+
+		self.assertEqual(report.set_punch_hours(out, 4), "No changes made")
+		self.assertEqual(self._checkins()[1]["workday_override"], 0)
+
+	def test_set_punch_hours_rejects_bad_hours_and_in_punches(self) -> None:
+		check_in = self._punch("08:00:00", "IN")
+		out = self._punch("12:00:00", "OUT")
+
+		for hours in (0, -1, "0"):
+			with self.subTest(hours=hours), self.assertRaisesRegex(frappe.ValidationError, "more than 0"):
+				report.set_punch_hours(out, cast(Any, hours))
+		# a value that isn't a number is turned away by the whitelisted float annotation
+		with self.assertRaises(frappe.FrappeTypeError):
+			report.set_punch_hours(out, cast(Any, "abc"))
+		with self.assertRaisesRegex(frappe.ValidationError, "only be set on an OUT"):
+			report.set_punch_hours(check_in, 4)
+		self.assertEqual(
+			[c["time"] for c in self._checkins()],
+			[datetime.datetime(2021, 3, 1, 8), datetime.datetime(2021, 3, 1, 12)],
+		)
+
+	def test_set_punch_hours_keeps_the_punch_in_its_slot(self) -> None:
+		self._punch("08:00:00", "IN")
+		out = self._punch("12:00:00", "OUT")
+		self._punch("13:00:00", "IN")
+
+		# reaching the next punch, or running past midnight, would reorder the day's punches
+		with self.assertRaisesRegex(frappe.ValidationError, "after the next punch at 1:00 PM"):
+			report.set_punch_hours(out, 5)
+		with self.assertRaisesRegex(frappe.ValidationError, "after midnight"):
+			report.set_punch_hours(out, 16)
+		self.assertEqual(self._checkins()[1]["time"], datetime.datetime(2021, 3, 1, 12))
+
+	def test_set_punch_hours_on_the_last_out_stops_at_midnight(self) -> None:
+		self._punch("20:00:00", "IN")
+		out = self._punch("22:00:00", "OUT")
+
+		with self.assertRaisesRegex(frappe.ValidationError, "after midnight"):
+			report.set_punch_hours(out, 4)
+		report.set_punch_hours(out, 3.75)
+		self.assertEqual(self._checkins()[1]["time"], datetime.datetime(2021, 3, 1, 23, 45))
+
+	def test_set_punch_hours_requires_write_access_to_workdays(self) -> None:
+		self._punch("08:00:00", "IN")
+		out = self._punch("12:00:00", "OUT")
+
+		frappe.set_user("Guest")
+		try:
+			with self.assertRaises(frappe.PermissionError):
+				report.set_punch_hours(out, 5)
+		finally:
+			frappe.set_user("Administrator")
+		self.assertEqual(self._checkins()[1]["time"], datetime.datetime(2021, 3, 1, 12))
