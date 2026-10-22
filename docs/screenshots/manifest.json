@@ -7,7 +7,7 @@
 		"readme": null,
 		"width": 2880,
 		"height": 1800,
-		"sha256": "9c9d476959ab03414b96dfef54d0cccce584a4ae5fb5cb51ef858febdfa59230"
+		"sha256": "e09b0623074b970b12094769685f86f31004098b74929cb91cacdc6180a5c0a4"
 	},
 	{
 		"name": "clock-in-form",
@@ -47,7 +47,7 @@
 		"readme": "hero",
 		"width": 2880,
 		"height": 1800,
-		"sha256": "daa923a3c148b7756d59c88aa44f045e918ccb24ecab47140654af63b94ae9e7"
+		"sha256": "619e609eca3324ddcca4f3f77c4d77c5c53c6254c09a498fb7f1e07d96f03c8d"
 	},
 	{
 		"name": "workday-management",
