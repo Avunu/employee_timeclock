@@ -84,25 +84,29 @@ export default defineComponent({
 			this.employeeId = "";
 			this.employeeName = "";
 
-			const response = await frappeCall<AuthenticateEmployeeResponse>(
-				"employee_timeclock.www.timeclock.authenticate_employee",
-				{ rfid: sCode },
-			);
+			try {
+				const response = await frappeCall<AuthenticateEmployeeResponse>(
+					"employee_timeclock.www.timeclock.authenticate_employee",
+					{ rfid: sCode },
+				);
 
-			if (response.status === "success" && response.token) {
-				this.token = response.token;
-				if (response.last_checkin === "OUT") {
-					this.log_employee_in(this.token);
-				} else if (response.last_checkin === "IN") {
-					this.log_employee_out(this.token);
+				if (response.status === "success" && response.token) {
+					this.token = response.token;
+					if (response.last_checkin === "IN") {
+						await this.log_employee_out(this.token);
+					} else {
+						await this.log_employee_in(this.token);
+					}
 				} else {
-					console.log("Else");
-					this.log_employee_in(this.token);
+					// an unrecognised badge: say so, or the employee walks away thinking they punched
+					toast.error(response.message || "Badge not recognised.");
+					this.endTimer();
 				}
-			} else {
-				console.log("Sorry! You are not authenticated.");
-				this.token = null;
-				this.tokenExpiration = 0;
+			} catch (error) {
+				// a refused request (rate limit, expired kiosk session, server error) records no punch
+				console.error("Badge scan failed:", error);
+				toast.error("The scan was not recorded. Please scan your badge again.");
+				this.endTimer();
 			}
 		},
 
