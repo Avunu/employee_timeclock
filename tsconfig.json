@@ -18,7 +18,7 @@
 			"@tiptap/*": ["./node_modules/@tiptap/*/src/index.ts"],
 			"@/*": ["./employee_timeclock/public/js/*"],
 			"@job_timeclock/*": ["./employee_timeclock/public/js/job_timeclock/*"],
-			"@timeclock/*": ["./employee_timeclock/public/js/timeclock/*"],
+			"@timeclock/*": ["./employee_timeclock/www/timeclock/src/*"],
 			"frappe-ui": ["./employee_timeclock/public/js/types/frappe-ui.d.ts"]
 		}
 	},
@@ -28,8 +28,8 @@
 		"postcss.config.ts",
 		"employee_timeclock/public/js/FrappeCall.ts",
 		"employee_timeclock/public/js/types/*.d.ts",
-		"employee_timeclock/public/js/timeclock/**/*.ts",
-		"employee_timeclock/public/js/timeclock/**/*.vue",
+		"employee_timeclock/www/timeclock/src/**/*.ts",
+		"employee_timeclock/www/timeclock/src/**/*.vue",
 		"employee_timeclock/public/js/job_timeclock/**/*.ts",
 		"employee_timeclock/public/js/job_timeclock/**/*.vue"
 	],

@@ -80,7 +80,7 @@ ignore = ["employee_timeclock/www/job_timeclock_legacy/**"]
 files = [
 	"employee_timeclock/public/js/job_timeclock/components/Column.vue",
 	"employee_timeclock/public/js/job_timeclock/job_timeclock.ts",
-	"employee_timeclock/public/js/timeclock/timeclock.ts",
+	"employee_timeclock/www/timeclock/src/timeclock.ts",
 ]
 
 [tool.frappe-nix.js.oxlint.overrides.rules]
@@ -138,7 +138,7 @@ reason = "Legacy job timeclock page, replaced by www/job_timeclock and deleted i
 root = "."
 include = [
 	"employee_timeclock/public/js/FrappeCall.ts",
-	"employee_timeclock/public/js/timeclock/**",
+	"employee_timeclock/www/timeclock/src/**",
 	"employee_timeclock/public/js/job_timeclock/**",
 	"employee_timeclock/public/js/types/**",
 	"employee_timeclock/www/job_timeclock_legacy/**",

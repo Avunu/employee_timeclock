@@ -31,8 +31,8 @@ import { defineComponent, watch } from "vue";
 import { useStorage } from "@vueuse/core";
 import { jwtDecode } from "jwt-decode";
 import onScan from "onscan.js";
-import { frappeCall } from "../FrappeCall";
-import { dateToFrappeDateTimeString } from "../job_timeclock/utils";
+import { frappeCall } from "../../../public/js/FrappeCall";
+import { dateToFrappeDateTimeString } from "../../../public/js/job_timeclock/utils";
 
 // import sub components
 import AuthorizationMessage from "./components/AuthorizationMessage.vue";

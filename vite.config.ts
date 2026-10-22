@@ -113,7 +113,7 @@ const appConfigs: Record<string, AppConfig> = {
 	timeclock: {
 		bundle: "timeclock_kiosk",
 		entry: "timeclock.ts",
-		srcDir: "employee_timeclock/public/js/timeclock",
+		srcDir: "employee_timeclock/www/timeclock/src",
 	},
 	job_timeclock: {
 		bundle: "job_timeclock",
