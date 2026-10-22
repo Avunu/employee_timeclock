@@ -87,6 +87,7 @@ def get_columns(group_by: str = "Employee") -> list[dict]:
 			"label": _("Hours"),
 			"fieldtype": "Float",
 			"width": 100,
+			"editable": True,
 		},
 		{
 			"fieldname": "device_id",
@@ -403,6 +404,22 @@ def execute(filters: WorkdayManagementFilters | None = None):
 # ---------------------------------------------------------------------------
 
 
+def _day_filter(employee: str, date: datetime.date):
+	return (Checkins.employee == employee) & (Checkins.time >= date) & (Checkins.time < add_days(date, 1))
+
+
+def _day_punches(employee: str, date: datetime.date) -> list[frappe._dict]:
+	"""An employee's Employee Checkins on a date, in the order the report pairs them (IN1, OUT1, IN2, ...)."""
+	return (
+		frappe.qb.from_(Checkins)
+		.select(Checkins.name, Checkins.time, Checkins.log_type)
+		.where(_day_filter(employee, date))
+		.orderby(Checkins.time)
+		.orderby(Checkins.creation)
+		.run(as_dict=True)
+	)
+
+
 def sync_workday(employee: str, date: datetime.date | str) -> Workday:
 	"""Rebuild an employee's Workday for a date from their Employee Checkins, creating it if missing.
 
@@ -423,18 +440,8 @@ def sync_workday(employee: str, date: datetime.date | str) -> Workday:
 		workday.day_of_week = calendar.day_name[date.weekday()]
 		workday.db_insert()
 
-	day_filter = (
-		(Checkins.employee == employee) & (Checkins.time >= date) & (Checkins.time < add_days(date, 1))
-	)
-
-	punches = (
-		frappe.qb.from_(Checkins)
-		.select(Checkins.name, Checkins.time, Checkins.log_type)
-		.where(day_filter)
-		.orderby(Checkins.time)
-		.orderby(Checkins.creation)
-		.run(as_dict=True)
-	)
+	day_filter = _day_filter(employee, date)
+	punches = _day_punches(employee, date)
 
 	workday = build_workday([_datetime(punch.time) for punch in punches], workday)
 	workday.db_update()
@@ -464,18 +471,12 @@ def _next_log_type(employee: str, time: datetime.datetime) -> LogType:
 	return "OUT" if earlier % 2 else "IN"
 
 
-@frappe.whitelist()
-def update_checkin(checkin: str, time: str) -> str:
-	"""Move an Employee Checkin to a new time within its day, then resync its Workday."""
-	frappe.has_permission("Workday", "write", throw=True)
-
-	doc = cast(EmployeeCheckin, frappe.get_doc("Employee Checkin", checkin))
+def _move_checkin(doc: EmployeeCheckin, new_time: datetime.datetime) -> str:
+	"""Move an Employee Checkin to new_time, then resync its Workday."""
 	original_time = _datetime(doc.time)
-
-	new_time = datetime.datetime.combine(original_time.date(), get_time(time))
 	if new_time == original_time:
 		return _("No changes made")
-	# keep the original punch fo audit, same as edits made through the Workday form
+	# keep the original punch for audit, save as edits made through the Workday form
 	if not doc.workday_override:
 		doc.workday_override = 1
 		doc.overridden_time = original_time
@@ -484,6 +485,47 @@ def update_checkin(checkin: str, time: str) -> str:
 	doc.save()
 	sync_workday(doc.employee, original_time.date())
 	return _("{0} updated").format(doc.name)
+
+
+@frappe.whitelist()
+def update_checkin(checkin: str, time: str) -> str:
+	"""Move an Employee Checkin to a new time wihtin its day, then resync its Workday."""
+	frappe.has_permission("Workday", "write", throw=True)
+
+	doc = cast(EmployeeCheckin, frappe.get_doc("Employee Checkin", checkin))
+	date = _datetime(doc.time).date()
+	return _move_checkin(doc, datetime.datetime.combine(date, get_time(time)))
+
+
+@frappe.whitelist()
+def set_punch_hours(checkin: str, hours: float) -> str:
+	"""Move and OUT punch so it falls `hours` after the IN it pairs with, then resync its Workday."""
+	frappe.has_permission("Workday", "write", throw=True)
+	hours = flt(hours)
+	if hours <= 0:
+		frappe.throw(_("Hours must be more than 0"))
+
+	doc = cast(EmployeeCheckin, frappe.get_doc("Employee Checkin", checkin))
+	date = _datetime(doc.time).date()
+	punches = _day_punches(doc.employee, date)
+	idx = next(i for i, punch in enumerate(punches) if punch.name == doc.name)
+	if idx % 2 == 0:
+		frappe.throw(_("Hours can only be set on an OUT punch"))
+
+	new_time = _datetime(punches[idx - 1].time) + datetime.timedelta(seconds=round(hours * 3600))
+	# the punch has to stay in its slot: same day, and before the next punch
+	if new_time.date() != date:
+		frappe.throw(_("{0} hours would end the shift after midnight").format(f"{hours:g}"))
+	if idx + 1 < len(punches):
+		next_time = _datetime(punches[idx + 1].time)
+		if new_time >= next_time:
+			frappe.throw(
+				_("{0} hours would end the shift after the next punch at {1}").format(
+					f"{hours:g}", _format_time(next_time)
+				)
+			)
+	return _move_checkin(doc, new_time)
+
 
 
 @frappe.whitelist()
