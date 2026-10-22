@@ -6,21 +6,9 @@
  * These interfaces match the return types from employee_timeclock.www.timeclock
  */
 
-/** Base response with status */
-interface BaseResponse {
-	status: "success" | "error" | "unsuccessful";
-}
-
-/** authenticate_employee response */
-export interface AuthenticateEmployeeResponse extends BaseResponse {
-	status: "success" | "error";
-	message?: string;
-	last_checkin: "IN" | "OUT" | null;
-	token?: string;
-}
-
-/** log_in_employee / log_out_employee response */
-export interface EmployeeCheckinResponse extends BaseResponse {
-	status: "success" | "unsuccessful";
-	log: unknown; // EmployeeCheckin object
+/** punch response: the punch recorded and the employee's hours this week */
+export interface KioskPunch {
+	log_type: "IN" | "OUT";
+	employee_name: string;
+	weekly_hours: number;
 }

@@ -12,32 +12,20 @@
 			</div>
 		</header>
 
-		<main class="z-0 flex w-full overflow-hidden my-16 pt-16" v-if="activeSession">
-			<!-- When session is active -->
-
-			<transition name="job_card_list"> </transition>
-		</main>
-
-		<!-- <main v-else: class="bg-white fixed w-auto top-100 z-50 h-24"> -->
-		<main v-else: class="w-full h-screen">
-			<!-- When session is inactive -->
+		<main class="w-full h-screen">
 			<AuthorizationMessage />
 		</main>
 	</div>
 </template>
 
 <script lang="ts">
-import { defineComponent, watch } from "vue";
-import { useStorage } from "@vueuse/core";
-import { jwtDecode } from "jwt-decode";
+import { defineComponent } from "vue";
 import onScan from "onscan.js";
-import { frappeCall } from "../../../public/js/FrappeCall";
-import { dateToFrappeDateTimeString } from "../../../public/js/job_timeclock/utils";
+import { FrappeCallError, frappeCall } from "../../../public/js/FrappeCall";
 
 // import sub components
 import AuthorizationMessage from "./components/AuthorizationMessage.vue";
-import type { Employee } from "./types/Employee";
-import type { AuthenticateEmployeeResponse, EmployeeCheckinResponse } from "./types/api";
+import type { KioskPunch } from "./types/api";
 
 // Extend Window interface for TypeScript
 declare global {
@@ -52,169 +40,82 @@ import { useToast } from "vue-toastification";
 
 const toast = useToast();
 
+/** Reload the page hourly, so the kiosk session stays active and a stale page never lingers. */
+const RELOAD_INTERVAL_MS = 60 * 60 * 1000;
+
 export default defineComponent({
 	name: "TimeClock",
 	components: {
 		AuthorizationMessage,
 	},
 	data(): {
-		activeSession: boolean;
-		employeeId: string;
-		employeeName: string;
 		header: string;
-		token: string | null;
-		tokenExpiration: number;
-		timeoutId: number | undefined;
+		pendingScans: Set<string>;
+		reloadId: number | undefined;
 	} {
 		return {
-			activeSession: false,
-			employeeId: "",
-			employeeName: "",
 			header: "Clock In",
-			token: useStorage<string | null>("token", null).value,
-			tokenExpiration: 0,
-			timeoutId: undefined,
+			pendingScans: new Set(),
+			reloadId: undefined,
 		};
 	},
 
 	methods: {
-		async authenticateEmployee(sCode: string): Promise<void> {
-			this.token = null;
-			this.tokenExpiration = 0;
-			this.employeeId = "";
-			this.employeeName = "";
-
-			const response = await frappeCall<AuthenticateEmployeeResponse>(
-				"employee_timeclock.www.timeclock.authenticate_employee",
-				{ rfid: sCode },
-			);
-
-			if (response.status === "success" && response.token) {
-				this.token = response.token;
-				if (response.last_checkin === "OUT") {
-					this.log_employee_in(this.token);
-				} else if (response.last_checkin === "IN") {
-					this.log_employee_out(this.token);
+		async punch(scan: string): Promise<void> {
+			// a scanner that fires twice sends the same badge again before the first punch is saved
+			if (this.pendingScans.has(scan)) {
+				return;
+			}
+			this.pendingScans.add(scan);
+			try {
+				const punch = await frappeCall<KioskPunch>("employee_timeclock.www.timeclock.punch", {
+					badge: scan,
+				});
+				const message = `${punch.employee_name} has punched ${punch.log_type.toLowerCase()}. ${punch.weekly_hours} hours this week.`;
+				if (punch.log_type === "IN") {
+					toast.success(message);
 				} else {
-					console.log("Else");
-					this.log_employee_in(this.token);
+					toast.info(message);
 				}
-			} else {
-				console.log("Sorry! You are not authenticated.");
-				this.token = null;
-				this.tokenExpiration = 0;
+			} catch (error) {
+				this.reportError(error);
+			} finally {
+				this.pendingScans.delete(scan);
 			}
 		},
 
-		// This is triggered by a watch command. Anytime Token changes, this function is run.
-		decodeToken(): void {
-			const tokenData = jwtDecode<{ exp: number; employee_id: string; employee_name: string }>(
-				String(this.token),
-			);
-			this.tokenExpiration = tokenData.exp * 1000;
-			this.employeeId = tokenData.employee_id;
-			this.employeeName = tokenData.employee_name;
-		},
-
-		startTimer(timeout: number): void {
-			this.timeoutId = setTimeout(this.endTimer, timeout) as unknown as number;
-		},
-
-		endTimer(): void {
-			this.token = null;
-			this.tokenExpiration = 0;
-			this.employeeId = "";
-			this.employeeName = "";
-		},
-
-		resetTimer(timeout: number): void {
-			clearTimeout(this.timeoutId);
-			this.startTimer(timeout);
-		},
-
-		async log_employee_in(token: string): Promise<void> {
-			const current_time: string = dateToFrappeDateTimeString(new Date());
-
-			const response = await frappeCall<EmployeeCheckinResponse>(
-				"employee_timeclock.www.timeclock.log_in_employee",
-				{
-					token: token,
-					time: current_time,
-				},
-			);
-
-			if (response.status === "success") {
-				console.log("You are now logged in.");
-				toast.success(`${this.employeeName} has punched in.`);
-			} else {
-				console.log("did not work. You are still logged out:");
-				toast.error(`${this.employeeName} was unsuccessfully logged in.`);
+		reportError(error: unknown): void {
+			if (error instanceof FrappeCallError && error.status === 403) {
+				// the kiosk user is signed out: reloading shows the login page
+				window.location.reload();
+				return;
 			}
-			this.token = null;
-			this.tokenExpiration = 0;
-			this.employeeId = "";
-			this.employeeName = "";
-		},
-
-		async log_employee_out(token: string): Promise<void> {
-			const current_time: string = dateToFrappeDateTimeString(new Date());
-
-			const response = await frappeCall<EmployeeCheckinResponse>(
-				"employee_timeclock.www.timeclock.log_out_employee",
-				{
-					token: token,
-					time: current_time,
-				},
-			);
-
-			if (response.status === "success") {
-				toast.success(`${this.employeeName} has punched out.`);
-				console.log("You are now logged out.", response.log);
+			if (error instanceof FrappeCallError) {
+				// an unknown badge (401), the scan rate limit (429) or a rejected punch
+				toast.error(error.message);
 			} else {
-				toast.error(`${this.employeeName} was not properly signed out.`);
-				console.log("Did not work. You are still logged in:", response.log);
+				toast.error("Could not reach the server. Please scan again.");
 			}
-			this.token = null;
-			this.tokenExpiration = 0;
-			this.employeeId = "";
-			this.employeeName = "";
-		},
-
-		get_token_from_employee(employee: Employee): void {
-			this.authenticateEmployee(employee.sCode);
+			console.error(error);
 		},
 
 		// For 'Clock In' refresh button on click.
 		refresh_page(): void {
 			window.location.reload();
-			console.log("Page reloaded.");
 		},
 	},
 
 	mounted() {
-		// This is to be used with scan.
-		console.log("timeclock initialized.");
-
 		// Attach onScan to document for barcode scanning
 		onScan.attachTo(document, {
-			onScan: this.authenticateEmployee,
+			onScan: this.punch,
 		});
 
 		// Track that onScan is attached (useful for cleanup)
 		window.onScanAttached = true;
 		window.onScan = onScan;
 
-		watch(
-			() => this.token,
-			(newToken) => {
-				if (newToken !== this.token) {
-					this.decodeToken();
-				} else if (newToken) {
-					this.decodeToken();
-				}
-			},
-			{ immediate: true },
-		);
+		this.reloadId = window.setInterval(() => window.location.reload(), RELOAD_INTERVAL_MS);
 	},
 
 	beforeUnmount() {
@@ -223,21 +124,12 @@ export default defineComponent({
 			onScan.detachFrom(document);
 			window.onScanAttached = false;
 		}
+		window.clearInterval(this.reloadId);
 	},
 });
 </script>
 
 <style scoped>
-.job_card_list-enter-active,
-.job_card_list-leave-active {
-	transition: opacity 1s ease-out;
-}
-
-.job_card_list-enter-from,
-.job_card_list-leave-to {
-	opacity: 0;
-}
-
 .Vue-Toastification__toast--default.custom_default {
 	background-color: rgb(15, 255, 35);
 }
