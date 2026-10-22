@@ -1,0 +1,72 @@
+[
+	{
+		"name": "badge-kiosk",
+		"theme": "light",
+		"alt": "The badge kiosk after a scan: Maria Lopez, on the clock since this morning, has punched out",
+		"featured": true,
+		"readme": null,
+		"width": 2880,
+		"height": 1800,
+		"sha256": "9c9d476959ab03414b96dfef54d0cccce584a4ae5fb5cb51ef858febdfa59230"
+	},
+	{
+		"name": "clock-in-form",
+		"theme": "light",
+		"alt": "The Employee Clock-in/out kiosk form with the time entered by hand: the date, the time and a Clock In or Clock Out choice, then the badge scan",
+		"featured": true,
+		"readme": null,
+		"width": 2880,
+		"height": 1800,
+		"sha256": "5106a70849278e57baa3edf69dc66626a0799bc6b68eb6514e2d6a6b1b08636c"
+	},
+	{
+		"name": "issue-badge",
+		"theme": "dark",
+		"alt": "Issuing a timeclock badge from the Employee form: the new token, shown once for printing on the badge",
+		"featured": true,
+		"readme": "feature",
+		"width": 2880,
+		"height": 1800,
+		"sha256": "c6680b12b5e6e9596c8792f6d6087989f8b2137b1abeaf82705e3d961d11f3e7"
+	},
+	{
+		"name": "issue-badge",
+		"theme": "light",
+		"alt": "Issuing a timeclock badge from the Employee form: the new token, shown once for printing on the badge",
+		"featured": true,
+		"readme": "feature",
+		"width": 2880,
+		"height": 1800,
+		"sha256": "5039b1cfddd6892fd04a0fa823671ffd70ef06f679679ba81ddb749c38a7044c"
+	},
+	{
+		"name": "job-tracker",
+		"theme": "light",
+		"alt": "The job time tracker: open work orders, the workbench order's operations with logged time, and a welding timer running",
+		"featured": true,
+		"readme": "hero",
+		"width": 2880,
+		"height": 1800,
+		"sha256": "daa923a3c148b7756d59c88aa44f045e918ccb24ecab47140654af63b94ae9e7"
+	},
+	{
+		"name": "workday-management",
+		"theme": "dark",
+		"alt": "The Workday Management report for one day: each employee's punches and hours, with a forgotten clock-out flagged as a missing punch",
+		"featured": true,
+		"readme": "feature",
+		"width": 2880,
+		"height": 1800,
+		"sha256": "6688da0a842990e45a8f52643c494829df9aee43b0a4522a40e0e4a184cb92a3"
+	},
+	{
+		"name": "workday-management",
+		"theme": "light",
+		"alt": "The Workday Management report for one day: each employee's punches and hours, with a forgotten clock-out flagged as a missing punch",
+		"featured": true,
+		"readme": "feature",
+		"width": 2880,
+		"height": 1800,
+		"sha256": "84251b2150f6f78cf67724e442e8c283ae43b5cccab254794c4284a60e4efaad"
+	}
+]

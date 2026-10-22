@@ -4,14 +4,22 @@
 app_name = "employee_timeclock"
 app_title = "Employee Timeclock"
 app_publisher = "Avunu LLC"
-app_description = "ERPNext Employee Timeclock"
-app_icon = "octicon octicon-file-directory"
-app_color = "grey"
+app_description = "Badge-scan timeclock kiosks and job-card time tracking for ERPNext and HRMS"
 app_email = "mail@avu.nu"
 app_license = "MIT"
 app_include_js = "employee_timeclock.app.bundle.js"
 export_python_type_annotations = True
 required_apps = ["erpnext", "hrms"]
+
+add_to_apps_screen = [
+	{
+		"name": "employee_timeclock",
+		"logo": "/assets/employee_timeclock/images/employee_timeclock-logo.svg",
+		"title": "Employee Timeclock",
+		"route": "/app/workday",
+		"has_permission": "employee_timeclock.permissions.has_app_permission",
+	}
+]
 
 doc_events = {
 	"Workday": {
