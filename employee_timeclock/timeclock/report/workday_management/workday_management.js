@@ -432,7 +432,6 @@ function save_checkin(data, time) {
 	});
 }
 
-
 /**
  * @param {WMRow} data
  * @param {number} hours
@@ -442,7 +441,7 @@ function save_hours(data, hours) {
 		method: `${WM_METHOD}.set_punch_hours`,
 		args: { checkin: data.checkin, hours: hours },
 		callback: (r) => {
-			if (r.message) frappe.show_alert({ message: /** @type {string} */ (r.message), indicator: "green"}, 3);
+			if (r.message) frappe.show_alert({ message: /** @type {string} */ (r.message), indicator: "green" }, 3);
 		},
 		// Refresh on failure too, so the cell drops the rejected value
 		always: () => refresh_report(),
