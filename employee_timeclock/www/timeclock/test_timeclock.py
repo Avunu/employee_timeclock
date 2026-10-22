@@ -20,6 +20,7 @@ from frappe.utils.password import get_encryption_key
 from frappe.utils.redis_wrapper import RedisWrapper
 
 from employee_timeclock import auth
+from employee_timeclock.kiosk import KioskAuthenticationError
 from employee_timeclock.tests.utils import make_kiosk_user
 from employee_timeclock.timeclock import api
 from employee_timeclock.timeclock.test_api import _make_employee
@@ -163,14 +164,37 @@ class TestTimeclockKiosk(IntegrationTestCase):
 		with self.assertRaises(frappe.AuthenticationError):
 			kiosk.extract_employee_from_token(token)
 
-	def test_no_tokens_without_an_encryption_key(self) -> None:
-		"""The key fails closed: with no encryption_key the kiosk neither issues nor accepts tokens."""
+	def test_a_site_without_an_encryption_key_gets_one(self) -> None:
+		"""A site with no encryption_key yet gets one generated and saved, so badge sign-in works."""
 		conf = cast(frappe._dict, frappe.local.conf)
 		key = conf.pop("encryption_key")
 		try:
-			with self.assertRaises(frappe.AuthenticationError):
+			with patch("frappe.installer.update_site_config") as save:
+				secret = auth.get_token_secret()
+			self.assertTrue(secret)
+			save.assert_called_once_with("encryption_key", secret)
+			result = kiosk.authenticate_employee(self.rfid)
+			self.assertEqual(result["status"], "success")
+			self.assertEqual(
+				jwt.decode(result["token"], secret, algorithms=["HS256"])["employee_id"], self.employee
+			)
+		finally:
+			conf["encryption_key"] = key
+
+	def test_no_tokens_with_an_empty_encryption_key(self) -> None:
+		"""The key fails closed: with an empty encryption_key the kiosk neither issues nor accepts tokens.
+
+		The error is the kiosk's own subclass, never a plain AuthenticationError, which would make
+		frappe sign the kiosk user out.
+		"""
+		conf = cast(frappe._dict, frappe.local.conf)
+		key = conf["encryption_key"]
+		conf["encryption_key"] = ""
+		try:
+			with self.assertRaises(KioskAuthenticationError) as caught:
 				auth.get_token_secret()
-			with self.assertRaises(frappe.AuthenticationError):
+			self.assertIsNot(type(caught.exception), frappe.AuthenticationError)
+			with self.assertRaises(KioskAuthenticationError):
 				kiosk.refresh_token(self.employee)
 		finally:
 			conf["encryption_key"] = key
