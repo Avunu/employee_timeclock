@@ -476,7 +476,7 @@ def _move_checkin(doc: EmployeeCheckin, new_time: datetime.datetime) -> str:
 	original_time = _datetime(doc.time)
 	if new_time == original_time:
 		return _("No changes made")
-	# keep the original punch for audit, save as edits made through the Workday form
+	# keep the original punch for audit, same as edits made through the Workday form
 	if not doc.workday_override:
 		doc.workday_override = 1
 		doc.overridden_time = original_time
@@ -489,7 +489,7 @@ def _move_checkin(doc: EmployeeCheckin, new_time: datetime.datetime) -> str:
 
 @frappe.whitelist()
 def update_checkin(checkin: str, time: str) -> str:
-	"""Move an Employee Checkin to a new time wihtin its day, then resync its Workday."""
+	"""Move an Employee Checkin to a new time within its day, then resync its Workday."""
 	frappe.has_permission("Workday", "write", throw=True)
 
 	doc = cast(EmployeeCheckin, frappe.get_doc("Employee Checkin", checkin))
@@ -499,7 +499,7 @@ def update_checkin(checkin: str, time: str) -> str:
 
 @frappe.whitelist()
 def set_punch_hours(checkin: str, hours: float) -> str:
-	"""Move and OUT punch so it falls `hours` after the IN it pairs with, then resync its Workday."""
+	"""Move an OUT punch so it falls `hours` after the IN it pairs with, then resync its Workday."""
 	frappe.has_permission("Workday", "write", throw=True)
 	hours = flt(hours)
 	if hours <= 0:
@@ -525,7 +525,6 @@ def set_punch_hours(checkin: str, hours: float) -> str:
 				)
 			)
 	return _move_checkin(doc, new_time)
-
 
 
 @frappe.whitelist()
