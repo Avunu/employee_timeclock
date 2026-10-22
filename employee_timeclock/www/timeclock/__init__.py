@@ -8,6 +8,7 @@ import frappe
 import jwt
 from frappe import _
 from frappe.rate_limiter import rate_limit
+from frappe.utils import today
 
 from employee_timeclock.auth import get_token_secret
 from employee_timeclock.kiosk import (
@@ -56,7 +57,7 @@ def authenticate_employee(rfid: str) -> dict[str, Any]:
 	Authenticate an employee by their badge, at a Timeclock Kiosk.
 
 	Resolves the badge (an issued badge token or a registered RFID tag) and generates a JWT for the
-	employee. Also retrieves the last check-in status to determine if the employee is clocked in or out.
+	employee. Also retrieves the employee's last punch today, to determine if the employee is clocked in or out.
 
 	Args:
 		rfid: The scanned badge: an issued badge token or an RFID tag
@@ -65,7 +66,7 @@ def authenticate_employee(rfid: str) -> dict[str, Any]:
 		Dict containing:
 			- status: "success" or "error"
 			- message: Error message if authentication failed, the same whatever the reason
-			- last_checkin: The last check-in type ("IN" or "OUT") if successful
+			- last_checkin: The log type ("IN" or "OUT") of the employee's last punch today, or None
 			- token: JWT authentication token if successful
 
 	Raises:
@@ -80,11 +81,13 @@ def authenticate_employee(rfid: str) -> dict[str, Any]:
 	# If valid, generate a JWT
 	token: str = refresh_token(str(employee_id))
 
-	# get the last employee checkin to see if the employee is clocked in or out
+	# the employee's last punch today says whether they are clocked in or out, as on the clock-in
+	# form: a punch left open on an earlier day (a forgotten clock-out) does not make today's first
+	# scan an OUT
 	last_checkin: list[str] = frappe.get_list(
 		"Employee Checkin",
-		filters={"employee": employee_id},
-		order_by="modified desc",
+		filters={"employee": employee_id, "time": [">=", today()]},
+		order_by="time desc",
 		limit=1,
 		ignore_permissions=True,
 		pluck="log_type",

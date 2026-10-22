@@ -2,12 +2,12 @@
 	{
 		"name": "badge-kiosk",
 		"theme": "light",
-		"alt": "The badge kiosk after a scan: Maria Lopez, on the clock since this morning, has punched out",
+		"alt": "The badge kiosk after a scan: Maria Lopez has punched in",
 		"featured": true,
 		"readme": null,
 		"width": 2880,
 		"height": 1800,
-		"sha256": "9c9d476959ab03414b96dfef54d0cccce584a4ae5fb5cb51ef858febdfa59230"
+		"sha256": "f05d3a207c26157755a7ce30689b57ffb632f889a16bca5dbf49dc95507516f3"
 	},
 	{
 		"name": "clock-in-form",
