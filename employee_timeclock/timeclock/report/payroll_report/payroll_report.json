@@ -2,10 +2,16 @@
  "add_total_row": 0,
  "columns": [
   {
-   "fieldname": "employee_name",
-   "fieldtype": "Data",
+   "fieldname": "employee",
+   "fieldtype": "Link",
    "label": "Employee",
    "options": "Employee",
+   "width": 150
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Employee Name",
    "width": 200
   },
   {
@@ -56,13 +62,13 @@
  ],
  "idx": 0,
  "is_standard": "Yes",
- "modified": "2022-09-10 19:14:22.026788",
+ "modified": "2026-10-22 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Timeclock",
  "name": "Payroll Report",
  "owner": "Administrator",
  "prepared_report": 0,
- "query": "SELECT\r\n    w.`employee_name`,\r\n    ROUND(SUM(w.`regular_hours`), 2) as 'regular_hours',\r\n    ROUND(SUM(w.`overtime_hours`), 2) as 'overtime_hours',\r\n    ROUND(SUM(w.`total_hours`), 2) as 'total_hours',\r\n    LEAST(SUM(w.`missed_punch`), 1)\r\nFROM\r\n    (\r\n        SELECT\r\n            z.`week`,\r\n            z.`employee_name`,\r\n            LEAST(SUM(z.`seconds`) / 3600, 40) as `regular_hours`,\r\n            GREATEST((SUM(z.`seconds`) / 3600) - 40, 0) as `overtime_hours`,\r\n            SUM(z.`seconds`) / 3600 as `total_hours`,\r\n            CASE\r\n                WHEN MIN(z.`seconds`) <= 0 THEN 1\r\n                ELSE 0\r\n            END as `missed_punch`\r\n        FROM\r\n            (\r\n                SELECT\r\n                    tmp.`week` as `week`,\r\n                    tmp.`employee_name`,\r\n                    MAX(tmp.`punch_unix`) - MIN(tmp.`punch_unix`) as `seconds`\r\n                FROM\r\n                    (\r\n                        SELECT\r\n                            pd.`employee_name`,\r\n                            CONCAT(YEAR(pd.`time`), '/', WEEK(pd.`time`)) as `week`,\r\n                            CEILING(\r\n                                ROW_NUMBER() OVER (\r\n                                    PARTITION BY pd.`employee_name`,\r\n                                    CONCAT(YEAR(pd.`time`), '/', WEEK(pd.`time`))\r\n                                    ORDER BY\r\n                                        pd.`time`\r\n                                ) / 2\r\n                            ) as `seq`,\r\n                            pd.`docstatus`,\r\n                            UNIX_TIMESTAMP(pd.`time`) as `punch_unix`\r\n                        FROM\r\n                            `tabEmployee Checkin` pd\r\n                        WHERE\r\n                            pd.`docstatus` = 0\r\n                            AND pd.`time` >= %(start_date)s\r\n                            AND pd.`time` <= %(end_date)s\r\n                    ) tmp\r\n                GROUP BY\r\n                    tmp.`week`,\r\n                    tmp.`employee_name`,\r\n                    tmp.`seq`\r\n            ) z\r\n        GROUP BY\r\n            z.`week`,\r\n            z.`employee_name`\r\n        ORDER BY\r\n            z.`week`,\r\n            z.`employee_name`\r\n    ) w\r\nGROUP BY\r\n    w.`employee_name`\r\nORDER BY\r\n    w.`employee_name`",
+ "query": "SELECT\r\n    w.`employee`,\r\n    MAX(w.`employee_name`) as `employee_name`,\r\n    ROUND(SUM(w.`regular_hours`), 2) as 'regular_hours',\r\n    ROUND(SUM(w.`overtime_hours`), 2) as 'overtime_hours',\r\n    ROUND(SUM(w.`total_hours`), 2) as 'total_hours',\r\n    LEAST(SUM(w.`missed_punch`), 1)\r\nFROM\r\n    (\r\n        SELECT\r\n            z.`week`,\r\n            z.`employee`,\r\n            MAX(z.`employee_name`) as `employee_name`,\r\n            LEAST(SUM(z.`seconds`) / 3600, 40) as `regular_hours`,\r\n            GREATEST((SUM(z.`seconds`) / 3600) - 40, 0) as `overtime_hours`,\r\n            SUM(z.`seconds`) / 3600 as `total_hours`,\r\n            CASE\r\n                WHEN MIN(z.`seconds`) <= 0 THEN 1\r\n                ELSE 0\r\n            END as `missed_punch`\r\n        FROM\r\n            (\r\n                SELECT\r\n                    tmp.`week` as `week`,\r\n                    tmp.`employee`,\r\n                    MAX(tmp.`employee_name`) as `employee_name`,\r\n                    MAX(tmp.`punch_unix`) - MIN(tmp.`punch_unix`) as `seconds`\r\n                FROM\r\n                    (\r\n                        SELECT\r\n                            pd.`employee`,\r\n                            pd.`employee_name`,\r\n                            CONCAT(YEAR(pd.`time`), '/', WEEK(pd.`time`)) as `week`,\r\n                            CEILING(\r\n                                ROW_NUMBER() OVER (\r\n                                    PARTITION BY pd.`employee`,\r\n                                    CONCAT(YEAR(pd.`time`), '/', WEEK(pd.`time`))\r\n                                    ORDER BY\r\n                                        pd.`time`\r\n                                ) / 2\r\n                            ) as `seq`,\r\n                            pd.`docstatus`,\r\n                            UNIX_TIMESTAMP(pd.`time`) as `punch_unix`\r\n                        FROM\r\n                            `tabEmployee Checkin` pd\r\n                        WHERE\r\n                            pd.`docstatus` = 0\r\n                            AND pd.`time` >= %(start_date)s\r\n                            AND pd.`time` < DATE_ADD(%(end_date)s, INTERVAL 1 DAY)\r\n                    ) tmp\r\n                GROUP BY\r\n                    tmp.`week`,\r\n                    tmp.`employee`,\r\n                    tmp.`seq`\r\n            ) z\r\n        GROUP BY\r\n            z.`week`,\r\n            z.`employee`\r\n        ORDER BY\r\n            z.`week`,\r\n            z.`employee`\r\n    ) w\r\nGROUP BY\r\n    w.`employee`\r\nORDER BY\r\n    `employee_name`,\r\n    w.`employee`",
  "ref_doctype": "Employee Checkin",
  "report_name": "Payroll Report",
  "report_type": "Query Report",
