@@ -107,7 +107,7 @@ For job time tracking:
 
 - The badge kiosk (`/timeclock`) punches the opposite of the employee's last punch on any day, so after a forgotten clock-out the next morning's scan records an OUT. The clock-in form looks only at today's punches.
 - A Workday holds at most twelve in and out pairs.
-- A punch recorded less than a minute after its Workday was created or saved is not copied into the Workday; this guard stops the two sync hooks from triggering each other. The guard ignores whole days, so a punch made a whole number of days plus under a minute after the Workday's last change is skipped too. The Workday Management report shows the day as Out of Sync, and _Rebuild Workdays_ fixes it.
+- A punch recorded less than a minute after its Workday was created or saved is not copied into the Workday; this guard stops the two sync hooks from triggering each other. The Workday Management report shows the day as Out of Sync, and _Rebuild Workdays_ fixes it.
 - Overtime in the payroll reports is hours over 40 in a week, and the 40 can't be configured. The Payroll Report pairs a week's punches in order, so one missing punch shifts every pair after it that week (the Work Day Hours Report does the same within a day); the Workday Payroll Report, built from Workdays, does not. The Payroll Report also leaves out the punches made on its End Date, because it compares each punch's time with that date's midnight. All three group by employee name, so two employees with the same name are added together.
 - The kiosk pages are in English only and have no dark theme. The job tracker's page is titled "Project Tracker".
 - The old job time tracker at `/job_timeclock_legacy` still ships; it is replaced by `/job_timeclock` and will be removed.

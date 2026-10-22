@@ -40,6 +40,11 @@ invalid_values = ["", 0, "00:00", "undefined", None, "None", "null", "NULL"]
 check_range = range(1, 13)
 
 
+def _within_a_minute(elapsed: datetime.timedelta) -> bool:
+	"""Whether a change was made less than a minute ago, counting whole days (unlike ``timedelta.seconds``)."""
+	return datetime.timedelta(0) <= elapsed < datetime.timedelta(minutes=1)
+
+
 def get_weekly_hours(employee: str) -> list[str | float]:
 	"""Return ``[employee_name, hours]``: the employee's display name and this week's total hours."""
 	employee_doc = cast(Employee, frappe.get_doc("Employee", employee))
@@ -137,7 +142,7 @@ def update_workday_from_checkin(checkin: EmployeeCheckin, method: str | None = N
 				str(workday_modified).split(".")[0], "%Y-%m-%d %H:%M:%S"
 			)
 		current_time = now_datetime()
-		if isinstance(current_time, datetime.datetime) and (current_time - workday_modified).seconds < 60:
+		if isinstance(current_time, datetime.datetime) and _within_a_minute(current_time - workday_modified):
 			return checkin
 	# get the date from the checkin
 	checkin_time_raw = checkin.time
@@ -175,7 +180,7 @@ def update_workday_from_checkin(checkin: EmployeeCheckin, method: str | None = N
 					str(last_modified).split(".")[0], "%Y-%m-%d %H:%M:%S"
 				)
 			current_time = now_datetime()
-			if isinstance(current_time, datetime.datetime) and (current_time - last_modified).seconds < 60:
+			if isinstance(current_time, datetime.datetime) and _within_a_minute(current_time - last_modified):
 				return checkin
 	else:
 		# if the workday does not exist then create it
@@ -344,7 +349,7 @@ def clear_workday_punch_on_checkin_trash(checkin: EmployeeCheckin, method: str |
 					str(last_modified).split(".")[0], "%Y-%m-%d %H:%M:%S"
 				)
 			current_time = now_datetime()
-			if isinstance(current_time, datetime.datetime) and (current_time - last_modified).seconds < 60:
+			if isinstance(current_time, datetime.datetime) and _within_a_minute(current_time - last_modified):
 				return
 		# find the workday checking field that matches the checkin time
 		for i in check_range:
