@@ -9,6 +9,13 @@
 				>
 					{{ header }}
 				</button>
+				<!-- the old web form, for when this page misbehaves -->
+				 <a
+				 	href="/employee-timeclock?new=1"
+				 	class="rounded-lg bg-white px-6 py-4 text-xl font-semibold text-gray-700 shadow"
+				 >
+				 	Use old timeclock
+				</a>
 			</div>
 		</header>
 

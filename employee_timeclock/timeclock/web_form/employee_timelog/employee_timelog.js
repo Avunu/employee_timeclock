@@ -133,6 +133,13 @@ frappe.init_client_script = () => {
 			jQuery("input[data-fieldname='employee']").focus();
 		};
 
+		// the new kiosk page at /timeclock, while it is being tried out; a label, as the form hides other buttons
+		jQuery("<label class='btn btn-light btn-lg ml-4' id='new-timeclock'>Use new timeclock</label>")
+			.insertAfter("#reset")
+			.click(function() {
+				window.location.href = "/timeclock";
+			});
+
 		// create "clock in" and "clock out" buttons from the "log_type" select/dropdown
 		jQuery("select[data-fieldname='log_type'] option").each(function (i, e) {
 			const select_option = /** @type {string} */ (jQuery(this).val());

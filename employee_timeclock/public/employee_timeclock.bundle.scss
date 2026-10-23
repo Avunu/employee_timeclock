@@ -7,6 +7,12 @@ div[data-fieldname="log_type"] {
 	display: none;
 }
 
+// sized like the form's Reload Form button (#reset, styled in the web form's custom CSS)
+#new-timeclock {
+	padding: 2rem 3.5rem;
+	font-size: 1.25rem !important;
+}
+
 input[type="radio"]:checked + label {
 	background-color: var(--blue);
 	color: white;
