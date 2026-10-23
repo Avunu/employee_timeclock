@@ -292,6 +292,45 @@ class TestTimeclockApi(IntegrationTestCase):
 		self.assertEqual(after.check_out_1, "12:30 PM")
 		self.assertEqual(after.total_hours, 4.5)
 
+	def _stamp_workday(self, name: str, ago: datetime.timedelta) -> None:
+		"""Set when a Workday was last changed."""
+		frappe.db.set_value("Workday", name, "last_modified", now_datetime() - ago, update_modified=False)
+
+	def test_the_resync_window_counts_whole_days(self) -> None:
+		"""The one-minute window is measured in full: a day and ten seconds ago is outside it."""
+		for elapsed, inside in (
+			(datetime.timedelta(seconds=10), True),
+			(datetime.timedelta(seconds=60), False),
+			(datetime.timedelta(days=1, seconds=10), False),
+			(datetime.timedelta(days=3, seconds=59), False),
+			(datetime.timedelta(seconds=-10), False),
+		):
+			with self.subTest(elapsed=elapsed):
+				self.assertIs(api._within_a_minute(elapsed), inside)
+
+	def test_a_punch_a_whole_day_after_the_workdays_last_change_is_synced(self) -> None:
+		"""Regression: ``timedelta.seconds`` dropped the days, so this punch was skipped."""
+		self._punch(_punch_time(8))
+		workday = self._workdays()[0]["name"]
+		self._stamp_workday(workday, datetime.timedelta(days=1, seconds=10))
+
+		self._punch(_punch_time(12, 30), "OUT")
+
+		row = frappe.db.get_value("Workday", workday, ["check_out_1", "total_hours"], as_dict=True)
+		self.assertEqual(row.check_out_1, "12:30 PM")
+		self.assertEqual(row.total_hours, 4.5)
+
+	def test_trashing_a_checkin_a_whole_day_after_the_workdays_last_change_clears_it(self) -> None:
+		"""Regression: ``timedelta.seconds`` dropped the days, so the Workday kept the deleted punch."""
+		workday, out = self._clock_in_and_out()
+		self._stamp_workday(workday, datetime.timedelta(days=2, seconds=5))
+
+		frappe.delete_doc("Employee Checkin", out, ignore_permissions=True)
+
+		row = frappe.db.get_value("Workday", workday, ["check_out_1", "total_hours"], as_dict=True)
+		self.assertIsNone(row.check_out_1)
+		self.assertEqual(row.total_hours, 0)
+
 	def test_submit_checkin_same_minute_does_not_duplicate(self) -> None:
 		"""A second scan inside the same minute reuses the existing checkin."""
 		self._punch(_punch_time(8, 0, 5))

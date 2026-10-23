@@ -2,10 +2,16 @@
  "add_total_row": 0,
  "columns": [
   {
-   "fieldname": "employee_name",
-   "fieldtype": "Data",
+   "fieldname": "employee",
+   "fieldtype": "Link",
    "label": "Employee",
    "options": "Employee",
+   "width": 150
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Employee Name",
    "width": 200
   },
   {
@@ -50,13 +56,13 @@
  ],
  "idx": 0,
  "is_standard": "Yes",
- "modified": "2022-09-15 11:17:32.192657",
+ "modified": "2026-10-23 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Timeclock",
  "name": "Workday Payroll Report",
  "owner": "Administrator",
  "prepared_report": 0,
- "query": "SELECT\r\n    w.`employee_name`,\r\n    ROUND(SUM(w.`regular_hours`), 2) as 'regular_hours',\r\n    ROUND(SUM(w.`overtime_hours`), 2) as 'overtime_hours',\r\n    ROUND(SUM(w.`total_hours`), 2) as 'total_hours'\r\nFROM\r\n    (\r\n        SELECT\r\n            CONCAT(YEAR(`date`), '/', WEEK(`date`)) as `week`,\r\n            `employee_name`,\r\n            ROUND(LEAST(SUM(`total_hours`), 40), 2) as `regular_hours`,\r\n            ROUND(GREATEST(SUM(`total_hours`) - 40, 0), 2) as `overtime_hours`,\r\n            ROUND(SUM(`total_hours`), 2) as `total_hours`\r\n        FROM\r\n            `tabWorkday`\r\n        WHERE\r\n            `date` >= %(start_date)s\r\n            AND `date` <= %(end_date)s\r\n        GROUP BY\r\n            `week`,\r\n            `employee_name`\r\n    ) w\r\nGROUP BY\r\n    w.`employee_name`\r\nORDER BY\r\n    w.`employee_name`",
+ "query": "SELECT\r\n    w.`employee`,\r\n    MAX(w.`employee_name`) as `employee_name`,\r\n    ROUND(SUM(w.`regular_hours`), 2) as 'regular_hours',\r\n    ROUND(SUM(w.`overtime_hours`), 2) as 'overtime_hours',\r\n    ROUND(SUM(w.`total_hours`), 2) as 'total_hours'\r\nFROM\r\n    (\r\n        SELECT\r\n            DATE_SUB(`date`, INTERVAL DAYOFWEEK(`date`) - 1 DAY) as `week`,\r\n            `employee`,\r\n            MAX(`employee_name`) as `employee_name`,\r\n            ROUND(LEAST(SUM(`total_hours`), 40), 2) as `regular_hours`,\r\n            ROUND(GREATEST(SUM(`total_hours`) - 40, 0), 2) as `overtime_hours`,\r\n            ROUND(SUM(`total_hours`), 2) as `total_hours`\r\n        FROM\r\n            `tabWorkday`\r\n        WHERE\r\n            `date` >= %(start_date)s\r\n            AND `date` <= %(end_date)s\r\n        GROUP BY\r\n            `week`,\r\n            `employee`\r\n    ) w\r\nGROUP BY\r\n    w.`employee`\r\nORDER BY\r\n    `employee_name`,\r\n    w.`employee`",
  "ref_doctype": "Workday",
  "report_name": "Workday Payroll Report",
  "report_type": "Query Report",

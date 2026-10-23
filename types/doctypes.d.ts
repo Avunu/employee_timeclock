@@ -665,6 +665,7 @@ declare global {
 		"Terms and Conditions": FrappeDocTypeFields.TermsandConditions;
 		"Territory": FrappeDocTypeFields.Territory;
 		"Territory Item": FrappeDocTypeFields.TerritoryItem;
+		"Timeclock Settings": FrappeDocTypeFields.TimeclockSettings;
 		"Timesheet": FrappeDocTypeFields.Timesheet;
 		"Timesheet Detail": FrappeDocTypeFields.TimesheetDetail;
 		"Training Event": FrappeDocTypeFields.TrainingEvent;
@@ -22704,6 +22705,17 @@ declare global {
 		}
 
 		/**
+		 * DocType "Timeclock Settings" — employee_timeclock, module Timeclock.
+		 * `employee_timeclock/employee_timeclock/timeclock/doctype/timeclock_settings/timeclock_settings.json`
+		 * Single: its one document is named after the DocType.
+		 */
+		interface TimeclockSettings {
+			name: "Timeclock Settings";
+			/** Maximum Shift Length (Hours) · Float */
+			max_shift_hours?: number | null;
+		}
+
+		/**
 		 * DocType "Timesheet" — erpnext, module Projects.
 		 * `erpnext/erpnext/projects/doctype/timesheet/timesheet.json`
 		 */
@@ -24751,6 +24763,7 @@ export type TelephonyCallType = FrappeDocTypeFields.TelephonyCallType;
 export type TermsandConditions = FrappeDocTypeFields.TermsandConditions;
 export type Territory = FrappeDocTypeFields.Territory;
 export type TerritoryItem = FrappeDocTypeFields.TerritoryItem;
+export type TimeclockSettings = FrappeDocTypeFields.TimeclockSettings;
 export type Timesheet = FrappeDocTypeFields.Timesheet;
 export type TimesheetDetail = FrappeDocTypeFields.TimesheetDetail;
 export type TrainingEvent = FrappeDocTypeFields.TrainingEvent;

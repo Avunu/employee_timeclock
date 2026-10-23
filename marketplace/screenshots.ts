@@ -69,7 +69,7 @@ export default {
 		{
 			name: "badge-kiosk",
 			route: "/timeclock",
-			alt: "The badge kiosk after a scan: Maria Lopez, on the clock since this morning, has punched out",
+			alt: "The badge kiosk after a scan: Maria Lopez has punched in",
 			waitFor: "#app",
 			actions: [
 				{ wait: 1000 },

@@ -15,12 +15,20 @@ from unittest.mock import patch
 import frappe
 import jwt
 from frappe.tests import IntegrationTestCase
+<<<<<<< HEAD
 from frappe.utils import add_days, get_datetime, random_string, today
+=======
+from frappe.utils import now_datetime, random_string
+>>>>>>> main
 from frappe.utils.password import get_encryption_key
 from frappe.utils.redis_wrapper import RedisWrapper
 
 from employee_timeclock import auth
+<<<<<<< HEAD
 from employee_timeclock.kiosk import DEVICE_ID, KioskAuthenticationError
+=======
+from employee_timeclock.kiosk import KioskAuthenticationError
+>>>>>>> main
 from employee_timeclock.tests.utils import make_kiosk_user
 from employee_timeclock.timeclock import api
 from employee_timeclock.timeclock.test_api import _make_employee
@@ -131,6 +139,32 @@ class TestTimeclockKiosk(IntegrationTestCase):
 		self.assertEqual(payload["employee_id"], self.employee)
 		self.assertEqual(payload["employee_name"], self.employee_name)
 
+	def _write_punch(self, time: datetime.datetime, log_type: str) -> None:
+		"""Write a punch directly, without the Workday hooks, so its modified order is under test control."""
+		frappe.get_doc(
+			{"doctype": "Employee Checkin", "employee": self.employee, "time": time, "log_type": log_type}
+		).db_insert()
+
+	def test_authenticate_employee_ignores_an_in_older_than_the_maximum_shift(self) -> None:
+		"""A forgotten clock-out more than the maximum shift length ago does not make the next scan an OUT."""
+		self._write_punch(now_datetime() - datetime.timedelta(hours=17), "IN")
+
+		self.assertIsNone(kiosk.authenticate_employee(self.rfid)["last_checkin"])
+
+	def test_authenticate_employee_keeps_a_night_shift_open_across_midnight(self) -> None:
+		"""Regression: only today's punches were read, so a night worker's scan after midnight was an IN."""
+		self._write_punch(now_datetime() - datetime.timedelta(hours=8), "IN")
+
+		self.assertEqual(kiosk.authenticate_employee(self.rfid)["last_checkin"], "IN")
+
+	def test_authenticate_employee_reports_the_latest_punch_by_time(self) -> None:
+		"""The last punch by time decides, not the punch saved last (a punch fixed later in the day)."""
+		now = now_datetime().replace(second=0, microsecond=0)
+		self._write_punch(now - datetime.timedelta(minutes=2), "OUT")
+		self._write_punch(now - datetime.timedelta(minutes=3), "IN")
+
+		self.assertEqual(kiosk.authenticate_employee(self.rfid)["last_checkin"], "OUT")
+
 	def test_authenticate_employee_rejects_an_unknown_badge(self) -> None:
 		result = kiosk.authenticate_employee("not-a-badge")
 
@@ -167,7 +201,8 @@ class TestTimeclockKiosk(IntegrationTestCase):
 		self.assertFalse(frappe.db.exists("Workday", {"employee": self.employee, "date": PUNCH_TIME[:10]}))
 
 	def test_last_checkin_is_reported_after_a_punch(self) -> None:
-		kiosk.log_in_employee(kiosk.refresh_token(self.employee), PUNCH_TIME)
+		punch_time = now_datetime().replace(microsecond=0) - datetime.timedelta(minutes=1)
+		kiosk.log_in_employee(kiosk.refresh_token(self.employee), str(punch_time))
 
 		self.assertEqual(kiosk.authenticate_employee(self.rfid)["last_checkin"], "IN")
 
@@ -188,14 +223,37 @@ class TestTimeclockKiosk(IntegrationTestCase):
 		with self.assertRaises(frappe.AuthenticationError):
 			kiosk.extract_employee_from_token(token)
 
-	def test_no_tokens_without_an_encryption_key(self) -> None:
-		"""The key fails closed: with no encryption_key the kiosk neither issues nor accepts tokens."""
+	def test_a_site_without_an_encryption_key_gets_one(self) -> None:
+		"""A site with no encryption_key yet gets one generated and saved, so badge sign-in works."""
 		conf = cast(frappe._dict, frappe.local.conf)
 		key = conf.pop("encryption_key")
 		try:
-			with self.assertRaises(frappe.AuthenticationError):
+			with patch("frappe.installer.update_site_config") as save:
+				secret = auth.get_token_secret()
+			self.assertTrue(secret)
+			save.assert_called_once_with("encryption_key", secret)
+			result = kiosk.authenticate_employee(self.rfid)
+			self.assertEqual(result["status"], "success")
+			self.assertEqual(
+				jwt.decode(result["token"], secret, algorithms=["HS256"])["employee_id"], self.employee
+			)
+		finally:
+			conf["encryption_key"] = key
+
+	def test_no_tokens_with_an_empty_encryption_key(self) -> None:
+		"""The key fails closed: with an empty encryption_key the kiosk neither issues nor accepts tokens.
+
+		The error is the kiosk's own subclass, never a plain AuthenticationError, which would make
+		frappe sign the kiosk user out.
+		"""
+		conf = cast(frappe._dict, frappe.local.conf)
+		key = conf["encryption_key"]
+		conf["encryption_key"] = ""
+		try:
+			with self.assertRaises(KioskAuthenticationError) as caught:
 				auth.get_token_secret()
-			with self.assertRaises(frappe.AuthenticationError):
+			self.assertIsNot(type(caught.exception), frappe.AuthenticationError)
+			with self.assertRaises(KioskAuthenticationError):
 				kiosk.refresh_token(self.employee)
 		finally:
 			conf["encryption_key"] = key

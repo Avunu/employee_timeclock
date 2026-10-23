@@ -2,12 +2,12 @@
 	{
 		"name": "badge-kiosk",
 		"theme": "light",
-		"alt": "The badge kiosk after a scan: Maria Lopez, on the clock since this morning, has punched out",
+		"alt": "The badge kiosk after a scan: Maria Lopez has punched in",
 		"featured": true,
 		"readme": null,
 		"width": 2880,
 		"height": 1800,
-		"sha256": "9c9d476959ab03414b96dfef54d0cccce584a4ae5fb5cb51ef858febdfa59230"
+		"sha256": "1fdfc6cdbce399c9b09f6437e221ee2076ae412999ca2686b1260d22d754761a"
 	},
 	{
 		"name": "clock-in-form",
@@ -47,7 +47,7 @@
 		"readme": "hero",
 		"width": 2880,
 		"height": 1800,
-		"sha256": "daa923a3c148b7756d59c88aa44f045e918ccb24ecab47140654af63b94ae9e7"
+		"sha256": "24d9ced7f4c3038999eea9f143560ce62cf1165f498e45b96d39daa03af83612"
 	},
 	{
 		"name": "workday-management",

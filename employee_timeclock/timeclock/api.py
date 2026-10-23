@@ -1,16 +1,15 @@
 # Copyright (c) 2026, Avunu LLC and contributors
 # For license information, please see license.txt
 
-import calendar
 import datetime
 import re
-from typing import Any, Literal, TypedDict, cast
+from typing import Literal, TypedDict, cast
 
 import frappe
 from frappe import _
 from frappe.query_builder.functions import Sum
 from frappe.rate_limiter import rate_limit
-from frappe.utils import cint, get_first_day_of_week, now, now_datetime, today
+from frappe.utils import cint, get_first_day_of_week, getdate, now, now_datetime, today
 
 from employee_timeclock.kiosk import (
 	DEVICE_ID,
@@ -22,6 +21,16 @@ from employee_timeclock.kiosk import (
 from employee_timeclock.timeclock.custom.employee import Employee
 from employee_timeclock.timeclock.custom.employee_checkin import EmployeeCheckin
 from employee_timeclock.timeclock.doctype.workday.workday import Workday
+from employee_timeclock.timeclock.shifts import (
+	Shift,
+	fill_workday,
+	get_max_shift,
+	get_max_shift_hours,
+	get_shift_of,
+	get_shifts,
+	next_log_type,
+	resync_around,
+)
 
 
 class KioskPunch(TypedDict):
@@ -38,6 +47,11 @@ LogType = Literal["", "IN", "OUT"]
 invalid_values = ["", 0, "00:00", "undefined", None, "None", "null", "NULL"]
 # get a collection of check_ins and check_outs
 check_range = range(1, 13)
+
+
+def _within_a_minute(elapsed: datetime.timedelta) -> bool:
+	"""Whether a change was made less than a minute ago, counting whole days (unlike ``timedelta.seconds``)."""
+	return datetime.timedelta(0) <= elapsed < datetime.timedelta(minutes=1)
 
 
 def get_weekly_hours(employee: str) -> list[str | float]:
@@ -67,161 +81,65 @@ def get_weekly_hours(employee: str) -> list[str | float]:
 	return employee_hours
 
 
-def determine_next_log_type(employee: str) -> Literal["IN", "OUT"]:
-	"""Return the employee's next punch: IN when today's last punch is OUT or there is none."""
-	# Get the checkins and checkouts of the employee for the current day
-	response: list[dict[str, Any]] = frappe.get_all(
-		"Employee Checkin",
-		filters={"employee": employee, "time": [">", today()]},
-		order_by="time asc",
-		fields=["time", "log_type"],
+def determine_next_log_type(employee: str, at: datetime.datetime | None = None) -> Literal["IN", "OUT"]:
+	"""Return the employee's next punch at ``at`` (default now): OUT while they have an IN open from
+	the last maximum shift length, IN otherwise. A night shift's first scan after midnight is its OUT."""
+	return next_log_type(employee, at)
+
+
+def _as_datetime(value: object) -> datetime.datetime:
+	if isinstance(value, datetime.datetime):
+		return value
+	return datetime.datetime.strptime(str(value).split(".")[0], "%Y-%m-%d %H:%M:%S")
+
+
+def _edited_within_a_minute(workday_name: str | None) -> bool:
+	"""Whether a Workday was saved less than a minute ago (its own save is still writing punches)."""
+	if not workday_name:
+		return False
+	last_modified = frappe.db.get_value("Workday", workday_name, "last_modified")
+	if not last_modified:
+		return False
+	current_time = now_datetime()
+	return isinstance(current_time, datetime.datetime) and _within_a_minute(
+		current_time - _as_datetime(last_modified)
 	)
 
-	# if response is empty then the employee has not checked in yet
-	if response == []:
-		return "IN"
 
-	# if the last log type is in then the next log type is out
-	if response[-1]["log_type"] == "IN":
-		return "OUT"
-	return "IN"
-
-
-def build_workday(checkin_times: list[datetime.datetime], workday: Workday) -> Workday:
-	# sort the check_times
-	checkin_times.sort()
-	# set the form fields based on the check_times
-	for i in range(len(checkin_times)):
-		if i % 2 == 0:
-			workday.set("check_in_" + str(int(i / 2) + 1), checkin_times[i].strftime("%-I:%M %p"))
-			workday.set("check_in_" + str(int(i / 2) + 1) + "_dt", checkin_times[i])
-		else:
-			workday.set("check_out_" + str(int(i / 2) + 1), checkin_times[i].strftime("%-I:%M %p"))
-			workday.set("check_out_" + str(int(i / 2) + 1) + "_dt", checkin_times[i])
-	# clear any remaining check_ins and check_outs
-	for i in range(len(checkin_times), 24):
-		if i % 2 == 0:
-			# # debug
-			# frappe.msgprint(f'clearing check_in_{int(i/2)+1}')
-			workday.set("check_in_" + str(int(i / 2) + 1), None)
-			workday.set("check_in_" + str(int(i / 2) + 1) + "_dt", None)
-		else:
-			# # debug
-			# frappe.msgprint(f'clearing check_out_{int(i/2)+1}')
-			workday.set("check_out_" + str(int(i / 2) + 1), None)
-			workday.set("check_out_" + str(int(i / 2) + 1) + "_dt", None)
-
-	# calculate the total hours worked
-	total_hours: float = 0.0
-	for i in check_range:
-		check_in = cast(datetime.datetime | None, workday.get(f"check_in_{i}_dt"))
-		check_out = cast(datetime.datetime | None, workday.get(f"check_out_{i}_dt"))
-		# if both check_in and check_out are datetime objects, then calculate the hours
-		if isinstance(check_in, datetime.datetime) and isinstance(check_out, datetime.datetime):
-			check_hours = (check_out - check_in).total_seconds() / 3600
-			total_hours += check_hours
-
-	# set the total hours worked
-	workday.total_hours = total_hours
-
-	return workday
+def _workday_of(employee: str, date: datetime.date) -> str | None:
+	return cast(
+		str | None,
+		frappe.db.get_value("Workday", {"employee": employee, "date": date}, "name", order_by="creation asc"),
+	)
 
 
 def update_workday_from_checkin(checkin: EmployeeCheckin, method: str | None = None) -> EmployeeCheckin:
+	"""Rebuild the Workdays a new or changed punch belongs to (the ``on_update`` hook).
+
+	The punch's shift belongs to its IN's date, so a night shift's OUT updates the day before. A
+	moved punch also rebuilds the Workday it was on.
+	"""
 	_ = method  # Explicitly mark as intentionally unused
-	# if the workday was modified in the last minute, then break
+	# the punch was written by a Workday save in the last minute: that save already holds it
 	workday_modified = checkin.workday_modified or None
 	if workday_modified:
-		if not isinstance(workday_modified, datetime.datetime):
-			workday_modified = datetime.datetime.strptime(
-				str(workday_modified).split(".")[0], "%Y-%m-%d %H:%M:%S"
-			)
 		current_time = now_datetime()
-		if isinstance(current_time, datetime.datetime) and (current_time - workday_modified).seconds < 60:
+		if isinstance(current_time, datetime.datetime) and _within_a_minute(
+			current_time - _as_datetime(workday_modified)
+		):
 			return checkin
-	# get the date from the checkin
-	checkin_time_raw = checkin.time
-	# check to see if checkin_time is a datetime object
-	if not isinstance(checkin_time_raw, datetime.datetime):
-		# if it's not then convert it to a datetime object
-		checkin_time = datetime.datetime.strptime(str(checkin_time_raw), "%Y-%m-%d %H:%M:%S")
-	else:
-		checkin_time = checkin_time_raw
-	# if a workday is linked to the checkin then use it
-	workday_name: str | None = None
-	if checkin.workday:
-		workday_name = checkin.workday
-	else:
-		# get a workday for the same day as the checkin
-		workday_list: list[list[str]] = frappe.get_all(
-			"Workday",
-			filters={"employee": checkin.employee, "date": checkin_time.date()},
-			fields=["name"],
-			order_by="date asc",
-			as_list=True,
-		)
-		if workday_list:
-			workday_name = workday_list[0][0]
+	checkin_time = _as_datetime(checkin.time)
+	shift = get_shift_of(cast(str, checkin.name), checkin.employee, checkin_time)
+	shift_date = shift.date if shift else checkin_time.date()
+	# a Workday saved in the last minute is still writing its punches; leave it alone
+	if _edited_within_a_minute(checkin.workday or _workday_of(checkin.employee, shift_date)):
+		return checkin
 
-	workday: Workday
-	if workday_name:
-		# get the workday
-		workday = cast(Workday, frappe.get_doc("Workday", workday_name))
-		# if the workday was modified in the last minute then don't do anything
-		if workday.last_modified:
-			last_modified = workday.last_modified
-			if not isinstance(last_modified, datetime.datetime):
-				last_modified = datetime.datetime.strptime(
-					str(last_modified).split(".")[0], "%Y-%m-%d %H:%M:%S"
-				)
-			current_time = now_datetime()
-			if isinstance(current_time, datetime.datetime) and (current_time - last_modified).seconds < 60:
-				return checkin
-	else:
-		# if the workday does not exist then create it
-		workday = cast(Workday, frappe.new_doc("Workday"))
-		workday.employee = checkin.employee
-
-		# get employee name from employee
-		employee_name = cast(str, frappe.get_value("Employee", checkin.employee, "employee_name"))
-		workday.employee_name = employee_name
-		workday.date = checkin_time.date()
-		workday.day_of_week = calendar.day_name[checkin_time.weekday()]
-		workday.last_modified = now()
-		workday.db_insert(ignore_if_duplicate=True)
-
-	# debug
-	# frappe.msgprint('checkin_time: '+str(checkin_time))
-	# frappe.msgprint('workday: '+str(workday.name))
-
-	checkin_times: list[datetime.datetime] = frappe.get_all(
-		"Employee Checkin",
-		filters={
-			"employee": workday.employee,
-			"time": ["between", [workday.date, workday.date]],
-		},
-		fields=["time"],
-		order_by="time asc",
-		pluck="time",
-	)
-
-	if checkin_time not in checkin_times:
-		checkin_times.append(checkin_time)
-	# frappe.error_log('checkin_times: '+str(checkin_times))
-
-	workday = build_workday(checkin_times, workday)
-	workday.db_update()
-
-	# debug
-	# frappe.msgprint('checkin: '+str(checkin.name))
-
-	# connect the workday to the checkin
-	# checkin.workday = workday.name
-	# checkin.workday_modified = now_datetime()
-	# checkin.save(ignore_permissions=True)
-	frappe.db.set_value("Employee Checkin", checkin.name, "workday", workday.name)
-	# workday.save(ignore_permissions=True)
-
+	times = [checkin_time]
+	previous_date = checkin.workday and frappe.db.get_value("Workday", checkin.workday, "date")
+	if previous_date:
+		times.append(datetime.datetime.combine(cast(datetime.date, getdate(previous_date)), datetime.time()))
+	resync_around(checkin.employee, times)
 	return checkin
 
 
@@ -236,7 +154,8 @@ def submit_checkin(
 	"""Record a punch from the Employee Clock-in/out web form for the employee whose badge was scanned.
 
 	Only a Timeclock Kiosk user may call it, and the employee is the one the badge belongs to, never
-	an ID the client names. The punch is IN or OUT by today's last punch, unless the employee entered
+	an ID the client names. The punch is OUT while the employee has an IN open from the last maximum
+	shift length (so a night shift's scan after midnight is its OUT) and IN otherwise, unless the employee entered
 	the time by hand, when the form's IN/OUT choice is used. A second scan in the same minute keeps
 	the punch already recorded.
 
@@ -256,13 +175,14 @@ def submit_checkin(
 	"""
 	require_kiosk_role()
 	employee = verify_badge(badge)
-	checkin_time = datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %H:%M") + ":00"
+	punched_at = datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S").replace(second=0)
+	checkin_time = punched_at.strftime("%Y-%m-%d %H:%M:%S")
 	if cint(manual_override):
 		if log_type not in ("IN", "OUT"):
 			frappe.throw(_("Choose Clock In or Clock Out."))
 		next_log_type = cast(Literal["IN", "OUT"], log_type)
 	else:
-		next_log_type = determine_next_log_type(employee)
+		next_log_type = determine_next_log_type(employee, punched_at)
 
 	# a second scan inside the same minute keeps the punch already recorded
 	existing = cast(
@@ -296,33 +216,55 @@ def enqueue_update_workday_from_checkin(checkin: EmployeeCheckin, method: str | 
 	)
 
 
+TIME_TEXT = re.compile(r"^\d{1,2}:\d{2} (AM|PM|am|pm)$")
+
+
+def _parse_slot(date_str: str, text: str | None) -> datetime.datetime | None:
+	"""A Workday's ``h:mm AM/PM`` text on the Workday's date, or None when it isn't a time."""
+	if not text or not TIME_TEXT.match(text):
+		return None
+	# a time written as 0:30 AM means 12:30 AM
+	if text.startswith("0:"):
+		text = "12:" + text[2:]
+	return datetime.datetime.strptime(f"{date_str} {text}", "%Y-%m-%d %I:%M %p")
+
+
 def workday_update_total_hours(workday: Workday, method: str | None = None) -> Workday:
-	_ = method  # Explicitly mark as intentionally unused
+	"""Read a Workday's in and out text into its punch times and total (the ``before_save`` hook).
+
+	Each slot is one shift. Its IN is on the Workday's date, and an OUT earlier than its IN is the
+	next morning's, so a night shift entered as 10:00 PM to 6:00 AM counts 8 hours. A shift longer
+	than the maximum shift length is refused.
+	"""
+	_unused = method
 	workday.last_modified = now()
 	date = workday.date
-	date_str: str = date.strftime("%Y-%m-%d") if isinstance(date, datetime.datetime) else str(date)
-	check_ins = cast(list[str | None], [workday.get("check_in_" + str(i)) for i in check_range])
-	check_outs = cast(list[str | None], [workday.get("check_out_" + str(i)) for i in check_range])
-	# test each check_in and check_out to see if it is a valid time string in the format '%I:%M %p'
-	regex = re.compile(r"^\d{1,2}:\d{2} (AM|PM|am|pm)$")
-	valid_check_ins: list[str] = [x for x in check_ins if x and regex.match(x)]
-	valid_check_outs: list[str] = [x for x in check_outs if x and regex.match(x)]
-	# combine the check_ins and check_outs into a single list
-	check_times: list[datetime.datetime] = []
-	for i in range(len(valid_check_ins)):
-		# if the check_in starts with '0:' then replace it with '12:'
-		check_in_str = valid_check_ins[i]
-		if check_in_str.startswith("0:"):
-			check_in_str = "12:" + check_in_str[2:]
-		check_times.append(datetime.datetime.strptime(date_str + " " + check_in_str, "%Y-%m-%d %I:%M %p"))
-	for i in range(len(valid_check_outs)):
-		# if the check_out starts with '0:' then replace it with '12:'
-		check_out_str = valid_check_outs[i]
-		if check_out_str.startswith("0:"):
-			check_out_str = "12:" + check_out_str[2:]
-		check_times.append(datetime.datetime.strptime(date_str + " " + check_out_str, "%Y-%m-%d %I:%M %p"))
+	date_str: str = date.strftime("%Y-%m-%d") if isinstance(date, datetime.date) else str(date)
+	max_shift = get_max_shift()
+	shifts: list[Shift] = []
+	for i in check_range:
+		check_in = _parse_slot(date_str, cast(str | None, workday.get(f"check_in_{i}")))
+		check_out = _parse_slot(date_str, cast(str | None, workday.get(f"check_out_{i}")))
+		if check_in and check_out and check_out < check_in:
+			check_out += datetime.timedelta(days=1)
+		if check_in and check_out and check_out - check_in > max_shift:
+			frappe.throw(
+				_("Row {0}: {1} to {2} is longer than the maximum shift of {3} hours.").format(
+					i,
+					workday.get(f"check_in_{i}"),
+					workday.get(f"check_out_{i}"),
+					f"{get_max_shift_hours():g}",
+				)
+			)
+		if check_in or check_out:
+			shifts.append(
+				Shift(
+					check_in=frappe._dict(time=check_in, log_type="IN") if check_in else None,
+					check_out=frappe._dict(time=check_out, log_type="OUT") if check_out else None,
+				)
+			)
 
-	workday = build_workday(check_times, workday)
+	workday = fill_workday(workday, shifts)
 
 	# emit update event
 	workday.notify_update()
@@ -331,85 +273,74 @@ def workday_update_total_hours(workday: Workday, method: str | None = None) -> W
 
 
 def clear_workday_punch_on_checkin_trash(checkin: EmployeeCheckin, method: str | None = None) -> None:
-	_ = method  # Explicitly mark as intentionally unused
-	# check to see if a workday is linked to the checkin
-	if checkin.workday:
-		# get workday based on checkin.
-		workday = cast(Workday, frappe.get_doc("Workday", checkin.workday))
-		# if the workday was modified in the last minute then don't do anything
-		if workday.last_modified:
-			last_modified = workday.last_modified
-			if not isinstance(last_modified, datetime.datetime):
-				last_modified = datetime.datetime.strptime(
-					str(last_modified).split(".")[0], "%Y-%m-%d %H:%M:%S"
-				)
-			current_time = now_datetime()
-			if isinstance(current_time, datetime.datetime) and (current_time - last_modified).seconds < 60:
-				return
-		# find the workday checking field that matches the checkin time
-		for i in check_range:
-			if workday.get("check_in_" + str(i) + "_dt") == checkin.time:
-				frappe.db.set_value("Workday", workday.name, "check_in_" + str(i), None)
-				frappe.db.set_value("Workday", workday.name, "check_in_" + str(i) + "_dt", None)
-			if workday.get("check_out_" + str(i) + "_dt") == checkin.time:
-				frappe.db.set_value("Workday", workday.name, "check_out_" + str(i), None)
-				frappe.db.set_value("Workday", workday.name, "check_out_" + str(i) + "_dt", None)
+	"""Rebuild the Workdays a deleted punch was part of, without it (the ``on_trash`` hook).
 
-		# reload the workday from the database
-		workday.reload()
-		# recalculate the total hours
-		workday = workday_update_total_hours(workday)
-		# store the recalculated workday
-		frappe.db.set_value("Workday", workday.name, "total_hours", workday.total_hours)
-		workday.db_update()
+	Removing a punch can re-pair its neighbours, so every day it could belong to is rebuilt.
+	"""
+	_ = method  # Explicitly mark as intentionally unused
+	# a Workday save deleting the punches it no longer holds rebuilds itself; leave it alone, as for
+	# any Workday saved in the last minute
+	if frappe.flags.timeclock_writing_workday or _edited_within_a_minute(checkin.workday):
+		return
+	checkin_time = _as_datetime(checkin.time)
+	times = [checkin_time]
+	workday_date = checkin.workday and frappe.db.get_value("Workday", checkin.workday, "date")
+	if workday_date:
+		times.append(datetime.datetime.combine(cast(datetime.date, getdate(workday_date)), datetime.time()))
+	resync_around(checkin.employee, times, exclude=[cast(str, checkin.name)])
 
 
 def update_checkins_from_workday(workday: Workday, method: str | None = None) -> None:
-	_ = method  # Explicitly mark as intentionally unused
-	# update employee checkins using the workday check_in and check_out fields
-	employee = workday.employee
-	date = workday.date
+	"""Write a saved Workday's punches back to Employee Checkins (the ``on_update`` hook).
 
-	# cycle through the workday check in/out times, updating the Employee Checkin docs
-	log_type: Literal["in", "out"]
-	for log_type in cast(list[Literal["in", "out"]], ["in", "out"]):
-		# get all checkins for the employee and date
-		existing_checkins: list[dict[str, Any]] = frappe.get_all(
-			"Employee Checkin",
-			filters={"employee": employee, "time": ["between", [date, date]], "log_type": log_type.upper()},
-			fields=["name", "time"],
-			order_by="time asc",
+	The Workday's punches are matched, IN with IN and OUT with OUT in time order, to the punches of
+	the shifts that belong to its date: a moved punch keeps its original time in Overridden Time, a
+	new one is created and one the Workday no longer holds is deleted.
+	"""
+	_ = method  # Explicitly mark as intentionally unused
+	employee = workday.employee
+	shifts = get_shifts(workday.date, workday.date, employee).get(employee, [])
+
+	log_type: Literal["IN", "OUT"]
+	for log_type in ("IN", "OUT"):
+		kind = log_type.lower()
+		existing: list[frappe._dict] = []
+		for shift in shifts:
+			punch = shift.check_in if log_type == "IN" else shift.check_out
+			if punch is not None:
+				existing.append(punch)
+		existing.sort(key=lambda punch: _as_datetime(punch.time))
+		wanted = sorted(
+			cast(datetime.datetime, workday.get(f"check_{kind}_{i}_dt"))
+			for i in check_range
+			if workday.get(f"check_{kind}_{i}_dt")
 		)
-		for i in check_range:
-			check_in_out_time = cast(datetime.datetime | None, workday.get(f"check_{log_type}_{i}_dt"))
-			if check_in_out_time:
-				if len(existing_checkins) >= i:
-					# update the checkin
-					checkin = cast(
-						EmployeeCheckin, frappe.get_doc("Employee Checkin", existing_checkins[i - 1]["name"])
-					)
-					checkin.workday = workday.name
-					# check to see if the checkin needs to be updated by comparing the times
-					if checkin.time != check_in_out_time:
-						if checkin.workday_override == 0:
-							checkin.workday_override = 1
-							checkin.overridden_time = checkin.time
-						checkin.time = check_in_out_time
-						checkin.workday_modified = now()
-						checkin.db_update()
-				else:
-					# create a new checkin
-					new_checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
-					new_checkin.employee = employee
-					new_checkin.time = check_in_out_time
-					# Cast log_type.upper() to the expected Literal type
-					new_checkin.log_type = cast(LogType, log_type.upper())
-					new_checkin.device_id = "Workday Management"
-					new_checkin.workday = workday.name
-					new_checkin.workday_modified = now()
-					new_checkin.db_insert(ignore_if_duplicate=True)
+		for i, time in enumerate(wanted):
+			if i < len(existing):
+				checkin = cast(
+					EmployeeCheckin, frappe.get_doc("Employee Checkin", cast(str, existing[i].name))
+				)
+				checkin.workday = workday.name
+				if _as_datetime(checkin.time) != time:
+					if checkin.workday_override == 0:
+						checkin.workday_override = 1
+						checkin.overridden_time = checkin.time
+					checkin.time = time
+					checkin.workday_modified = now()
+				checkin.db_update()
 			else:
-				# if the check in time is blank delete the corresponding check in
-				if len(existing_checkins) >= i and check_in_out_time is None:
-					checkin_to_delete = frappe.get_doc("Employee Checkin", existing_checkins[i - 1]["name"])
-					checkin_to_delete.delete(ignore_permissions=True)
+				new_checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
+				new_checkin.employee = employee
+				new_checkin.time = time
+				new_checkin.log_type = log_type
+				new_checkin.device_id = "Workday Management"
+				new_checkin.workday = workday.name
+				new_checkin.workday_modified = now()
+				new_checkin.db_insert(ignore_if_duplicate=True)
+		# the Workday no longer holds the rest
+		for punch in existing[len(wanted) :]:
+			frappe.flags.timeclock_writing_workday = True
+			try:
+				frappe.get_doc("Employee Checkin", cast(str, punch.name)).delete(ignore_permissions=True)
+			finally:
+				frappe.flags.timeclock_writing_workday = False
