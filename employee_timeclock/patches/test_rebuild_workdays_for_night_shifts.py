@@ -7,6 +7,8 @@ Tests for the patch that rebuilds Workdays built before night shifts were paired
 
 The Workdays here are written the way the old calendar-date sync left them: a night shift's IN
 alone on the first day and its OUT alone on the next, neither counting the shift's hours.
+
+The site's date is pinned to ``TODAY``, so the default window starts on ``DAY``.
 """
 
 import datetime
@@ -25,6 +27,7 @@ from employee_timeclock.timeclock.test_api import _ensure_company, _make_employe
 
 DAY = datetime.date(2021, 3, 1)
 NEXT_DAY = datetime.date(2021, 3, 2)
+TODAY = DAY + datetime.timedelta(days=rebuild.DEFAULT_WINDOW_DAYS)
 
 
 def _at(day: datetime.date, hour: int, minute: int = 0) -> datetime.datetime:
@@ -47,6 +50,9 @@ class TestRebuildWorkdaysForNightShifts(IntegrationTestCase):
 
 	def setUp(self) -> None:
 		frappe.set_user("Administrator")
+		today = patch.object(rebuild, "nowdate", return_value=str(TODAY))
+		today.start()
+		self.addCleanup(today.stop)
 
 	def tearDown(self) -> None:
 		names = frappe.get_all("Workday", {"employee": self.employee}, pluck="name")
@@ -87,12 +93,13 @@ class TestRebuildWorkdaysForNightShifts(IntegrationTestCase):
 		workday.db_insert()
 		return workday.name
 
-	def _stale_night_shift(self) -> tuple[str, str]:
+	def _stale_night_shift(self, day: datetime.date = DAY) -> tuple[str, str]:
 		"""A 10 PM to 6 AM shift split over two old Workdays. Returns (first day's, next day's)."""
-		first = self._old_workday(DAY, _at(DAY, 22))
-		second = self._old_workday(NEXT_DAY, _at(NEXT_DAY, 6))
-		self._punch(_at(DAY, 22), "IN", first)
-		self._punch(_at(NEXT_DAY, 6), "OUT", second)
+		next_day = day + datetime.timedelta(days=1)
+		first = self._old_workday(day, _at(day, 22))
+		second = self._old_workday(next_day, _at(next_day, 6))
+		self._punch(_at(day, 22), "IN", first)
+		self._punch(_at(next_day, 6), "OUT", second)
 		return first, second
 
 	def _repaired_by_log_type(self, date: datetime.date) -> str:
@@ -290,6 +297,88 @@ class TestRebuildWorkdaysForNightShifts(IntegrationTestCase):
 
 		self.assertEqual((summary.unchanged, summary.held_back), (1, 0))
 
+	def test_by_default_only_the_last_two_weeks_are_rebuilt(self) -> None:
+		"""The floor is the site's date minus 14 days, inclusive; older Workdays are only counted."""
+		before_window = DAY - datetime.timedelta(days=1)
+		old_first, old_second = self._stale_night_shift(DAY - datetime.timedelta(days=10))
+		old_repaired = self._repaired_by_log_type(before_window)
+		on_the_floor = self._repaired_by_log_type(DAY)
+		old = {
+			name: value
+			for name, value in self._state().items()
+			if name in {old_first, old_second, old_repaired}
+		}
+
+		summary = self._run()
+
+		self.assertEqual(summary.floor, DAY)
+		self.assertEqual((summary.checked, summary.rebuilt), (1, 1))
+		self.assertEqual((summary.before_floor, summary.before_floor_stale), (3, 3))
+		self.assertEqual({name: value for name, value in self._state().items() if name in old}, old)
+		for name in (old_first, old_second, old_repaired):
+			self.assertEqual(self._comments(name), [])
+		self.assertEqual(len(self._comments(on_the_floor)), 1)
+		message = summary.message()
+		self.assertIn("3 before 2021-03-01 (3 of them out of date)", message)
+		self.assertIn("Rebuild Workdays", message)
+		self.assertIn(f"set the site config key {rebuild.REBUILD_FROM_KEY}", message)
+		self.assertIn(f"bench --site <site> execute {rebuild.PATCH_METHOD}", message)
+
+	def test_the_summary_says_nothing_more_when_no_old_workday_is_stale(self) -> None:
+		old = DAY - datetime.timedelta(days=1)
+		name = self._old_workday(old, _at(old, 8), _at(old, 16))
+		self._punch(_at(old, 8), "IN", name)
+		self._punch(_at(old, 16), "OUT", name)
+
+		summary = self._run()
+
+		self.assertEqual((summary.before_floor, summary.before_floor_stale), (1, 0))
+		self.assertNotIn("bench --site", summary.message())
+
+	def test_the_site_config_date_reaches_further_back_than_the_default(self) -> None:
+		old = DAY - datetime.timedelta(days=10)
+		first, second = self._stale_night_shift(old)
+
+		with patch.dict(frappe.conf, {rebuild.REBUILD_FROM_KEY: str(old)}):
+			summary = self._run()
+
+		self.assertEqual(summary.floor, old)
+		self.assertEqual((summary.rebuilt, summary.before_floor, summary.before_floor_stale), (2, 0, 0))
+		self.assertEqual(frappe.db.get_value("Workday", first, "total_hours"), 8.0)
+		self.assertEqual(len(self._comments(second)), 1)
+
+	def test_a_night_shift_across_the_default_floor_keeps_its_out(self) -> None:
+		"""A shift from the day before the window into its first day: neither day is rebuilt, so its
+		OUT is not dropped from the first day of the window nor shown twice."""
+		first, second = self._stale_night_shift(DAY - datetime.timedelta(days=1))
+		state = self._state()
+		before = self._shown()
+
+		summary = self._run()
+
+		self.assertEqual(self._state(), state)
+		self.assertEqual(self._shown(), before)
+		self.assertEqual((summary.rebuilt, summary.held_back, summary.before_floor_stale), (0, 1, 1))
+		self.assertEqual(summary.left_alone, [second])
+		self.assertEqual(self._comments(first), [])
+
+	def test_a_night_shift_across_the_floor_already_rebuilt_keeps_its_out_on_the_day_before(self) -> None:
+		"""The day before the floor already holds the whole shift; the first day of the window is
+		rebuilt for its own punches and does not take the OUT."""
+		before_window = DAY - datetime.timedelta(days=1)
+		first = self._old_workday(before_window, _at(before_window, 22), _at(DAY, 6))
+		self._punch(_at(before_window, 22), "IN", first)
+		self._punch(_at(DAY, 6), "OUT", first)
+		repaired = self._repaired_by_log_type(DAY)
+
+		summary = self._run()
+
+		self.assertEqual((summary.rebuilt, summary.held_back, summary.before_floor_stale), (1, 0, 0))
+		self.assertEqual(self._shown()[_at(DAY, 6)], 1)
+		self.assertEqual(frappe.db.get_value("Workday", first, "check_out_1_dt"), _at(DAY, 6))
+		self.assertEqual(frappe.db.get_value("Workday", repaired, "total_hours"), 5.0)
+		self.assertEqual(self._comments(first), [])
+
 	def test_the_site_config_date_limits_the_rebuild(self) -> None:
 		later = NEXT_DAY + datetime.timedelta(days=3)
 		first, _second = self._stale_night_shift()
@@ -298,7 +387,7 @@ class TestRebuildWorkdaysForNightShifts(IntegrationTestCase):
 		with patch.dict(frappe.conf, {rebuild.REBUILD_FROM_KEY: str(NEXT_DAY)}):
 			summary = self._run()
 
-		self.assertEqual(summary.before_floor, 1)
+		self.assertEqual((summary.floor, summary.before_floor, summary.before_floor_stale), (NEXT_DAY, 1, 1))
 		self.assertEqual((summary.checked, summary.rebuilt, summary.held_back), (2, 1, 1))
 		self.assertEqual(self._comments(first), [])
 		self.assertEqual(len(self._comments(repaired)), 1)
