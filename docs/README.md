@@ -65,7 +65,8 @@ hours reports all pair them the same way:
   longer ago (a forgotten clock-out) does not turn the next morning's scan into an OUT.
 
 The maximum shift length is set in _Timeclock Settings_ (HR Manager or System Manager), 16 hours by
-default and at most 48.
+default and less than 24, since a Workday row and the Workday Management report read an OUT as
+the first such time of day after its IN.
 
 On the Workday form, each row is one shift: its IN is on the Workday's date, and an OUT earlier than
 its IN is the next morning's. A row longer than the maximum shift length is refused. In the

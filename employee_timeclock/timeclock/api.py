@@ -229,6 +229,24 @@ def _parse_slot(date_str: str, text: str | None) -> datetime.datetime | None:
 	return datetime.datetime.strptime(f"{date_str} {text}", "%Y-%m-%d %I:%M %p")
 
 
+def _slot_time(
+	date_str: str, text: str | None, stored: str | datetime.datetime | None
+) -> datetime.datetime | None:
+	"""A slot's time: its stored punch time while the text still shows it, else the text's time on
+	the Workday's date.
+
+	The stored time keeps the punch's own date and seconds, so saving a Workday leaves a punch it did
+	not change where it is: a night shift's OUT stays on the next morning even with its IN cleared.
+	"""
+	parsed = _parse_slot(date_str, text)
+	if parsed is None or not stored:
+		return parsed
+	stored_time = _as_datetime(stored)
+	if stored_time.strftime("%H:%M") == parsed.strftime("%H:%M"):
+		return stored_time
+	return parsed
+
+
 def workday_update_total_hours(workday: Workday, method: str | None = None) -> Workday:
 	"""Read a Workday's in and out text into its punch times and total (the ``before_save`` hook).
 
@@ -240,13 +258,28 @@ def workday_update_total_hours(workday: Workday, method: str | None = None) -> W
 	workday.last_modified = now()
 	date = workday.date
 	date_str: str = date.strftime("%Y-%m-%d") if isinstance(date, datetime.date) else str(date)
+	workday_date = cast(datetime.date, getdate(date_str))
 	max_shift = get_max_shift()
 	shifts: list[Shift] = []
 	for i in check_range:
-		check_in = _parse_slot(date_str, cast(str | None, workday.get(f"check_in_{i}")))
-		check_out = _parse_slot(date_str, cast(str | None, workday.get(f"check_out_{i}")))
-		if check_in and check_out and check_out < check_in:
-			check_out += datetime.timedelta(days=1)
+		check_in = _slot_time(
+			date_str,
+			cast(str | None, workday.get(f"check_in_{i}")),
+			cast(str | datetime.datetime | None, workday.get(f"check_in_{i}_dt")),
+		)
+		check_out = _slot_time(
+			date_str,
+			cast(str | None, workday.get(f"check_out_{i}")),
+			cast(str | datetime.datetime | None, workday.get(f"check_out_{i}_dt")),
+		)
+		if check_in:
+			# an IN is always on the Workday's date
+			check_in = datetime.datetime.combine(workday_date, check_in.time())
+		if check_in and check_out:
+			# the OUT is the first such time after its IN: the next morning's when it is earlier
+			check_out = datetime.datetime.combine(check_in.date(), check_out.time())
+			if check_out < check_in:
+				check_out += datetime.timedelta(days=1)
 		if check_in and check_out and check_out - check_in > max_shift:
 			frappe.throw(
 				_("Row {0}: {1} to {2} is longer than the maximum shift of {3} hours.").format(
