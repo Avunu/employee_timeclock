@@ -252,7 +252,8 @@ def rebuild_stale_workdays(
 			summary.hours_after += after
 
 		if commit:
-			frappe.db.commit()  # nosemgrep - each Workday's rebuild stands alone; a rerun skips it
+			# each Workday's rebuild stands alone, and a rerun skips the ones already done
+			frappe.db.commit()  # nosemgrep: frappe-semgrep-rules.rules.frappe-manual-commit
 
 	return summary
 
