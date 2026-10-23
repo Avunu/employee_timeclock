@@ -87,10 +87,14 @@ payroll hours:
   No Workday or punch is created or deleted, and no punch time changes.
 - A Workday that already matches its punches is not written. Running the patch again changes
   nothing.
+- Workdays that trade punches (a night shift's OUT moving onto the day before) are rebuilt
+  together or not at all, so no punch shows on two Workdays or drops off both.
 - A Workday is left alone when its date is in a payroll period with a draft or submitted Salary
-  Slip for its employee, or when it would change and is within a maximum shift length of such a
-  period. The summary that `bench migrate` prints names the out-of-date ones it left; rebuild them
-  from the Workday Management report when that period's payroll is settled.
+  Slip for its employee. So is a Workday that trades punches with one of those, with one before
+  the date below, or with a date that has punches and no Workday, and a Workday whose group shows a
+  time no Employee Checkin backs. The summary that `bench migrate` prints names the out-of-date
+  ones it left; rebuild them from the Workday Management report when that period's payroll is
+  settled.
 - Each rebuilt Workday gets an Info comment with its hours before and after.
 - To rebuild only recent Workdays, set the site config key `employee_timeclock_rebuild_workdays_from`
   to a date (`YYYY-MM-DD`) before migrating.

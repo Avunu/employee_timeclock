@@ -10,6 +10,7 @@ alone on the first day and its OUT alone on the next, neither counting the shift
 """
 
 import datetime
+from collections import Counter
 from typing import Any, cast
 from unittest.mock import patch
 
@@ -93,6 +94,24 @@ class TestRebuildWorkdaysForNightShifts(IntegrationTestCase):
 		self._punch(_at(DAY, 22), "IN", first)
 		self._punch(_at(NEXT_DAY, 6), "OUT", second)
 		return first, second
+
+	def _repaired_by_log_type(self, date: datetime.date) -> str:
+		"""A day of IN, IN, OUT that the old sync paired by position; the rebuild pairs it alone."""
+		times = (_at(date, 8), _at(date, 12), _at(date, 17))
+		name = self._old_workday(date, *times)
+		for time, log_type in zip(times, ("IN", "IN", "OUT"), strict=True):
+			self._punch(time, log_type, name)
+		return name
+
+	def _shown(self) -> Counter[datetime.datetime]:
+		"""How many of the employee's Workdays show each punch time."""
+		fields = list(rebuild.TIME_FIELDS)
+		return Counter(
+			row[f]
+			for row in frappe.get_all("Workday", {"employee": self.employee}, fields)
+			for f in fields
+			if row[f]
+		)
 
 	def _salary_slip(self, start: datetime.date, end: datetime.date, docstatus: int = 1) -> None:
 		slip = frappe.new_doc("Salary Slip")
@@ -258,7 +277,7 @@ class TestRebuildWorkdaysForNightShifts(IntegrationTestCase):
 		summary = self._run()
 
 		self.assertEqual(self._state(), state)
-		self.assertEqual((summary.locked, summary.boundary, summary.rebuilt), (1, 1, 0))
+		self.assertEqual((summary.locked, summary.held_back, summary.rebuilt), (1, 1, 0))
 		self.assertIn(second, summary.left_alone)
 
 	def test_an_up_to_date_workday_next_to_a_salary_slip_period_counts_as_unchanged(self) -> None:
@@ -269,17 +288,32 @@ class TestRebuildWorkdaysForNightShifts(IntegrationTestCase):
 
 		summary = self._run()
 
-		self.assertEqual((summary.unchanged, summary.boundary), (1, 0))
+		self.assertEqual((summary.unchanged, summary.held_back), (1, 0))
 
 	def test_the_site_config_date_limits_the_rebuild(self) -> None:
-		first, second = self._stale_night_shift()
+		later = NEXT_DAY + datetime.timedelta(days=3)
+		first, _second = self._stale_night_shift()
+		repaired = self._repaired_by_log_type(later)
 
 		with patch.dict(frappe.conf, {rebuild.REBUILD_FROM_KEY: str(NEXT_DAY)}):
 			summary = self._run()
 
-		self.assertGreaterEqual(summary.before_floor, 1)
+		self.assertEqual(summary.before_floor, 1)
+		self.assertEqual((summary.checked, summary.rebuilt, summary.held_back), (2, 1, 1))
 		self.assertEqual(self._comments(first), [])
-		self.assertEqual(len(self._comments(second)), 1)
+		self.assertEqual(len(self._comments(repaired)), 1)
+
+	def test_the_day_after_the_site_config_date_keeps_a_night_shift_out_from_before_it(self) -> None:
+		"""Rebuilding the next day alone would take its OUT off it, and the day before is not rebuilt."""
+		_first, second = self._stale_night_shift()
+		state = self._state()
+
+		with patch.dict(frappe.conf, {rebuild.REBUILD_FROM_KEY: str(NEXT_DAY)}):
+			summary = self._run()
+
+		self.assertEqual(self._state(), state)
+		self.assertEqual((summary.rebuilt, summary.held_back), (0, 1))
+		self.assertIn(second, summary.left_alone)
 
 	def test_duplicate_workdays_rebuild_only_the_oldest(self) -> None:
 		first, _second = self._stale_night_shift()
@@ -306,21 +340,94 @@ class TestRebuildWorkdaysForNightShifts(IntegrationTestCase):
 
 		self.assertEqual((summary.checked, summary.rebuilt), (2, 2))
 
-	def test_a_failed_rebuild_is_logged_and_the_rest_go_on(self) -> None:
+	def test_a_failed_rebuild_rolls_back_its_night_shift_partner_and_the_rest_go_on(self) -> None:
+		"""The next day must not lose its OUT when the day the shift started could not take it."""
 		first, second = self._stale_night_shift()
+		repaired = self._repaired_by_log_type(NEXT_DAY + datetime.timedelta(days=3))
+		state = {name: value for name, value in self._state().items() if name != repaired}
 		real_sync = rebuild.shifts.sync_workday
 
 		def sync(employee: str, date: datetime.date, **kwargs: Any) -> Workday | None:
-			if date == DAY:
+			if date == NEXT_DAY:
 				raise frappe.ValidationError("boom")
 			return real_sync(employee, date, **kwargs)
 
 		with patch.object(rebuild.shifts, "sync_workday", side_effect=sync):
 			summary = self._run()
 
-		self.assertEqual((summary.failed, summary.rebuilt), (1, 1))
-		self.assertEqual(self._comments(first), [])
-		self.assertEqual(len(self._comments(second)), 1)
+		self.assertEqual((summary.failed, summary.rebuilt), (2, 1))
+		self.assertEqual({name: value for name, value in self._state().items() if name in state}, state)
+		self.assertEqual((self._comments(first), self._comments(second)), ([], []))
+		self.assertEqual(len(self._comments(repaired)), 1)
+		self.assertEqual(set(summary.left_alone), {first, second})
+
+	def test_a_stale_workday_next_to_one_held_back_is_held_back_too(self) -> None:
+		"""Two nights in a row, the second ending in a paid period: the first night's days can't be
+		rebuilt alone, or the 6 AM OUT between the two nights would show on two Workdays."""
+		third_day = NEXT_DAY + datetime.timedelta(days=1)
+		first = self._old_workday(DAY, _at(DAY, 22))
+		second = self._old_workday(NEXT_DAY, _at(NEXT_DAY, 6), _at(NEXT_DAY, 22))
+		third = self._old_workday(third_day, _at(third_day, 6))
+		self._punch(_at(DAY, 22), "IN", first)
+		self._punch(_at(NEXT_DAY, 6), "OUT", second)
+		self._punch(_at(NEXT_DAY, 22), "IN", second)
+		self._punch(_at(third_day, 6), "OUT", third)
+		self._salary_slip(third_day, third_day + datetime.timedelta(days=13))
+		state = self._state()
+
+		summary = self._run()
+
+		self.assertEqual(self._state(), state)
+		self.assertEqual((summary.rebuilt, summary.locked_stale, summary.held_back), (0, 1, 2))
+		self.assertEqual(set(summary.left_alone), {first, second, third})
+
+	def test_a_workday_showing_a_time_no_punch_backs_is_left_alone(self) -> None:
+		"""Hours typed into a Workday with no Employee Checkin behind them are not wiped."""
+		name = self._old_workday(DAY, _at(DAY, 8), _at(DAY, 12), _at(DAY, 13), _at(DAY, 17))
+		self._punch(_at(DAY, 8), "IN", name)
+		self._punch(_at(DAY, 17), "OUT", name)
+		state = self._state()
+
+		summary = self._run()
+
+		self.assertEqual(self._state(), state)
+		self.assertEqual((summary.rebuilt, summary.unbacked), (0, 1))
+		self.assertEqual(summary.left_alone, [name])
+
+	def test_a_night_shift_whose_first_day_has_no_workday_is_left_alone(self) -> None:
+		"""Rebuilding the next day would drop the OUT, and there is no Workday to move it onto."""
+		second = self._old_workday(NEXT_DAY, _at(NEXT_DAY, 6))
+		self._punch(_at(DAY, 22), "IN")
+		self._punch(_at(NEXT_DAY, 6), "OUT", second)
+		state = self._state()
+
+		summary = self._run()
+
+		self.assertEqual(self._state(), state)
+		self.assertEqual((summary.rebuilt, summary.held_back), (0, 1))
+
+	def test_rebuilding_never_counts_a_punch_twice_or_drops_one(self) -> None:
+		"""Over a mix of rebuilt and held-back days, each punch shows on at most one Workday, and
+		every punch a Workday showed before still shows on one."""
+		days = [DAY + datetime.timedelta(days=n) for n in range(6)]
+		names = {
+			day: self._old_workday(day, *((_at(day, 6),) if n else ()), _at(day, 22))
+			for n, day in enumerate(days)
+		}
+		for n, day in enumerate(days):
+			if n:
+				self._punch(_at(day, 6), "OUT", names[day])
+			self._punch(_at(day, 22), "IN", names[day])
+		self._salary_slip(days[3], days[3])
+		self._repaired_by_log_type(days[-1] + datetime.timedelta(days=3))
+		before = self._shown()
+
+		summary = self._run()
+
+		after = self._shown()
+		self.assertLessEqual(max(after.values()), 1)
+		self.assertLessEqual(set(before), set(after))
+		self.assertEqual((summary.rebuilt, summary.held_back, summary.locked_stale), (1, 5, 1))
 
 	def test_execute_logs_the_summary(self) -> None:
 		first, _second = self._stale_night_shift()

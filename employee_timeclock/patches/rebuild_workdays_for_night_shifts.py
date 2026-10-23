@@ -9,30 +9,35 @@ day's Workday, and a day whose punches did not alternate IN, OUT paired the wron
 Workdays keep their old slots and hours until they are rebuilt.
 
 This patch rebuilds them with ``shifts.sync_workday``, the code behind the Workday Management
-report's *Rebuild Workdays*. It only rewrites a Workday that the rebuild would change, and leaves
-alone every Workday in a payroll period that has a Salary Slip (draft or submitted) for its
-employee, and a changed Workday within a maximum shift length of such a period. Each Workday it
-changes gets an Info comment with its hours before and after.
+report's *Rebuild Workdays*. It only rewrites a Workday that the rebuild would change, and it never
+lets a punch be counted twice or dropped:
 
-A site can limit the rebuild to Workdays on or after a date with the site config key
-``employee_timeclock_rebuild_workdays_from`` (``YYYY-MM-DD``), set before ``bench migrate``.
+* Rebuilding can move a punch from one Workday to another (a night shift's OUT moves onto the day
+  before). Workdays that trade punches are rebuilt together, in one savepoint, or not at all.
+* Such a group is left alone when one of its Workdays must not change: one in a payroll period with
+  a Salary Slip (draft or submitted) for its employee, or one before the site's
+  ``employee_timeclock_rebuild_workdays_from`` date, or a date with punches and no Workday.
+* It is also left alone when a Workday in it shows a time that no Employee Checkin backs (an hour
+  typed straight into the Workday): the rebuild would drop it.
+
+Each Workday it changes gets an Info comment with its hours before and after.
 """
 
 import datetime
 import math
+from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any, cast
 
 import frappe
 from frappe.utils import flt, get_datetime, getdate
-from pypika.terms import Tuple
 
 from employee_timeclock.timeclock import shifts
 from employee_timeclock.timeclock.doctype.workday.workday import Workday
 
 BATCH_SIZE = 500
-"""Workdays read, checked and (when not in a test) committed together."""
+"""Employees read together; the patch commits after each employee (not in a test)."""
 
 REBUILD_FROM_KEY = "employee_timeclock_rebuild_workdays_from"
 """Site config key: rebuild only Workdays on or after this date."""
@@ -47,7 +52,11 @@ SLOT_FIELDS = tuple(
 	for suffix in ("", "_dt")
 )
 
+TIME_FIELDS = tuple(name for name in SLOT_FIELDS if name.endswith("_dt"))
+
 LOCKING_DOCTYPE = "Salary Slip"
+
+SAVEPOINT = "timeclock_rebuild_workdays"
 
 
 @dataclass
@@ -60,13 +69,15 @@ class Summary:
 	# Workdays in a payroll period with a Salary Slip, left alone, and how many of them were stale
 	locked: int = 0
 	locked_stale: int = 0
-	# stale Workdays left alone because they are within a maximum shift length of such a period
-	boundary: int = 0
+	# stale Workdays left alone because they trade punches with one that must not change
+	held_back: int = 0
+	# stale Workdays left alone because one in their group shows a time no punch backs
+	unbacked: int = 0
 	before_floor: int = 0
 	failed: int = 0
 	hours_before: float = 0.0
 	hours_after: float = 0.0
-	# stale Workdays this run left alone (locked or boundary), for HR to review
+	# stale Workdays this run left alone, for HR to review
 	left_alone: list[str] = field(default_factory=list)
 
 	def message(self) -> str:
@@ -75,7 +86,8 @@ class Summary:
 			f"({flt(self.hours_before, 2)} hours before, {flt(self.hours_after, 2)} after); "
 			f"{self.unchanged} already matched their punches. "
 			f"Left alone: {self.locked} in a payroll period with a Salary Slip "
-			f"({self.locked_stale} of them out of date), {self.boundary} next to one, "
+			f"({self.locked_stale} of them out of date), {self.held_back} sharing a night shift with "
+			f"one that can't change, {self.unbacked} with times no punch backs, "
 			f"{self.before_floor} before {REBUILD_FROM_KEY}. Failed: {self.failed}."
 		)
 		if self.left_alone:
@@ -85,70 +97,97 @@ class Summary:
 		return text
 
 
+@dataclass
+class Day:
+	"""One employee's date: its Workday as stored (None when it has none) and its shifts now."""
+
+	date: datetime.date
+	workday: frappe._dict | None
+	day_shifts: list[shifts.Shift]
+	frozen: bool = False
+	locked: bool = False
+	stale: bool = False
+	shown: Counter[datetime.datetime] = field(default_factory=Counter)
+	paired: Counter[datetime.datetime] = field(default_factory=Counter)
+
+	@property
+	def must_not_change(self) -> bool:
+		"""A day the rebuild may not write: locked, before the floor, or with no Workday."""
+		return self.workday is None or self.frozen or self.locked
+
+
 def _rebuild_from() -> datetime.date | None:
 	value = frappe.conf.get(REBUILD_FROM_KEY)
 	return cast(datetime.date, getdate(value)) if value else None
 
 
-def _workday_batches(
-	floor: datetime.date | None, batch_size: int, employee: str | None = None
-) -> Iterator[list[frappe._dict]]:
-	"""Workdays in batches, by employee, date and creation. Keyset paging, so a large table is
-	never read whole and rewriting a Workday never moves the next page."""
+def _reach() -> datetime.timedelta:
+	"""How many days a rebuild can move a punch: a maximum shift length, in whole days."""
+	return datetime.timedelta(days=math.ceil(shifts.get_max_shift_hours() / 24))
+
+
+def _employee_batches(batch_size: int, employee: str | None) -> Iterator[list[str]]:
+	"""The employees that have Workdays, in batches (keyset paged)."""
+	if employee:
+		yield [employee]
+		return
 	Workdays = frappe.qb.DocType("Workday")
-	order = (Workdays.employee, Workdays.date, Workdays.creation, Workdays.name)
-	last: tuple[Any, ...] | None = None
+	last: str | None = None
 	while True:
 		query = (
 			frappe.qb.from_(Workdays)
-			.select(Workdays.name, Workdays.employee, Workdays.date, Workdays.creation)
-			.select(Workdays.total_hours, *(Workdays[f] for f in SLOT_FIELDS))
+			.select(Workdays.employee)
+			.distinct()
 			.where(Workdays.employee.isnotnull())
-			.where(Workdays.date.isnotnull())
-			.orderby(*order)
+			.orderby(Workdays.employee)
 			.limit(batch_size)
 		)
-		if floor:
-			query = query.where(Workdays.date >= floor)
-		if employee:
-			query = query.where(Workdays.employee == employee)
-		if last:
-			query = query.where(Tuple(*order) > Tuple(*last))
-		rows = query.run(as_dict=True)
-		if not rows:
+		if last is not None:
+			query = query.where(Workdays.employee > last)
+		names = [row[0] for row in query.run()]
+		if not names:
 			return
-		last = (rows[-1].employee, rows[-1].date, rows[-1].creation, rows[-1].name)
-		yield rows
+		last = names[-1]
+		yield names
+
+
+def _workdays(employee: str, since: datetime.date | None) -> list[frappe._dict]:
+	"""The employee's Workdays from ``since``, the oldest of each date first."""
+	Workdays = frappe.qb.DocType("Workday")
+	query = (
+		frappe.qb.from_(Workdays)
+		.select(Workdays.name, Workdays.date, Workdays.total_hours, *(Workdays[f] for f in SLOT_FIELDS))
+		.where(Workdays.employee == employee)
+		.where(Workdays.date.isnotnull())
+		.orderby(Workdays.date)
+		.orderby(Workdays.creation)
+		.orderby(Workdays.name)
+	)
+	if since:
+		query = query.where(Workdays.date >= since)
+	return query.run(as_dict=True)
 
 
 def _locked_periods(
-	employees: set[str], first: datetime.date, last: datetime.date
-) -> dict[str, list[tuple[datetime.date, datetime.date]]]:
-	"""Each employee's Salary Slip periods (drafts too, not cancelled ones) overlapping first..last."""
+	employee: str, first: datetime.date, last: datetime.date
+) -> list[tuple[datetime.date, datetime.date]]:
+	"""The employee's Salary Slip periods (drafts too, not cancelled ones) overlapping first..last."""
 	if not frappe.db.table_exists(LOCKING_DOCTYPE):
-		return {}
+		return []
 	rows = frappe.get_all(
 		LOCKING_DOCTYPE,
 		filters={
-			"employee": ["in", list(employees)],
+			"employee": employee,
 			"docstatus": ["<", 2],
 			"start_date": ["<=", last],
 			"end_date": [">=", first],
 		},
-		fields=["employee", "start_date", "end_date"],
+		fields=["start_date", "end_date"],
 	)
-	periods: dict[str, list[tuple[datetime.date, datetime.date]]] = {}
-	for row in rows:
-		periods.setdefault(row.employee, []).append(
-			(cast(datetime.date, getdate(row.start_date)), cast(datetime.date, getdate(row.end_date)))
-		)
-	return periods
-
-
-def _overlaps(
-	periods: list[tuple[datetime.date, datetime.date]], first: datetime.date, last: datetime.date
-) -> bool:
-	return any(start <= last and end >= first for start, end in periods)
+	return [
+		(cast(datetime.date, getdate(row.start_date)), cast(datetime.date, getdate(row.end_date)))
+		for row in rows
+	]
 
 
 def _same(stored: Any, rebuilt: Any, fieldname: str) -> bool:
@@ -175,11 +214,138 @@ def _is_stale(stored: frappe._dict, day_shifts: list[shifts.Shift], scratch: Wor
 	)
 
 
+def _times(values: Any) -> Counter[datetime.datetime]:
+	return Counter(cast(datetime.datetime, get_datetime(value)) for value in values if value)
+
+
+def _days(employee: str, floor: datetime.date | None, scratch: Workday) -> list[Day]:
+	"""Every date of the employee's that has a Workday or a shift, from a reach before the floor."""
+	reach = _reach()
+	rows = _workdays(employee, floor - reach if floor else None)
+	if not rows:
+		return []
+	days: dict[datetime.date, Day] = {}
+	for row in rows:
+		date = cast(datetime.date, getdate(row.date))
+		# sync_workday writes the oldest Workday of a date; a later duplicate is left as it is
+		days.setdefault(date, Day(date=date, workday=row, day_shifts=[]))
+	first, last = min(days), max(days)
+	found = shifts.get_shifts(first - reach, last + reach, employee, fields=("workday",)).get(employee, [])
+	for shift in found:
+		days.setdefault(shift.date, Day(date=shift.date, workday=None, day_shifts=[])).day_shifts.append(
+			shift
+		)
+	periods = _locked_periods(employee, first - reach, last + reach)
+	for day in days.values():
+		# the punches the rebuilt Workday would show (fill_workday keeps the first twelve shifts)
+		kept = sorted(day.day_shifts, key=lambda shift: shift.start)[: shifts.WORKDAY_SLOTS]
+		day.paired = _times(punch.time for shift in kept for punch in shift.punches)
+		day.locked = any(start <= day.date <= end for start, end in periods)
+		day.frozen = bool(floor and day.date < floor)
+		if day.workday is not None:
+			day.shown = _times(day.workday.get(f) for f in TIME_FIELDS)
+			day.stale = _is_stale(day.workday, day.day_shifts, scratch)
+	return sorted(days.values(), key=lambda day: day.date)
+
+
+def _groups(days: list[Day]) -> list[list[Day]]:
+	"""The days that trade punches: a time shown on one day and paired on another joins them."""
+	parent = list(range(len(days)))
+
+	def root(i: int) -> int:
+		while parent[i] != i:
+			parent[i] = parent[parent[i]]
+			i = parent[i]
+		return i
+
+	holder: dict[datetime.datetime, int] = {}
+	for i, day in enumerate(days):
+		for time in (*day.shown, *day.paired):
+			if time in holder:
+				parent[root(i)] = root(holder[time])
+			else:
+				holder[time] = i
+	groups: dict[int, list[Day]] = {}
+	for i, day in enumerate(days):
+		groups.setdefault(root(i), []).append(day)
+	return list(groups.values())
+
+
+def _changes(day: Day) -> bool:
+	"""Whether rebuilding would write this day: a stale Workday, or a missing one with shifts."""
+	return day.stale if day.workday is not None else bool(day.paired)
+
+
+def _rebuild_group(employee: str, group: list[Day], summary: Summary) -> None:
+	stale = [day for day in group if day.workday is not None and day.stale]
+	names = [cast(str, day.workday.name) for day in stale if day.workday is not None]
+	frappe.db.savepoint(SAVEPOINT)
+	try:
+		hours: list[tuple[float, float]] = []
+		for day in stale:
+			workday = cast(frappe._dict, day.workday)
+			before = flt(workday.total_hours)
+			rebuilt = shifts.sync_workday(employee, day.date, create=False)
+			after = flt(rebuilt.total_hours) if rebuilt else 0.0
+			frappe.get_doc(
+				{
+					"doctype": "Comment",
+					"comment_type": "Info",
+					"reference_doctype": "Workday",
+					"reference_name": workday.name,
+					"content": (
+						"Rebuilt from its punches after night shifts began pairing across midnight: "
+						f"{flt(before, 2)} hours before, {flt(after, 2)} after."
+					),
+				}
+			).insert(ignore_permissions=True)
+			hours.append((before, after))
+	except Exception:
+		frappe.db.rollback(save_point=SAVEPOINT)
+		frappe.log_error(title=f"Workday rebuild failed for {', '.join(names)}")
+		summary.failed += len(stale)
+		summary.left_alone.extend(names)
+		return
+	frappe.db.release_savepoint(SAVEPOINT)
+	summary.rebuilt += len(stale)
+	summary.hours_before += sum(before for before, _after in hours)
+	summary.hours_after += sum(after for _before, after in hours)
+
+
+def _rebuild_employee(employee: str, floor: datetime.date | None, scratch: Workday, summary: Summary) -> None:
+	for group in _groups(_days(employee, floor, scratch)):
+		workdays = [day for day in group if day.workday is not None and not day.frozen]
+		summary.checked += len(workdays)
+		for day in workdays:
+			if day.locked:
+				summary.locked += 1
+				if day.stale:
+					summary.locked_stale += 1
+					summary.left_alone.append(cast(str, cast(frappe._dict, day.workday).name))
+		stale = [day for day in workdays if day.stale and not day.locked]
+		summary.unchanged += sum(1 for day in workdays if not day.stale and not day.locked)
+		if not stale:
+			continue
+		names = [cast(str, cast(frappe._dict, day.workday).name) for day in stale]
+		# a stale Workday that may not be written holds its night shifts' punches for the whole group
+		if any(day.must_not_change and _changes(day) for day in group):
+			summary.held_back += len(stale)
+			summary.left_alone.extend(names)
+			continue
+		# a time a Workday shows that no punch pairs onto any day would be dropped by the rebuild
+		if sum((day.shown for day in group), Counter()) - sum((day.paired for day in group), Counter()):
+			summary.unbacked += len(stale)
+			summary.left_alone.extend(names)
+			continue
+		_rebuild_group(employee, group, summary)
+
+
 def rebuild_stale_workdays(
 	batch_size: int = BATCH_SIZE, commit: bool = False, employee: str | None = None
 ) -> Summary:
 	"""Rebuild every Workday (of one employee, if given) whose slots, hours or punches differ from
-	its shifts, outside payroll periods that have a Salary Slip. Running it again changes nothing."""
+	its shifts, as far as it can without changing a locked day or losing a punch. Running it again
+	changes nothing."""
 	summary = Summary()
 	floor = _rebuild_from()
 	if floor:
@@ -187,74 +353,13 @@ def rebuild_stale_workdays(
 		if employee:
 			before["employee"] = employee
 		summary.before_floor = frappe.db.count("Workday", before)
-	# a rebuild moves punches as far as a maximum shift length to or from the neighbouring days
-	reach = datetime.timedelta(days=math.ceil(shifts.get_max_shift_hours() / 24))
 	scratch = cast(Workday, frappe.new_doc("Workday"))
-
-	previous: tuple[str, datetime.date] | None = None
-	for rows in _workday_batches(floor, batch_size, employee):
-		employees = {cast(str, row.employee) for row in rows}
-		dates = [cast(datetime.date, getdate(row.date)) for row in rows]
-		periods = _locked_periods(employees, min(dates) - reach, max(dates) + reach)
-
-		for workday in rows:
-			owner = cast(str, workday.employee)
-			date = cast(datetime.date, getdate(workday.date))
-			# sync_workday writes the oldest Workday of a date; a duplicate after it is left as is
-			if (owner, date) == previous:
-				continue
-			previous = (owner, date)
-			summary.checked += 1
-			employee_periods = periods.get(owner, [])
-			locked = _overlaps(employee_periods, date, date)
-			day_shifts = shifts.get_shifts(date, date, owner, fields=("workday",)).get(owner, [])
-			stale = _is_stale(workday, day_shifts, scratch)
-			if locked:
-				summary.locked += 1
-				if stale:
-					summary.locked_stale += 1
-					summary.left_alone.append(cast(str, workday.name))
-				continue
-			if not stale:
-				summary.unchanged += 1
-				continue
-			if _overlaps(employee_periods, date - reach, date + reach):
-				summary.boundary += 1
-				summary.left_alone.append(cast(str, workday.name))
-				continue
-
-			before = flt(workday.total_hours)
-			savepoint = "timeclock_rebuild_workday"
-			frappe.db.savepoint(savepoint)
-			try:
-				rebuilt = shifts.sync_workday(owner, date, create=False)
-				after = flt(rebuilt.total_hours) if rebuilt else 0.0
-				frappe.get_doc(
-					{
-						"doctype": "Comment",
-						"comment_type": "Info",
-						"reference_doctype": "Workday",
-						"reference_name": workday.name,
-						"content": (
-							"Rebuilt from its punches after night shifts began pairing across midnight: "
-							f"{flt(before, 2)} hours before, {flt(after, 2)} after."
-						),
-					}
-				).insert(ignore_permissions=True)
-			except Exception:
-				frappe.db.rollback(save_point=savepoint)
-				frappe.log_error(title=f"Workday rebuild failed for {workday.name}")
-				summary.failed += 1
-				continue
-			frappe.db.release_savepoint(savepoint)
-			summary.rebuilt += 1
-			summary.hours_before += before
-			summary.hours_after += after
-
-		if commit:
-			# each Workday's rebuild stands alone, and a rerun skips the ones already done
-			frappe.db.commit()  # nosemgrep: frappe-semgrep-rules.rules.frappe-manual-commit
-
+	for employees in _employee_batches(batch_size, employee):
+		for name in employees:
+			_rebuild_employee(name, floor, scratch, summary)
+			if commit:
+				# each employee's rebuild stands alone, and a rerun skips the Workdays already done
+				frappe.db.commit()  # nosemgrep: frappe-semgrep-rules.rules.frappe-manual-commit
 	return summary
 
 
