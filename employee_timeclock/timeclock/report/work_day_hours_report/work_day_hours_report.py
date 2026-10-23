@@ -28,7 +28,13 @@ class WorkDayHoursFilters(TypedDict, total=False):
 def get_columns() -> list[dict[str, Any]]:
 	return [
 		{"fieldname": "date", "label": _("Date"), "fieldtype": "Date", "width": 120},
-		{"fieldname": "employee", "label": _("Employee"), "fieldtype": "Link", "options": "Employee", "width": 150},
+		{
+			"fieldname": "employee",
+			"label": _("Employee"),
+			"fieldtype": "Link",
+			"options": "Employee",
+			"width": 150,
+		},
 		{"fieldname": "employee_name", "label": _("Employee Name"), "fieldtype": "Data", "width": 200},
 		{"fieldname": "total_work_hour", "label": _("Work Hours"), "fieldtype": "Data", "width": 120},
 		{"fieldname": "missed_punch", "label": _("Missed Punch"), "fieldtype": "Check", "width": 115},

@@ -166,7 +166,15 @@ class TestShiftsOnTheSite(IntegrationTestCase):
 		rows = frappe.get_all(
 			"Workday",
 			filters={"employee": self.employee},
-			fields=["name", "date", "total_hours", "check_in_1", "check_in_1_dt", "check_out_1", "check_out_1_dt"],
+			fields=[
+				"name",
+				"date",
+				"total_hours",
+				"check_in_1",
+				"check_in_1_dt",
+				"check_out_1",
+				"check_out_1_dt",
+			],
 		)
 		return {row.date: row for row in rows}
 
@@ -178,7 +186,9 @@ class TestShiftsOnTheSite(IntegrationTestCase):
 	def test_the_maximum_shift_length_is_configurable(self) -> None:
 		self._write(_at(DAY, 20), "IN")
 		self._write(_at(NEXT_DAY, 8), "OUT")
-		self.assertEqual([s.hours for s in shifts.get_shifts(DAY, NEXT_DAY, self.employee)[self.employee]], [12.0])
+		self.assertEqual(
+			[s.hours for s in shifts.get_shifts(DAY, NEXT_DAY, self.employee)[self.employee]], [12.0]
+		)
 
 		settings = frappe.get_single("Timeclock Settings")
 		settings.max_shift_hours = 10
@@ -227,7 +237,8 @@ class TestShiftsOnTheSite(IntegrationTestCase):
 		self.assertEqual(workday.check_out_1_dt, _at(NEXT_DAY, 6))
 		self.assertEqual(workday.total_hours, 8.0)
 		self.assertEqual(
-			set(frappe.get_all("Employee Checkin", {"employee": self.employee}, pluck="workday")), {workday.name}
+			set(frappe.get_all("Employee Checkin", {"employee": self.employee}, pluck="workday")),
+			{workday.name},
 		)
 
 	def test_deleting_a_night_shifts_out_clears_it_from_the_first_day(self) -> None:
@@ -239,7 +250,9 @@ class TestShiftsOnTheSite(IntegrationTestCase):
 		frappe.delete_doc("Employee Checkin", out, ignore_permissions=True)
 
 		workday = self._workdays()[DAY]
-		self.assertEqual((workday.check_in_1, workday.check_out_1, workday.total_hours), ("10:00 PM", None, 0))
+		self.assertEqual(
+			(workday.check_in_1, workday.check_out_1, workday.total_hours), ("10:00 PM", None, 0)
+		)
 
 	def test_sync_workday_rebuilds_an_old_calendar_day_split(self) -> None:
 		"""A night shift once split over two Workdays is moved onto the first by a rebuild."""
@@ -263,7 +276,9 @@ class TestShiftsOnTheSite(IntegrationTestCase):
 		shifts.sync_workday(self.employee, DAY)
 
 		self.assertEqual(
-			frappe.get_all("Employee Checkin", {"employee": self.employee}, pluck="log_type", order_by="time"),
+			frappe.get_all(
+				"Employee Checkin", {"employee": self.employee}, pluck="log_type", order_by="time"
+			),
 			["IN", "OUT"],
 		)
 		self.assertIsNone(shifts.sync_workday(self.employee, NEXT_DAY, create=False))

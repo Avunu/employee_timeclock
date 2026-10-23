@@ -67,6 +67,8 @@
 				"employee_timeclock/timeclock/doctype/workday/workday.js",
 				"employee_timeclock/timeclock/doctype/workday/workday_list.js",
 				"employee_timeclock/timeclock/page/workday_management/workday_management.js",
+				"employee_timeclock/timeclock/report/payroll_report/payroll_report.js",
+				"employee_timeclock/timeclock/report/work_day_hours_report/work_day_hours_report.js",
 				"employee_timeclock/timeclock/report/workday_management/workday_management.js"
 			],
 			"globals": {

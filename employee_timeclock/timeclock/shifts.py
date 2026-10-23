@@ -185,6 +185,12 @@ def get_shifts(
 	return result
 
 
+def _dates_around(time: datetime.datetime) -> list[datetime.date]:
+	"""The dates a shift holding a punch at ``time`` can belong to: up to a maximum shift earlier."""
+	first = (time - get_max_shift()).date()
+	return [first + datetime.timedelta(days=n) for n in range((time.date() - first).days + 1)]
+
+
 def get_shift_of(checkin: str, employee: str, time: datetime.datetime) -> Shift | None:
 	"""The shift an Employee Checkin is part of."""
 	for date in _dates_around(time):
@@ -261,7 +267,9 @@ def sync_workday(
 	date = cast(datetime.date, getdate(date))
 	excluded = list(exclude)
 	shifts = get_shifts(date, date, employee, exclude=excluded).get(employee, [])
-	name = frappe.db.get_value("Workday", {"employee": employee, "date": date}, "name", order_by="creation asc")
+	name = frappe.db.get_value(
+		"Workday", {"employee": employee, "date": date}, "name", order_by="creation asc"
+	)
 	if name:
 		workday = cast(Workday, frappe.get_doc("Workday", cast(str, name)))
 	elif create or shifts:
@@ -284,12 +292,6 @@ def sync_workday(
 				values["log_type"] = punch.inferred_log_type
 			frappe.db.set_value("Employee Checkin", punch.name, values, update_modified=False)
 	return workday
-
-
-def _dates_around(time: datetime.datetime) -> list[datetime.date]:
-	"""The dates a shift holding a punch at ``time`` can belong to: up to a maximum shift earlier."""
-	first = (time - get_max_shift()).date()
-	return [first + datetime.timedelta(days=n) for n in range((time.date() - first).days + 1)]
 
 
 def resync_around(employee: str, times: Iterable[datetime.datetime], exclude: Iterable[str] = ()) -> None:

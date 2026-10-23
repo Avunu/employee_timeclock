@@ -32,13 +32,21 @@ def week_start(date: datetime.date) -> datetime.date:
 
 
 def employee_name_of(shifts: list[Shift]) -> str:
-	names = [str(punch.employee_name) for shift in shifts for punch in shift.punches if punch.get("employee_name")]
+	names = [
+		str(punch.employee_name) for shift in shifts for punch in shift.punches if punch.get("employee_name")
+	]
 	return max(names) if names else ""
 
 
 def get_columns() -> list[dict[str, Any]]:
 	return [
-		{"fieldname": "employee", "label": _("Employee"), "fieldtype": "Link", "options": "Employee", "width": 150},
+		{
+			"fieldname": "employee",
+			"label": _("Employee"),
+			"fieldtype": "Link",
+			"options": "Employee",
+			"width": 150,
+		},
 		{"fieldname": "employee_name", "label": _("Employee Name"), "fieldtype": "Data", "width": 200},
 		{"fieldname": "regular_hours", "label": _("Regular Hours"), "fieldtype": "Float", "width": 125},
 		{"fieldname": "overtime_hours", "label": _("Overtime Hours"), "fieldtype": "Float", "width": 125},
@@ -60,7 +68,9 @@ def get_data(filters: PayrollReportFilters) -> list[dict[str, Any]]:
 				"employee": employee,
 				"employee_name": employee_name_of(shifts),
 				"regular_hours": flt(sum(min(hours, WEEKLY_REGULAR_HOURS) for hours in weeks.values()), 2),
-				"overtime_hours": flt(sum(max(hours - WEEKLY_REGULAR_HOURS, 0) for hours in weeks.values()), 2),
+				"overtime_hours": flt(
+					sum(max(hours - WEEKLY_REGULAR_HOURS, 0) for hours in weeks.values()), 2
+				),
 				"total_hours": flt(sum(weeks.values()), 2),
 				"missed_punch": int(any(shift.missed for shift in shifts)),
 			}
