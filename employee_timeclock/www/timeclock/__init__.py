@@ -24,19 +24,38 @@ from employee_timeclock.timeclock.shifts import last_log_type
 
 
 @frappe.whitelist(methods=["POST"])
-def punch(badge: str) -> KioskPunch:
-	"""Record a punch, at the server's time, for the employee whose badge was scanned at the kiosk.
+def punch(badge: str, time: str | None = None, log_type: str | None = None) -> KioskPunch:
+	"""Record a punch for the employee whose badge was scanned at the kiosk.
 
-	The kiosk's one call per scan. ``submit_checkin`` does the work: IN or OUT by today's last punch,
-	a second scan inside the same minute keeps the punch already recorded, and the rate limit
+	The kiosk's one call per scan. ``submit_checkin`` does the work: IN or OUT by the employee's open
+	shift, a second scan inside the same minute keeps the punch already recorded, and the rate limit
 	applies to this endpoint.
+
+	The punch is at the server's time, unless the employee entered one by hand for a punch they
+	forgot: then ``time`` and ``log_type`` are theirs, and the punch is marked a manual override.
+
+	Args:
+		badge: The scanned badge: an issued badge token or a registered RFID tag.
+		time: A time entered by hand, ``YYYY-MM-DD HH:MM:SS``; not in the future.
+		log_type: ``IN`` or ``OUT``, with ``time``.
 
 	Raises:
 		frappe.PermissionError: The user is not a Timeclock Kiosk user.
 		employee_timeclock.kiosk.KioskAuthenticationError: The badge is not recognised.
 		frappe.RateLimitExceededError: Too many scans from this client.
+		frappe.ValidationError: A hand-entered time is malformed or in the future, or has no IN/OUT.
 	"""
-	return submit_checkin(badge, now_datetime().strftime("%Y-%m-%d %H:%M:%S"))
+	if not time:
+		return submit_checkin(badge, now_datetime().strftime("%Y-%m-%d %H:%M:%S"))
+	try:
+		entered: datetime.datetime | None = datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
+	except ValueError:
+		entered = None
+	if entered is None:
+		frappe.throw(_("Enter the date and time of the punch you missed."))
+	elif entered > now_datetime():
+		frappe.throw(_("That time is in the future. Enter the time of the punch you missed."))
+	return submit_checkin(badge, time, log_type=log_type, manual_override=1)
 
 
 def refresh_token(employee_id: str) -> str:
@@ -130,31 +149,22 @@ def extract_employee_from_token(token: str) -> tuple[str, str]:
 		KioskAuthenticationError: If token is expired or invalid
 	"""
 	require_kiosk_role()
+	message = _("Invalid token. Please re-authenticate.")
 	try:
 		# Decode the JWT using the same secret key
 		payload: dict[str, Any] = jwt.decode(token, get_token_secret(), algorithms=["HS256"])
-		employee_id: str | None = payload.get("employee_id")
-
-		if not employee_id:
-			raise jwt.InvalidTokenError
-
-		# refresh the token
-		refreshed_token: str = refresh_token(employee_id)
-
-		return employee_id, refreshed_token
-
 	except jwt.ExpiredSignatureError:
-		# The token has expired
-		frappe.throw(
-			_("Token has expired. Please re-authenticate."),
-			exc=KioskAuthenticationError,
-		)
-		raise  # This line will never be reached but satisfies type checker
-
+		payload = {}
+		message = _("Token has expired. Please re-authenticate.")
 	except jwt.InvalidTokenError:
 		# The token is invalid for some other reason
-		frappe.throw(_("Invalid token. Please re-authenticate."), exc=KioskAuthenticationError)
-		raise  # This line will never be reached but satisfies type checker
+		payload = {}
+
+	employee_id = str(payload.get("employee_id") or "")
+	if not employee_id:
+		frappe.throw(message, exc=KioskAuthenticationError)
+
+	return employee_id, refresh_token(employee_id)
 
 
 @frappe.whitelist(methods=["POST"])

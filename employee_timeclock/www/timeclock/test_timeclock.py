@@ -4,8 +4,9 @@
 """
 Tests for the RFID kiosk at ``/timeclock`` (``employee_timeclock.www.timeclock``) and the token signing key.
 
-The kiosk runs signed in as a Timeclock Kiosk user: a badge scan calls ``authenticate_employee`` for a token, and the
-clock-in/out buttons send it back to ``log_in_employee`` / ``log_out_employee``.
+The kiosk runs signed in as a Timeclock Kiosk user: a badge scan calls ``punch``, with a hand-entered time and IN/OUT
+for a forgotten punch. The older token endpoints (``authenticate_employee`` for a token, sent back to
+``log_in_employee`` / ``log_out_employee``) are still served and tested here.
 """
 
 import datetime
@@ -15,20 +16,12 @@ from unittest.mock import patch
 import frappe
 import jwt
 from frappe.tests import IntegrationTestCase
-<<<<<<< HEAD
-from frappe.utils import add_days, get_datetime, random_string, today
-=======
-from frappe.utils import now_datetime, random_string
->>>>>>> main
+from frappe.utils import add_days, get_datetime, now_datetime, random_string, today
 from frappe.utils.password import get_encryption_key
 from frappe.utils.redis_wrapper import RedisWrapper
 
 from employee_timeclock import auth
-<<<<<<< HEAD
 from employee_timeclock.kiosk import DEVICE_ID, KioskAuthenticationError
-=======
-from employee_timeclock.kiosk import KioskAuthenticationError
->>>>>>> main
 from employee_timeclock.tests.utils import make_kiosk_user
 from employee_timeclock.timeclock import api
 from employee_timeclock.timeclock.test_api import _make_employee
@@ -130,6 +123,39 @@ class TestTimeclockKiosk(IntegrationTestCase):
 			kiosk.punch("not-a-badge")
 		self.assertEqual(self._checkins(), [])
 
+	def test_a_manual_punch_records_the_entered_time_and_choice(self) -> None:
+		with patch.object(kiosk, "now_datetime", return_value=_today_at("12:00:00")):
+			result = kiosk.punch(self.rfid, f"{today()} 07:30:00", "IN")
+
+		self.assertEqual(result["log_type"], "IN")
+		checkin = frappe.get_all(
+			"Employee Checkin",
+			filters={"employee": self.employee},
+			fields=["log_type", "time", "manual_override"],
+		)
+		self.assertEqual(checkin, [{"log_type": "IN", "time": _today_at("07:30:00"), "manual_override": 1}])
+
+	def test_a_manual_punch_in_the_future_is_refused(self) -> None:
+		with (
+			patch.object(kiosk, "now_datetime", return_value=_today_at("12:00:00")),
+			self.assertRaises(frappe.ValidationError),
+		):
+			kiosk.punch(self.rfid, f"{today()} 12:01:00", "OUT")
+		self.assertEqual(self._checkins(), [])
+
+	def test_a_manual_punch_needs_in_or_out(self) -> None:
+		with (
+			patch.object(kiosk, "now_datetime", return_value=_today_at("12:00:00")),
+			self.assertRaises(frappe.ValidationError),
+		):
+			kiosk.punch(self.rfid, f"{today()} 07:30:00")
+		self.assertEqual(self._checkins(), [])
+
+	def test_a_manual_punch_with_a_malformed_time_is_refused(self) -> None:
+		with self.assertRaises(frappe.ValidationError):
+			kiosk.punch(self.rfid, "7:30 AM", "IN")
+		self.assertEqual(self._checkins(), [])
+
 	def test_authenticate_employee_issues_a_token(self) -> None:
 		result = kiosk.authenticate_employee(self.rfid)
 
@@ -217,6 +243,28 @@ class TestTimeclockKiosk(IntegrationTestCase):
 			kiosk.log_in_employee(expired, PUNCH_TIME)
 		self.assertEqual(self._checkins(), [])
 
+	def test_an_expired_token_is_reported_as_expired(self) -> None:
+		expired = jwt.encode(
+			{"employee_id": self.employee, "exp": datetime.datetime(2020, 1, 1).timestamp()},
+			auth.get_token_secret(),
+			algorithm="HS256",
+		)
+
+		with self.assertRaisesRegex(KioskAuthenticationError, "Token has expired"):
+			kiosk.extract_employee_from_token(expired)
+
+	def test_a_garbled_token_is_reported_invalid(self) -> None:
+		with self.assertRaisesRegex(KioskAuthenticationError, "Invalid token"):
+			kiosk.extract_employee_from_token("not-a-token")
+
+	def test_a_valid_token_names_its_employee_and_comes_back_refreshed(self) -> None:
+		employee_id, refreshed = kiosk.extract_employee_from_token(kiosk.refresh_token(self.employee))
+
+		self.assertEqual(employee_id, self.employee)
+		self.assertEqual(
+			jwt.decode(refreshed, auth.get_token_secret(), algorithms=["HS256"])["employee_id"], self.employee
+		)
+
 	def test_a_token_without_an_employee_is_rejected(self) -> None:
 		token = jwt.encode({"exp": 4102444800}, auth.get_token_secret(), algorithm="HS256")
 
@@ -264,3 +312,12 @@ class TestTimeclockKiosk(IntegrationTestCase):
 		kiosk_page.get_context(context)
 
 		self.assertTrue(context.csrf_token)
+
+	def test_page_context_makes_the_page_an_installable_app(self) -> None:
+		context = frappe._dict()
+
+		kiosk_page.get_context(context)
+
+		self.assertEqual(context.title, "Timeclock")
+		self.assertEqual(context.pwa["manifest_url"], "/timeclock/manifest.webmanifest")
+		self.assertIn("session_expiry", context.boot)
