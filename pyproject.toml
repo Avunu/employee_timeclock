@@ -68,8 +68,12 @@ generated = [
 ]
 
 [tool.frappe-nix.js.oxfmt]
-# oxfmt parses the Jinja {{ colocated_js }} placeholder as JS blocks and breaks the page.
-ignore = ["employee_timeclock/www/job_timeclock_legacy/index.html"]
+# oxfmt parses Jinja ({{ colocated_js }}, {% include %}, {# #}) as HTML and JS and breaks the page.
+ignore = [
+	"employee_timeclock/www/job_timeclock_legacy/index.html",
+	"employee_timeclock/www/timeclock/index.html",
+	"employee_timeclock/templates/includes/kiosk_head.html",
+]
 
 [tool.frappe-nix.js.oxlint]
 # The legacy job timeclock page is replaced by the job_timeclock SPA and is deleted in a follow-up refactor PR.
@@ -80,7 +84,6 @@ ignore = ["employee_timeclock/www/job_timeclock_legacy/**"]
 files = [
 	"employee_timeclock/public/js/job_timeclock/components/Column.vue",
 	"employee_timeclock/public/js/job_timeclock/job_timeclock.ts",
-	"employee_timeclock/www/timeclock/src/timeclock.ts",
 ]
 
 [tool.frappe-nix.js.oxlint.overrides.rules]
@@ -138,13 +141,24 @@ reason = "Legacy job timeclock page, replaced by www/job_timeclock and deleted i
 root = "."
 include = [
 	"employee_timeclock/public/js/FrappeCall.ts",
-	"employee_timeclock/www/timeclock/src/**",
 	"employee_timeclock/public/js/job_timeclock/**",
 	"employee_timeclock/public/js/types/**",
 	"employee_timeclock/www/job_timeclock_legacy/**",
 ]
 tsconfig = "tsconfig.json"
 check = "node scripts/vue-tsc.cjs --noEmit -p tsconfig.json"
+
+# The React badge kiosk (www/timeclock), built by frappe's esbuild, and its service worker.
+[[tool.frappe-nix.typescript.spa]]
+root = "."
+include = [
+	"employee_timeclock/public/js/timeclock.bundle.ts",
+	"employee_timeclock/public/js/kiosk/**",
+	"employee_timeclock/public/js/kiosk-sw.js",
+	"employee_timeclock/www/timeclock/src/**",
+]
+tsconfig = "tsconfig.react.json"
+check = "tsc -p tsconfig.react.json"
 
 [tool.ty.environment]
 python-version = "3.14"

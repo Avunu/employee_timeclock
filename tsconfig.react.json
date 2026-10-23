@@ -1,0 +1,38 @@
+{
+	// The React kiosk pages (www/timeclock/src, public/js/kiosk), checked apart from the Vue
+	// SPAs in tsconfig.json: React needs "jsx": "react-jsx", Vue "preserve". The tsconfig.json
+	// in each of those folders extends this one, so esbuild compiles their TSX the same way.
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"jsx": "react-jsx",
+		"lib": ["ESNext", "DOM", "DOM.Iterable"],
+		"types": [],
+		"noEmit": true,
+		"skipLibCheck": true,
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"exactOptionalPropertyTypes": true,
+		"noImplicitOverride": true,
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noPropertyAccessFromIndexSignature": true,
+		"allowUnreachableCode": false,
+		"allowUnusedLabels": false,
+		"noUncheckedSideEffectImports": true,
+		"isolatedModules": true,
+		"verbatimModuleSyntax": true,
+		"forceConsistentCasingInFileNames": true
+	},
+	"include": [
+		"employee_timeclock/public/js/timeclock.bundle.ts",
+		"employee_timeclock/public/js/kiosk/**/*.ts",
+		"employee_timeclock/public/js/kiosk/**/*.tsx",
+		"employee_timeclock/www/timeclock/src/**/*.ts",
+		"employee_timeclock/www/timeclock/src/**/*.tsx"
+	],
+	"exclude": ["node_modules", "employee_timeclock/public/dist"]
+}

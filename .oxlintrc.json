@@ -96,8 +96,7 @@
 		{
 			"files": [
 				"employee_timeclock/public/js/job_timeclock/components/Column.vue",
-				"employee_timeclock/public/js/job_timeclock/job_timeclock.ts",
-				"employee_timeclock/public/js/timeclock/timeclock.ts"
+				"employee_timeclock/public/js/job_timeclock/job_timeclock.ts"
 			],
 			"rules": {
 				"import/no-unassigned-import": "off"

@@ -1,0 +1,70 @@
+// Carbon's styles for the kiosk pages under www/ (each index.html includes kiosk.bundle.css), and
+// the kiosk's own layout.
+
+// $css--font-face: false: Carbon's default @font-face rules use webpack-style
+// `url("~@ibm/plex/...")` paths that esbuild's CSS loader cannot resolve. Without them the page
+// uses IBM Plex where the site already serves it, and Carbon's system-font fallbacks otherwise.
+@use "@carbon/react" with (
+	$css--font-face: false
+);
+
+// The timeclock (www/timeclock): the clock, then the prompt or the last punch, then the
+// forgotten-punch button, centred under Carbon's 3rem fixed header.
+.tc-kiosk {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 2.5rem;
+	min-block-size: 100vh;
+	padding: 5rem 1rem 2rem;
+	background: var(--cds-background);
+	color: var(--cds-text-primary);
+	text-align: center;
+}
+
+.tc-clock-time {
+	font-size: 6rem;
+	font-variant-numeric: tabular-nums;
+	font-weight: 300;
+	line-height: 1;
+}
+
+.tc-clock-date {
+	margin-block-start: 0.75rem;
+	color: var(--cds-text-secondary);
+	font-size: 1.75rem;
+}
+
+.tc-prompt {
+	font-size: 2rem;
+}
+
+.tc-result {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 1rem;
+	min-inline-size: min(32rem, 100%);
+	padding: 2rem;
+}
+
+.tc-result-name {
+	font-size: 2.5rem;
+	font-weight: 600;
+}
+
+.tc-result-hours {
+	color: var(--cds-text-secondary);
+	font-size: 1.5rem;
+}
+
+.tc-manual {
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+}
+
+.tc-manual-armed {
+	font-size: 1.5rem;
+}

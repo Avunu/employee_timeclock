@@ -22,5 +22,7 @@
 		"employee_timeclock/www/job_timeclock_legacy/index.css",
 		"employee_timeclock/www/job_timeclock_legacy/index.js",
 		"employee_timeclock/www/job_timeclock_legacy/index.html",
+		"employee_timeclock/www/timeclock/index.html",
+		"employee_timeclock/templates/includes/kiosk_head.html",
 	],
 }
