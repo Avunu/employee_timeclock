@@ -254,6 +254,35 @@ class TestShiftsOnTheSite(IntegrationTestCase):
 			(workday.check_in_1, workday.check_out_1, workday.total_hours), ("10:00 PM", None, 0)
 		)
 
+	def test_adding_a_night_shifts_in_moves_its_out_off_the_next_day(self) -> None:
+		"""An IN added late (the OUT was punched first) pairs with that OUT, so the next day's
+		Workday, which held the OUT as a missed punch, is rebuilt without it."""
+		self._insert(_at(NEXT_DAY, 6), "OUT")
+		self.assertEqual(self._workdays()[NEXT_DAY].check_out_1, "6:00 AM")
+		self._age_workdays()
+
+		self._insert(_at(DAY, 22), "IN")
+
+		workdays = self._workdays()
+		self.assertEqual(
+			(workdays[DAY].check_in_1, workdays[DAY].check_out_1, workdays[DAY].total_hours),
+			("10:00 PM", "6:00 AM", 8.0),
+		)
+		self.assertEqual((workdays[NEXT_DAY].check_out_1, workdays[NEXT_DAY].total_hours), (None, 0))
+
+	def test_deleting_a_night_shifts_in_leaves_its_out_missed_on_the_next_day(self) -> None:
+		"""Deleting the IN un-pairs its OUT, which then belongs to its own date as a missed punch."""
+		check_in = self._insert(_at(DAY, 22), "IN")
+		self._age_workdays()
+		self._insert(_at(NEXT_DAY, 6), "OUT")
+		self._age_workdays()
+
+		frappe.delete_doc("Employee Checkin", check_in, ignore_permissions=True)
+
+		workdays = self._workdays()
+		self.assertEqual((workdays[DAY].check_out_1, workdays[DAY].total_hours), (None, 0))
+		self.assertEqual(workdays[NEXT_DAY].check_out_1, "6:00 AM")
+
 	def test_sync_workday_rebuilds_an_old_calendar_day_split(self) -> None:
 		"""A night shift once split over two Workdays is moved onto the first by a rebuild."""
 		self._write(_at(DAY, 22), "IN")

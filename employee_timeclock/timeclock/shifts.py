@@ -295,12 +295,20 @@ def sync_workday(
 
 
 def resync_around(employee: str, times: Iterable[datetime.datetime], exclude: Iterable[str] = ()) -> None:
-	"""Rebuild every Workday a punch at one of ``times`` could belong to.
+	"""Rebuild every Workday a punch at one of ``times`` could belong to or re-pair.
 
 	Used after a punch is added, moved or deleted: the punch can change which shift its neighbours
-	pair into, and a night shift's OUT belongs to the day before its own date.
+	pair into, and a night shift's OUT belongs to the day before its own date. That reaches a maximum
+	shift length either way: an IN added before a lone OUT on the next day takes that OUT off the
+	next day's Workday, and deleting the IN puts it back there.
 	"""
 	excluded = list(exclude)
-	dates = sorted({date for time in times for date in _dates_around(_datetime(time))})
-	for date in dates:
+	max_shift = get_max_shift()
+	dates: set[datetime.date] = set()
+	for time in times:
+		at = _datetime(time)
+		first = (at - max_shift).date()
+		last = (at + max_shift).date()
+		dates.update(first + datetime.timedelta(days=n) for n in range((last - first).days + 1))
+	for date in sorted(dates):
 		sync_workday(employee, date, create=False, exclude=excluded)
