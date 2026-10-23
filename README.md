@@ -89,7 +89,7 @@ The `version-16` branch still holds 16.0.0, from before the app was renamed from
 2. **Issue badges.** For each employee who will clock in, open the Employee and choose _Timeclock → Issue Badge_ (HR Manager or System Manager only). Print the token shown on the employee's badge as a barcode or QR code that the kiosk's scanner reads. Issuing again replaces the badge; _Timeclock → Revoke Badge_ disables it for a lost badge or a leaver. Employees who already badge in with an RFID tag in _Attendance Device IDs_ keep working without a new badge.
 3. **Sign the kiosk in.** On the kiosk device, open the kiosk page, sign in as the kiosk user and leave the browser on that page. The scanner must type the badge into the page like a keyboard, ending with Enter, as most USB scanners do by default.
 
-**Night shifts.** _Timeclock Settings_ (HR Manager or System Manager) holds the **Maximum Shift Length**, 16 hours by default. An OUT closes the employee's open IN only within that many hours of it, and the kiosks treat an IN older than that as a forgotten clock-out. Raise it if anyone works longer shifts (up to 48 hours), lower it to flag forgotten clock-outs sooner.
+**Night shifts.** _Timeclock Settings_ (HR Manager or System Manager) holds the **Maximum Shift Length**, 16 hours by default. An OUT closes the employee's open IN only within that many hours of it, and the kiosks treat an IN older than that as a forgotten clock-out. Raise it if anyone works longer shifts (to less than 24 hours), lower it to flag forgotten clock-outs sooner.
 
 For job time tracking:
 
