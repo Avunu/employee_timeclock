@@ -39,6 +39,10 @@ doctype_js = {"Employee": "public/js/employee.js", "Job Card": "public/js/job_ca
 
 doctype_list_js = {"Job Card": "public/js/job_card_list.js"}
 
+# Serves each kiosk page's web app manifest and service worker - paths Frappe's own static pages
+# refuse. See kiosk_pwa.py.
+page_renderer = ["employee_timeclock.kiosk_pwa.KioskAppRenderer"]
+
 fixtures = [
 	{"dt": "List View Settings", "filters": {"name": ("in", ("Job Card"))}},
 	{"dt": "Role", "filters": [["name", "=", "Timeclock Kiosk"]]},
