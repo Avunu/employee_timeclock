@@ -16,6 +16,7 @@ from frappe.utils.data import format_datetime, get_datetime, now_datetime
 
 from employee_timeclock.auth import get_token_secret
 from employee_timeclock.kiosk import KioskAuthenticationError, require_kiosk_role, resolve_badge
+from employee_timeclock.timeclock.shifts import last_log_type
 
 
 def refresh_token(employee_id):
@@ -47,14 +48,7 @@ def authenticate_employee(rfid: str):
 	token = refresh_token(employee_id)
 
 	# get the last employee checkin to see if the employee is clocked in or out
-	last_checkin = frappe.get_list(
-		"Employee Checkin",
-		filters={"employee": employee_id},
-		order_by="modified desc",
-		limit=1,
-		ignore_permissions=True,
-		pluck="log_type",
-	)
+	last_checkin = last_log_type(employee_id)
 
 	# get the last Job Card Time Log where there is no to_time to see if a timer is running
 	# open_job_card_time_log = frappe.get_list("Job Card Time Log",
@@ -71,7 +65,7 @@ def authenticate_employee(rfid: str):
 
 	# check to see if there is any Job Card Time Log that was started but not ended
 
-	return {"status": "success", "last_checkin": last_checkin[0] if last_checkin else None, "token": token}
+	return {"status": "success", "last_checkin": last_checkin, "token": token}
 
 
 def extract_employee_from_token(token):

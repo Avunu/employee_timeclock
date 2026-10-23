@@ -46,6 +46,37 @@ bench --site <site> install-app employee_timeclock
 
 Only Active employees can clock in.
 
+## Shifts, night shifts and missed punches
+
+Every punch is an Employee Checkin with a log type, IN or OUT. The kiosks, the Workdays and the
+hours reports all pair them the same way:
+
+- Punches are taken in time order. An OUT closes the employee's open IN when it comes no more than
+  the **maximum shift length** after it. That pair is one shift.
+- A shift's hours count on the date of its IN. A shift from 10 PM Saturday to 6 AM Sunday is eight
+  hours on Saturday: on Saturday's Workday, in Saturday's row of the Work Day Hours Report and in
+  that week's total for overtime, though Sunday starts a new payroll week.
+- A punch that pairs with nothing is a **missed punch** and counts no hours: an IN followed by
+  another IN, or by an OUT more than the maximum shift length later, and an OUT with no open IN.
+  One missed punch never shifts the pairs after it. The reports flag it, and the Workday
+  Management report shows the day as _Missing Punch_ until HR adds or fixes the punch.
+- At a kiosk, a scan is an OUT while the employee has an IN open from the last maximum shift length,
+  and an IN otherwise. A night worker's scan after midnight closes their shift; an IN left open
+  longer ago (a forgotten clock-out) does not turn the next morning's scan into an OUT.
+
+The maximum shift length is set in _Timeclock Settings_ (HR Manager or System Manager), 16 hours by
+default and at most 48.
+
+On the Workday form, each row is one shift: its IN is on the Workday's date, and an OUT earlier than
+its IN is the next morning's. A row longer than the maximum shift length is refused. In the
+Workday Management report a night shift's OUT reads, for example, _6:00 AM (+1)_; editing its time
+keeps it after its IN, and setting its hours can run past midnight. To add a night shift's missing
+OUT, use _Add Punch_ with the next day's date.
+
+Workdays built before this pairing keep a night shift split over two calendar dates until they are
+rebuilt: the Workday Management report shows those days as _Out of Sync_, and _Rebuild Workdays_
+fixes them.
+
 ## Development
 
 The build commands, the source layout and the rename shim are described in [Development](development.md).
