@@ -73,9 +73,41 @@ Workday Management report a night shift's OUT reads, for example, _6:00 AM (+1)_
 keeps it after its IN, and setting its hours can run past midnight. To add a night shift's missing
 OUT, use _Add Punch_ with the next day's date.
 
-Workdays built before this pairing keep a night shift split over two calendar dates until they are
-rebuilt: the Workday Management report shows those days as _Out of Sync_, and _Rebuild Workdays_
-fixes them.
+### Upgrading a site that already has Workdays
+
+Workdays built before this pairing hold a night shift split over two calendar dates, and pair a
+day's punches by position. `bench migrate` rebuilds them with the same code as _Rebuild Workdays_
+(the patch `employee_timeclock.patches.rebuild_workdays_for_night_shifts`), and this changes
+payroll hours:
+
+- A rebuilt Workday gets new in and out slots and a new _Total Hours_: a night shift's hours move
+  onto the day it started and off the next day, and a day whose punches did not alternate IN, OUT
+  is paired by log type, which can leave a missed punch with no hours.
+- Its Employee Checkins are linked to it, and a punch with no log type gets the one it paired as.
+  No Workday or punch is created or deleted, and no punch time changes.
+- A Workday that already matches its punches is not written. Running the patch again changes
+  nothing.
+- Workdays that trade punches (a night shift's OUT moving onto the day before) are rebuilt
+  together or not at all, so no punch shows on two Workdays or drops off both.
+- Only Workdays dated in the last 14 days (on or after the site's date minus 14 days) are rebuilt,
+  so payroll history that is already paid is not rewritten. The site config key
+  `employee_timeclock_rebuild_workdays_from` (`YYYY-MM-DD`), when set, replaces that floor: earlier
+  to rebuild further back, later to rebuild less. A night shift that starts the day before the
+  floor and ends on it is left alone on both days, so its OUT is neither dropped nor shown twice.
+- A Workday is left alone when its date is in a payroll period with a draft or submitted Salary
+  Slip for its employee. So is a Workday that trades punches with one of those, with one before
+  the floor, or with a date that has punches and no Workday, and a Workday whose group shows a
+  time no Employee Checkin backs. The summary that `bench migrate` prints names the out-of-date
+  ones it left; rebuild them from the Workday Management report when that period's payroll is
+  settled.
+- Each rebuilt Workday gets an Info comment with its hours before and after.
+- The summary also counts the Workdays before the floor that are out of date. To rebuild them, use
+  _Rebuild Workdays_ in the Workday Management report, or set the config key to an earlier date
+  and run the patch again:
+  `bench --site <site> set-config employee_timeclock_rebuild_workdays_from 2026-01-01`, then
+  `bench --site <site> execute employee_timeclock.patches.rebuild_workdays_for_night_shifts.execute`.
+
+Until a Workday is rebuilt, the Workday Management report shows it as _Out of Sync_.
 
 ## Development
 
