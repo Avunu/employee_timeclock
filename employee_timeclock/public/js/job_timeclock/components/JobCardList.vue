@@ -1,7 +1,12 @@
 <template>
 	<Column title="Job Cards" description="Select a job card to start the timer" class="w-1/2">
 		<template #actions>
-			<Switch v-if="workstations.length > 0" v-model="filterByWorkstation" label="My Station" size="sm" />
+			<Switch
+				v-if="workstations.length > 0"
+				v-model="filterByWorkstation"
+				label="My Station"
+				size="sm"
+			/>
 		</template>
 
 		<!-- Overall Work Order Progress -->
@@ -9,7 +14,9 @@
 			<!-- Time summary -->
 			<p class="text-lg font-medium" :class="progressHintClass">
 				{{ formatMins(totalLoggedMins) }} logged of {{ formatMins(totalPlannedMins) }} estimated
-				<span v-if="isOverrun"> · +{{ formatMins(totalLoggedMins - totalPlannedMins) }} overrun </span>
+				<span v-if="isOverrun">
+					· +{{ formatMins(totalLoggedMins - totalPlannedMins) }} overrun
+				</span>
 			</p>
 			<!-- Custom progress bar: green normally, green+red split on overrun -->
 			<div class="h-2 w-full rounded-full bg-gray-200 overflow-hidden flex">

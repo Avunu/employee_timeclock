@@ -23,7 +23,11 @@
 				>
 					Switch Employee
 				</button>
-				<SessionTimer :employeeName="employeeName" :tokenExpiration="tokenExpiration" v-if="activeSession" />
+				<SessionTimer
+					:employeeName="employeeName"
+					:tokenExpiration="tokenExpiration"
+					v-if="activeSession"
+				/>
 			</div>
 		</header>
 
@@ -153,7 +157,10 @@ export default defineComponent({
 
 	methods: {
 		async check_for_erp_log_in() {
-			const response = await FrappeCall("employee_timeclock.www.job_timeclock.check_for_erp_log_in", {});
+			const response = await FrappeCall(
+				"employee_timeclock.www.job_timeclock.check_for_erp_log_in",
+				{},
+			);
 			if (response.user_id === "Guest") {
 				console.log(response.user_id);
 			} else {

@@ -13,7 +13,10 @@ frappe.ui.form.on("Job Card", {
 				grid.setup_user_defined_columns = function () {
 					const is_machine_time = frm.doc.is_machine_time;
 					this.user_defined_columns = [
-						frappe.meta.get_docfield("Job Card Time Log", is_machine_time ? "machine_operator" : "employee"),
+						frappe.meta.get_docfield(
+							"Job Card Time Log",
+							is_machine_time ? "machine_operator" : "employee",
+						),
 						frappe.meta.get_docfield("Job Card Time Log", "from_time"),
 						frappe.meta.get_docfield("Job Card Time Log", "to_time"),
 						frappe.meta.get_docfield("Job Card Time Log", "time_in_mins"),

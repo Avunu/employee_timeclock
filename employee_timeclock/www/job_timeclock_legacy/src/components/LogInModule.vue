@@ -44,7 +44,11 @@ export default defineComponent({
 		// This should be a server call to verify user and password.
 		async submit_login(email: String, password: String) {
 			// Needs to be built out and fully verified.
-			const response = await FrappeCall("employee_timeclock.www.job_timeclock.verify_login", email, password);
+			const response = await FrappeCall(
+				"employee_timeclock.www.job_timeclock.verify_login",
+				email,
+				password,
+			);
 			if (response?.status === "success") {
 				this.verified = true;
 				this.authenticated = true;

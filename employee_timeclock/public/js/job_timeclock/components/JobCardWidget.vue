@@ -18,7 +18,9 @@
 						})
 					"
 					class="p-1 rounded transition-colors ml-auto"
-					:class="pinned ? 'text-amber-500 hover:text-amber-600' : 'text-gray-300 hover:text-gray-500'"
+					:class="
+						pinned ? 'text-amber-500 hover:text-amber-600' : 'text-gray-300 hover:text-gray-500'
+					"
 					:title="pinned ? 'Unpin' : 'Pin'"
 				>
 					<IconPin class="w-5 h-5" :class="{ 'fill-current rotate-45': pinned }" />
@@ -152,7 +154,10 @@
 						<span class="text-orange-700 font-mono font-bold" v-if="reworkStarted">
 							{{ reworkElapsedTime }}
 						</span>
-						<span class="text-orange-600 text-xl ml-2" v-if="operation.corrective_employee_time_mins > 0">
+						<span
+							class="text-orange-600 text-xl ml-2"
+							v-if="operation.corrective_employee_time_mins > 0"
+						>
 							Your total:
 							{{ formatMins(operation.corrective_employee_time_mins) }}
 						</span>
@@ -230,7 +235,9 @@ export default defineComponent({
 				return "ring-2 ring-orange-500 bg-orange-100";
 			}
 			if (this.active_user) {
-				return this.isMachine ? "ring-2 ring-blue-500 bg-blue-100" : "ring-2 ring-green-500 bg-green-100";
+				return this.isMachine
+					? "ring-2 ring-blue-500 bg-blue-100"
+					: "ring-2 ring-green-500 bg-green-100";
 			}
 			// Inactive — white bg, colored border to show type
 			return this.isMachine ? "bg-white border-blue-200" : "bg-white border-green-200";

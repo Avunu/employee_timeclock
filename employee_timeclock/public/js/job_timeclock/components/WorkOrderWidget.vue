@@ -13,7 +13,13 @@
 				<p class="text-3xl font-semibold flex-1 min-w-0 leading-tight break-words">
 					{{ workOrder.production_item }}
 				</p>
-				<Badge :label="workOrder.status" :theme="statusTheme" variant="outline" size="lg" class="shrink-0" />
+				<Badge
+					:label="workOrder.status"
+					:theme="statusTheme"
+					variant="outline"
+					size="lg"
+					class="shrink-0"
+				/>
 			</div>
 
 			<!-- Body: subtitle + time summary (left) | donut chart (right, under badge) -->

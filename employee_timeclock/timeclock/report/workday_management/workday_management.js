@@ -268,7 +268,11 @@ frappe.provide("frappe.query_reports")["Workday Management"] = {
 			icon: "add",
 		});
 
-		report.page.add_inner_button(__("Delete Punches"), () => delete_selected_punches(report), __("Manage"));
+		report.page.add_inner_button(
+			__("Delete Punches"),
+			() => delete_selected_punches(report),
+			__("Manage"),
+		);
 		report.page.add_inner_button(
 			__("Rebuild Workdays"),
 			() => rebuild_selected_workdays(report),
@@ -290,7 +294,11 @@ frappe.provide("frappe.query_reports")["Workday Management"] = {
 		report.page.add_inner_button(__("This Week"), () => set_period(week_start, today), __("Period"));
 		report.page.add_inner_button(
 			__("Last Week"),
-			() => set_period(frappe.datetime.add_days(week_start, -7), frappe.datetime.add_days(week_start, -1)),
+			() =>
+				set_period(
+					frappe.datetime.add_days(week_start, -7),
+					frappe.datetime.add_days(week_start, -1),
+				),
 			__("Period"),
 		);
 		report.page.add_inner_button(
@@ -343,7 +351,9 @@ function shade_rows(datatable) {
 	style_el.textContent = datatable.datamanager.data
 		.map((row, rowIndex) => {
 			const background = WM_ROW_BACKGROUNDS[/** @type {WMRow | undefined} */ (row)?.row_type ?? ""];
-			return background ? `${scope} .dt-row-${rowIndex} .dt-cell { background-color: ${background}; }` : "";
+			return background
+				? `${scope} .dt-row-${rowIndex} .dt-cell { background-color: ${background}; }`
+				: "";
 		})
 		.join("\n");
 }
@@ -425,7 +435,8 @@ function save_checkin(data, time) {
 		method: `${WM_METHOD}.update_checkin`,
 		args: { checkin: data.checkin, time: time },
 		callback: (r) => {
-			if (r.message) frappe.show_alert({ message: /** @type {string} */ (r.message), indicator: "green" }, 3);
+			if (r.message)
+				frappe.show_alert({ message: /** @type {string} */ (r.message), indicator: "green" }, 3);
 		},
 		// Refresh on failure too, so the cell drops the rejected value
 		always: () => refresh_report(),
@@ -441,7 +452,8 @@ function save_hours(data, hours) {
 		method: `${WM_METHOD}.set_punch_hours`,
 		args: { checkin: data.checkin, hours: hours },
 		callback: (r) => {
-			if (r.message) frappe.show_alert({ message: /** @type {string} */ (r.message), indicator: "green" }, 3);
+			if (r.message)
+				frappe.show_alert({ message: /** @type {string} */ (r.message), indicator: "green" }, 3);
 		},
 		// Refresh on failure too, so the cell drops the rejected value
 		always: () => refresh_report(),
@@ -458,7 +470,8 @@ function add_punch(data, time) {
 		method: `${WM_METHOD}.add_checkin`,
 		args: { employee: data.employee, date: data.date, time: time },
 		callback: (r) => {
-			if (r.message) frappe.show_alert({ message: /** @type {string} */ (r.message), indicator: "green" }, 3);
+			if (r.message)
+				frappe.show_alert({ message: /** @type {string} */ (r.message), indicator: "green" }, 3);
 		},
 		// Refresh on failure too, so the row drops the rejected value
 		always: () => refresh_report(),
@@ -525,18 +538,21 @@ function delete_selected_punches(report) {
 		return;
 	}
 
-	frappe.confirm(__("Delete {0} punch(es)? Their workdays will be recalculated.", [checkins.length]), () => {
-		frappe.call({
-			method: `${WM_METHOD}.delete_checkins`,
-			args: { checkins: checkins },
-			freeze: true,
-			freeze_message: __("Deleting punches..."),
-			callback: (r) => {
-				frappe.show_alert({ message: /** @type {string} */ (r.message), indicator: "green" }, 5);
-				refresh_report();
-			},
-		});
-	});
+	frappe.confirm(
+		__("Delete {0} punch(es)? Their workdays will be recalculated.", [checkins.length]),
+		() => {
+			frappe.call({
+				method: `${WM_METHOD}.delete_checkins`,
+				args: { checkins: checkins },
+				freeze: true,
+				freeze_message: __("Deleting punches..."),
+				callback: (r) => {
+					frappe.show_alert({ message: /** @type {string} */ (r.message), indicator: "green" }, 5);
+					refresh_report();
+				},
+			});
+		},
+	);
 }
 
 /** @param {frappe.views.QueryReport} report */

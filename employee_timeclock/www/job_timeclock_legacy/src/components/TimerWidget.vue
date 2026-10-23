@@ -93,11 +93,14 @@ export default defineComponent({
 			// Server call to test time.
 			// console.log('start_time',this.start_time_frappe);
 			// console.log(this.employee_id)
-			const response = await FrappeCall("employee_timeclock.www.job_timeclock.log_start_time_of_jobcard", {
-				employee_id: this.employee_id,
-				start_time: this.start_time_frappe,
-				jobcard_name: jobCard.name,
-			});
+			const response = await FrappeCall(
+				"employee_timeclock.www.job_timeclock.log_start_time_of_jobcard",
+				{
+					employee_id: this.employee_id,
+					start_time: this.start_time_frappe,
+					jobcard_name: jobCard.name,
+				},
+			);
 
 			if (response?.status === "success") {
 				// console.log('Start Time sent.')
@@ -143,11 +146,14 @@ export default defineComponent({
 			// console.log('frappe end time', this.end_time_frappe)
 			// this.$emit('send_end_time', this.end_time_frappe, jobCard.name);
 
-			const response = await FrappeCall("employee_timeclock.www.job_timeclock.log_end_time_of_jobcard", {
-				employee_id: this.employee_id,
-				end_time: this.end_time_frappe,
-				jobcard_name: jobCard.name,
-			});
+			const response = await FrappeCall(
+				"employee_timeclock.www.job_timeclock.log_end_time_of_jobcard",
+				{
+					employee_id: this.employee_id,
+					end_time: this.end_time_frappe,
+					jobcard_name: jobCard.name,
+				},
+			);
 
 			if (response?.status === "success") {
 				console.log("End Time sent.");

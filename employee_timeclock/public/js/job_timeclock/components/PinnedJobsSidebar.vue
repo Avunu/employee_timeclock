@@ -16,8 +16,16 @@
 						<IconPin class="w-6 h-6 text-amber-500 fill-current" />
 						Pinned Jobs
 					</h2>
-					<button @click="$emit('close')" class="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-						<svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<button
+						@click="$emit('close')"
+						class="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+					>
+						<svg
+							class="w-6 h-6 text-gray-600"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"

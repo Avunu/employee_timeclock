@@ -57,7 +57,11 @@
 					</button>
 				</div>
 
-				<SessionTimer :employeeName="employeeName" :tokenExpiration="tokenExpiration" v-if="activeSession" />
+				<SessionTimer
+					:employeeName="employeeName"
+					:tokenExpiration="tokenExpiration"
+					v-if="activeSession"
+				/>
 
 				<!-- Right-side icon group -->
 				<div v-if="activeSession" class="flex items-center gap-1">
@@ -119,8 +123,16 @@
 					<!-- Sidebar Header -->
 					<div class="flex items-center justify-between p-6 border-b">
 						<h2 class="text-2xl font-bold text-gray-900">Settings</h2>
-						<button @click="isSidebarOpen = false" class="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-							<svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<button
+							@click="isSidebarOpen = false"
+							class="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+						>
+							<svg
+								class="w-6 h-6 text-gray-600"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
 								<path
 									stroke-linecap="round"
 									stroke-linejoin="round"
@@ -524,7 +536,11 @@ export default defineComponent({
 		},
 
 		async getOperations(workOrderName: string) {
-			const response = await api.getOperations(workOrderName, JSON.stringify(this.workstations), this.token);
+			const response = await api.getOperations(
+				workOrderName,
+				JSON.stringify(this.workstations),
+				this.token,
+			);
 			if (response.status === "success" && response.operations) {
 				if (response.token) this.token = response.token;
 				this.operations = response.operations;
@@ -877,12 +893,18 @@ export default defineComponent({
 		},
 
 		async fetchPinnedOperations(): Promise<void> {
-			const workOrders = new Set(this.myPinnedKeys.map((k) => k.slice(0, k.indexOf("::"))).filter(Boolean));
+			const workOrders = new Set(
+				this.myPinnedKeys.map((k) => k.slice(0, k.indexOf("::"))).filter(Boolean),
+			);
 			const missing = [...workOrders].filter((wo) => !this.operationsCache[wo]);
 			await Promise.all(
 				missing.map(async (wo) => {
 					try {
-						const response = await api.getOperations(wo, JSON.stringify(this.workstations), this.token);
+						const response = await api.getOperations(
+							wo,
+							JSON.stringify(this.workstations),
+							this.token,
+						);
 						if (response.status === "success" && response.operations) {
 							if (response.token) this.token = response.token;
 							this.operationsCache = {
@@ -990,7 +1012,12 @@ export default defineComponent({
 
 		async handleStopMachineTimer(timer: MachineTimer): Promise<void> {
 			const endTime = dateToFrappeDateTimeString(new Date());
-			const response = await api.stopMachineTimer(timer.work_order, timer.operation, endTime, this.token);
+			const response = await api.stopMachineTimer(
+				timer.work_order,
+				timer.operation,
+				endTime,
+				this.token,
+			);
 			if (response.status === "success") {
 				// Optimistic removal — realtime event will confirm
 				this.machineTimers = this.machineTimers.filter(
@@ -1007,35 +1034,40 @@ export default defineComponent({
 		connectSocket(): void {
 			try {
 				const socket = getSocket();
-				socket.on("machine_timer_update", (data: { action?: string; timer?: MachineTimer } | null) => {
-					if (!data || !data.timer) return;
-					const timer: MachineTimer = data.timer;
+				socket.on(
+					"machine_timer_update",
+					(data: { action?: string; timer?: MachineTimer } | null) => {
+						if (!data || !data.timer) return;
+						const timer: MachineTimer = data.timer;
 
-					if (data.action === "start") {
-						// Ignore machine timers for groups this employee doesn't belong to
-						if (!this.employeeGroups.includes(timer.employee_group)) return;
-						// Fallback: remove any running timer with the same operation on a
-						// different work order — the backend has switched it over.
-						this.machineTimers = this.machineTimers.filter(
-							(t) => !(t.operation === timer.operation && t.work_order !== timer.work_order),
-						);
-						// Only add if we don't already have it and it belongs to our groups
-						const exists = this.machineTimers.some(
-							(t) => t.work_order === timer.work_order && t.operation === timer.operation,
-						);
-						if (!exists) {
-							this.machineTimers = [...this.machineTimers, timer];
+						if (data.action === "start") {
+							// Ignore machine timers for groups this employee doesn't belong to
+							if (!this.employeeGroups.includes(timer.employee_group)) return;
+							// Fallback: remove any running timer with the same operation on a
+							// different work order — the backend has switched it over.
+							this.machineTimers = this.machineTimers.filter(
+								(t) =>
+									!(t.operation === timer.operation && t.work_order !== timer.work_order),
+							);
+							// Only add if we don't already have it and it belongs to our groups
+							const exists = this.machineTimers.some(
+								(t) => t.work_order === timer.work_order && t.operation === timer.operation,
+							);
+							if (!exists) {
+								this.machineTimers = [...this.machineTimers, timer];
+							}
+						} else if (data.action === "stop") {
+							this.machineTimers = this.machineTimers.filter(
+								(t) =>
+									!(t.work_order === timer.work_order && t.operation === timer.operation),
+							);
+							// Refresh operations if viewing the affected work order
+							if (this.selectedWorkOrder?.name === timer.work_order) {
+								this.getOperations(this.selectedWorkOrder.name);
+							}
 						}
-					} else if (data.action === "stop") {
-						this.machineTimers = this.machineTimers.filter(
-							(t) => !(t.work_order === timer.work_order && t.operation === timer.operation),
-						);
-						// Refresh operations if viewing the affected work order
-						if (this.selectedWorkOrder?.name === timer.work_order) {
-							this.getOperations(this.selectedWorkOrder.name);
-						}
-					}
-				});
+					},
+				);
 
 				// debug, log all socket events
 				socket.onAny((event, ...args) => {
