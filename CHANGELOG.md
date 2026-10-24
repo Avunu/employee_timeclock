@@ -1,5 +1,26 @@
 # Changelog
 
+## [16.1.0](https://github.com/Avunu/employee_timeclock/compare/v16.0.0...v16.1.0) (2026-10-24)
+
+
+### Features
+
+* workday management updates ([177deb4](https://github.com/Avunu/employee_timeclock/commit/177deb462e03e755198c52634ab81a3f5b5452f4))
+
+
+### Bug Fixes
+
+* **auth:** create the site's encryption key on the first badge sign-in ([#47](https://github.com/Avunu/employee_timeclock/issues/47)) ([d678cc9](https://github.com/Avunu/employee_timeclock/commit/d678cc971e01f4bb12c01a6a19574d6643c40482))
+* **reports:** count the End Date and keep same-name employees apart in the hours reports ([#49](https://github.com/Avunu/employee_timeclock/issues/49)) ([27ec724](https://github.com/Avunu/employee_timeclock/commit/27ec72413e41c51c3b59ea1a146bcf186683dc31))
+* **security:** authenticate timeclock kiosk check-ins ([#25](https://github.com/Avunu/employee_timeclock/issues/25)) ([21aed9a](https://github.com/Avunu/employee_timeclock/commit/21aed9ab17fc08c4a7aeedcac19008c556c44769))
+* **timeclock:** arrows not present on override time ([667c71a](https://github.com/Avunu/employee_timeclock/commit/667c71ac3be10a52addd160c406f84a40c63d5c7))
+* **timeclock:** pair punches into shifts that can cross midnight ([#55](https://github.com/Avunu/employee_timeclock/issues/55)) ([18db7c3](https://github.com/Avunu/employee_timeclock/commit/18db7c3ff3e26eded180913444a3c76eee964a73))
+* **timeclock:** pick the badge kiosk's IN or OUT from today's punches ([#51](https://github.com/Avunu/employee_timeclock/issues/51)) ([eca8c04](https://github.com/Avunu/employee_timeclock/commit/eca8c04ee63602f13fc80572bf229e9f8414d531))
+* **timeclock:** show a message when a badge kiosk scan fails ([#50](https://github.com/Avunu/employee_timeclock/issues/50)) ([6ba6e06](https://github.com/Avunu/employee_timeclock/commit/6ba6e06d177a35b3d9a06f2536e1c69b720194cf))
+* **workday:** count whole days in the one-minute Workday sync guard ([#48](https://github.com/Avunu/employee_timeclock/issues/48)) ([810e6c3](https://github.com/Avunu/employee_timeclock/commit/810e6c386c4857b12bdae0ea71a8a45a0235d637))
+* **workday:** format workday management and test set_punch_hours ([#52](https://github.com/Avunu/employee_timeclock/issues/52)) ([845f84a](https://github.com/Avunu/employee_timeclock/commit/845f84a718b844ab21e5e412dbebf931a3666138))
+* **workday:** rebuild Workdays built before night shifts paired across midnight ([#58](https://github.com/Avunu/employee_timeclock/issues/58)) ([d51e1d0](https://github.com/Avunu/employee_timeclock/commit/d51e1d06bb2ec80b8a529823a92445c434b12467))
+
 ## [16.0.0](https://github.com/Avunu/timeclock/compare/v0.0.1...v16.0.0) (2026-10-17)
 
 
