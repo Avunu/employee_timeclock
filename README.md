@@ -70,10 +70,6 @@ It is for ERPNext sites that pay hourly staff and, optionally, track manufacturi
 
 ## Installation
 
-On Frappe Cloud, install Employee Timeclock from the [Frappe marketplace](https://cloud.frappe.io/marketplace/apps/employee_timeclock).
-
-On a bench of your own:
-
 ```bash
 bench get-app https://github.com/Avunu/employee_timeclock --branch version-16
 bench --site <site> install-app employee_timeclock
