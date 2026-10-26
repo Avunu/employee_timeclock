@@ -32,4 +32,4 @@ The Work Day Hours Report lists one row per employee per day that has shifts, wi
 
 ## Punches
 
-The Punch List is a saved report view of Employee Checkin, with a filter on **Employee Name**. Open a punch to see its **Location / Device ID**, **Workday** and override fields.
+The Punch List is a saved Report Builder view of Employee Checkin, sorted newest first, with no filter set: add filters, such as **Employee Name** or **Time**, in the report view. Open a punch to see its **Location / Device ID**, **Workday** and override fields.

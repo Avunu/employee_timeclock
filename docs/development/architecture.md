@@ -23,7 +23,7 @@ Paths are relative to the `employee_timeclock` package.
 
 ## Badges and kiosk sessions
 
-`kiosk.py` holds the access rules. A kiosk is a browser signed in as a user with the **Timeclock Kiosk** role (a fixture), and `require_kiosk_role` (`frappe.only_for`) guards every badge endpoint and kiosk page. `require_login_page` sends Guest to `/login` and back.
+`kiosk.py` holds the access rules. A kiosk is a browser signed in as a user with the **Timeclock Kiosk** role (a fixture), and `require_kiosk_role` (`frappe.only_for`) guards every badge endpoint. `require_kiosk_page` gates the `/timeclock`, `/employee-timeclock` and `/job_timeclock_legacy` pages with it; `/job_timeclock` uses `require_login_page` alone, which sends Guest to `/login` and back, because an employee can also open it from their own login.
 
 A badge is resolved by `resolve_badge`: the SHA-256 of the scan is looked up in the Employee's `timeclock_badge_hash`, then the scan is looked up as an Attendance Device ID row, and either must belong to an Active Employee. A plain digest is enough because the token is 144 random bits (`secrets.token_urlsafe(18)`), and an unsalted digest can be found through an index, so verification compares digests in the database. Every failure returns `None` and is logged without the scanned value, so the caller cannot tell an unknown badge from a revoked one or an inactive employee.
 

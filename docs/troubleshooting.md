@@ -15,7 +15,7 @@ updated: 2026-10-26
 - **Saving a Workday rewrites its own date only.** If the edit re-pairs a punch on a neighbouring day (for example a new 10:00 PM IN that now closes with a lone 6:00 AM OUT the next morning), the neighbouring Workday is not rebuilt. The Workday Management report shows it as **Out of Sync**, and **Rebuild Workdays** fixes it.
 - **Punches right after a Workday save.** A punch recorded less than a minute after its Workday was created or saved is not copied into the Workday; this guard stops the two sync hooks from triggering each other. The Workday Management report shows the day as **Out of Sync**, and **Rebuild Workdays** fixes it.
 - **Bulk Add makes new Workdays.** It does not merge into an existing Workday, so a day that already has one gets a second, shown as **Duplicate Workday**.
-- **Overtime.** Overtime in the payroll reports is hours over 40 in a week, and the 40 cannot be configured. A week runs Sunday to Saturday, whatever the site's first day of the week. The hours the Employee Clock-in/out form shows after a punch use the site's first day of the week instead.
+- **Overtime.** Overtime in the payroll reports is hours over 40 in a week, and the 40 cannot be configured. A week runs Sunday to Saturday, whatever the site's first day of the week. The hours the Employee Clock-in/out form shows after a punch start on the first day of the week of the kiosk user's Language or of System Settings instead.
 - **Workday Payroll Report and the database.** It is a SQL query report written for MariaDB (`DAYOFWEEK`, `DATE_SUB`).
 - **The badge kiosk punches every scan.** Scanning twice at `/timeclock` clocks in and straight back out. Only the Employee Clock-in/out form ignores a second scan in the same minute.
 - **Kiosk clocks.** The kiosks take the punch time from the device's clock, so a device with the wrong time or time zone records wrong punches.
@@ -86,9 +86,13 @@ A machine-time operation is shown only to members of its **Machine Employee Grou
 
 The tracker lists only work orders whose status is Submitted, Not Started or In Process. A completed, stopped or draft work order is not listed.
 
+#### "... failed to stop." or "... machine timer failed to stop."
+
+The tracker could not stop the timer, usually because it was already stopped, for example from another kiosk or in the desk: the server's reason, "No active time log found" or "No active machine timer found", is in the browser console. Reload the tracker to see the timers that are running.
+
 #### "Failed to stop machine timer: ..."
 
-"Not a machine operation" means the operation's **Is Machine Time** is not ticked or its group has no members; "No active machine timer found" means the timer was already stopped, for example from another kiosk.
+"Not a machine operation" means the operation's **Is Machine Time** is not ticked, it has no **Machine Employee Group**, or its group has no members; "No active machine timer found" means the timer was already stopped, for example from another kiosk.
 
 ### In the desk
 

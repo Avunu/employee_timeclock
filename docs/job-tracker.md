@@ -20,7 +20,7 @@ The job time tracker at `/job_timeclock` puts ERPNext's manufacturing Job Cards 
 
 At a kiosk, the tracker shows "Please scan your employee ID to continue." Scan your badge. The header then shows **Employee:** with your name and the time left in your session.
 
-A badge session lasts 30 minutes. The tracker renews it each time it loads work orders, operations or machine timers, for example when you select a work order. When it runs out, the tracker returns to the scan screen. The **Sign Out** button (the arrow) ends it at once, for the next person.
+A badge session lasts 30 minutes. The tracker renews it each time it loads work orders, operations, your running timer or machine timers, for example when you select a work order. When it runs out, the tracker returns to the scan screen. The **Sign Out** button (the arrow) ends it at once, for the next person.
 
 > [!NOTE]
 > Signing out, or letting the session run out, does not stop a running timer. Stop your timer before you leave, or it keeps logging time.
@@ -32,7 +32,7 @@ A badge session lasts 30 minutes. The tracker renews it each time it loads work 
 3. Click **Start Timer**.
 4. When you finish, click **Stop Timer** on the card, or the stop button beside the running timer in the header.
 
-Starting a timer stops any other timer you have running, at the same moment, so you can move from one job to the next with one click. Stopping writes the end time to the time log. An operation whose Job Card is already submitted shows **Submitted** and cannot be timed.
+Starting a timer stops any other timer you have running, at the same moment, so you can move from one job to the next with one click. Stopping writes the end time to the time log. An operation whose Job Card is already submitted shows **Submitted** instead of **Start Timer** and cannot be timed; **Start Rework** stays available.
 
 The running timer's operation and elapsed time stay in the header; click them to go back to its work order.
 
@@ -50,7 +50,7 @@ An Operation with **Is Machine Time** ticked is timed against the machine, not a
 
 ## Choose the kiosk's workstations
 
-Open **Settings** (the gear) and tick the **Workstations** at this kiosk. Their operations are listed first, and the **My Station** switch, which appears above the job cards once you pick a workstation and starts on, shows only them. The choice is kept in this browser. The panel also shows the device's IP and MAC address, to help you tell kiosks apart.
+Open **Settings** (the gear) and tick the **Workstations** at this kiosk. Their operations are listed first, and the **My Station** switch, which appears above the job cards once you pick a workstation and starts on, shows only them. The choice is kept in this browser. The panel also shows the device's IP address, and its MAC address when the server can look it up (for a device on the server's own network), to help you tell kiosks apart.
 
 ## Pin your jobs
 

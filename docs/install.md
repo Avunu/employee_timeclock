@@ -39,6 +39,7 @@ The app has no install hook of its own. Installing it syncs these from the app's
 - **Fixtures.** The **Timeclock Kiosk** role, without desk access, and the List View Settings of Job Card, which show the columns Operation, Status, Rework, Total Time in Mins, Work Order and Workstation.
 - **Pages and reports.** The Employee Clock-in/out web form (`/employee-timeclock`), the Workday Management desk page, and the Workday Management, Workday Payroll, Payroll, Work Day Hours and Punch List reports.
 - **Timeclock Settings**, with **Maximum Shift Length (Hours)** at its default of 16.
+- **An Employee Timeclock desktop icon**, opening `/app/workday`, from `desktop_icon/employee_timeclock.json`. Frappe imports it only when the desk's `/app/desktop` shows the Desktop Icon grid.
 
 Frappe marks every patch of a newly installed app as done without running it, so a new site gets no Workday rebuild.
 
@@ -102,6 +103,7 @@ Frappe backs the site up first, then deletes what belongs to the app's Timeclock
 - The Workday and Attendance Device ID tables, with every Workday and every registered RFID tag, and Timeclock Settings.
 - The web form, the Workday Management page and the five reports.
 - The custom field and property setter records listed in [Configuration](configuration.md#what-the-app-adds-to-your-site).
+- The app's desktop icons.
 
 What stays behind:
 

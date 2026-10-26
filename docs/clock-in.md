@@ -40,7 +40,7 @@ The form asks "Please scan your timeclock badge." with the cursor in **Badge**, 
 
 A second scan by the same employee within the same minute keeps the punch already recorded and records nothing new.
 
-The weekly hours are the sum of your Workdays' **Total Hours** from the first day of this week, as set by **First Day of the Week** in System Settings (Sunday by default), to six days later.
+The weekly hours are the sum of your Workdays' **Total Hours** from the first day of this week to six days later. The first day of the week is the one set on the kiosk user's Language, when that Language sets one, else **First Day of the Week** in System Settings (Sunday by default).
 
 ### Enter the time by hand
 

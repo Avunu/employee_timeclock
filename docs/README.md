@@ -20,7 +20,7 @@ HR issues each employee a random badge token from the Employee form and prints i
 
 ### Kiosks to clock in and out
 
-Two kiosk pages record punches: the badge kiosk at `/timeclock` and the Employee Clock-in/out form at `/employee-timeclock`, which can also take a time entered by hand. Both run signed in as a kiosk user and decide by themselves whether a scan is an IN or an OUT, night shifts included. See [Clock in and out](clock-in.md).
+Two kiosk pages record punches: the badge kiosk at `/timeclock` and the Employee Clock-in/out form at `/employee-timeclock`, which can also take a time entered by hand. Both run signed in as a kiosk user and decide by themselves whether a scan is an IN or an OUT, night shifts included, except for a time entered by hand, where the employee chooses. See [Clock in and out](clock-in.md).
 
 ![The badge kiosk after a scan: Maria Lopez has punched in](screenshots/badge-kiosk-light.webp)
 
