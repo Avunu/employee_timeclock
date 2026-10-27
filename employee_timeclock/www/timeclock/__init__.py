@@ -2,7 +2,7 @@
 # For license information, please see license.txt
 
 import datetime
-from typing import Any, cast
+from typing import Any, Literal, TypedDict, cast
 
 import frappe
 import jwt
@@ -17,19 +17,59 @@ from employee_timeclock.kiosk import (
 	KioskAuthenticationError,
 	require_kiosk_role,
 	resolve_badge,
+	verify_badge,
 )
-from employee_timeclock.timeclock.api import KioskPunch, submit_checkin
+from employee_timeclock.timeclock.api import KioskPunch, get_weekly_hours, record_punch
 from employee_timeclock.timeclock.custom.employee_checkin import EmployeeCheckin, insert_punch
-from employee_timeclock.timeclock.shifts import last_log_type
+from employee_timeclock.timeclock.shifts import last_log_type, resync_around
+
+TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+SYNC_BATCH_LIMIT = 100
+"""Queued punches the kiosk may send in one sync_punches call."""
+
+OFFLINE_PUNCH_MAX_AGE = datetime.timedelta(days=7)
+OFFLINE_PUNCH_MAX_AHEAD = datetime.timedelta(minutes=5)
+"""How far from the server's clock a queued punch's time may be: a tablet offline for over a week,
+or a time ahead of the server by more than clock drift explains, is refused rather than guessed at."""
+
+
+class KioskPunchResult(KioskPunch):
+	"""What ``punch`` returns: the punch, and the server's clock for the kiosk to keep in step with."""
+
+	server_time: str
+
+
+class SyncResult(TypedDict):
+	"""What became of one queued punch: ``recorded``, ``duplicate`` (recorded before) or ``rejected``."""
+
+	id: str
+	status: Literal["recorded", "duplicate", "rejected"]
+
+
+class SyncAnswer(TypedDict):
+	"""What ``sync_punches`` returns: each punch's result, and the server's clock."""
+
+	results: list[SyncResult]
+	server_time: str
+
+
+def _parse_time(text: object) -> datetime.datetime | None:
+	try:
+		return datetime.datetime.strptime(str(text), TIME_FORMAT)
+	except ValueError:
+		return None
 
 
 @frappe.whitelist(methods=["POST"])
-def punch(badge: str, time: str | None = None, log_type: str | None = None) -> KioskPunch:
+@rate_limit(limit=KIOSK_SCAN_LIMIT, seconds=KIOSK_SCAN_WINDOW)
+def punch(
+	badge: str, time: str | None = None, log_type: str | None = None, punch_id: str | None = None
+) -> KioskPunchResult:
 	"""Record a punch for the employee whose badge was scanned at the kiosk.
 
-	The kiosk's one call per scan. ``submit_checkin`` does the work: IN or OUT by the employee's open
-	shift, a second scan inside the same minute keeps the punch already recorded, and the rate limit
-	applies to this endpoint.
+	The kiosk's one call per scan, through ``record_punch``: IN or OUT by the employee's open shift,
+	and a second scan inside the same minute keeps the punch already recorded.
 
 	The punch is at the server's time, unless the employee entered one by hand for a punch they
 	forgot: then ``time`` and ``log_type`` are theirs, and the punch is marked a manual override.
@@ -38,6 +78,8 @@ def punch(badge: str, time: str | None = None, log_type: str | None = None) -> K
 		badge: The scanned badge: an issued badge token or a registered RFID tag.
 		time: A time entered by hand, ``YYYY-MM-DD HH:MM:SS``; not in the future.
 		log_type: ``IN`` or ``OUT``, with ``time``.
+		punch_id: The kiosk's own id for the punch. A punch sent again under the same id (a retry
+			after a lost answer) is recorded once.
 
 	Raises:
 		frappe.PermissionError: The user is not a Timeclock Kiosk user.
@@ -45,17 +87,122 @@ def punch(badge: str, time: str | None = None, log_type: str | None = None) -> K
 		frappe.RateLimitExceededError: Too many scans from this client.
 		frappe.ValidationError: A hand-entered time is malformed or in the future, or has no IN/OUT.
 	"""
-	if not time:
-		return submit_checkin(badge, now_datetime().strftime("%Y-%m-%d %H:%M:%S"))
-	try:
-		entered: datetime.datetime | None = datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S")
-	except ValueError:
-		entered = None
-	if entered is None:
-		frappe.throw(_("Enter the date and time of the punch you missed."))
-	elif entered > now_datetime():
-		frappe.throw(_("That time is in the future. Enter the time of the punch you missed."))
-	return submit_checkin(badge, time, log_type=log_type, manual_override=1)
+	require_kiosk_role()
+	now = now_datetime()
+	if time:
+		entered = _parse_time(time)
+		if entered is None:
+			frappe.throw(_("Enter the date and time of the punch you missed."))
+		elif entered > now:
+			frappe.throw(_("That time is in the future. Enter the time of the punch you missed."))
+	employee = verify_badge(badge)
+	recorded = record_punch(
+		employee,
+		time or now.strftime(TIME_FORMAT),
+		log_type=log_type,
+		manual_override=bool(time),
+		kiosk_punch_id=punch_id,
+	)
+	employee_name, weekly_hours = get_weekly_hours(employee)
+	return KioskPunchResult(
+		log_type=recorded,
+		employee_name=str(employee_name),
+		weekly_hours=float(weekly_hours),
+		server_time=now.strftime(TIME_FORMAT),
+	)
+
+
+def _refusal(queued: dict[str, Any], now: datetime.datetime) -> tuple[str, str | None]:
+	"""Why a queued punch can't be recorded, and its employee when it can (the reason is then "")."""
+	at = _parse_time(queued.get("time"))
+	if at is None:
+		return "its time is not a date and time", None
+	if at > now + OFFLINE_PUNCH_MAX_AHEAD:
+		return "its time is ahead of the server's clock", None
+	if at < now - OFFLINE_PUNCH_MAX_AGE:
+		return "it is more than a week old", None
+	employee = resolve_badge(str(queued.get("badge") or ""))
+	if not employee:
+		return "its badge is not recognised", None
+	return "", employee
+
+
+def _sync_one(queued: dict[str, Any], now: datetime.datetime) -> SyncResult:
+	"""Record one queued punch in its own savepoint, so a failure leaves the rest of the batch alone."""
+	punch_id = str(queued.get("id") or "")
+	if frappe.db.exists("Employee Checkin", {"kiosk_punch_id": punch_id}):
+		return SyncResult(id=punch_id, status="duplicate")
+	reason, employee = _refusal(queued, now)
+	if employee:
+		frappe.db.savepoint("kiosk_sync")
+		try:
+			record_punch(
+				employee,
+				str(queued["time"]),
+				log_type=queued.get("log_type"),
+				manual_override=bool(queued.get("manual")),
+				kiosk_punch_id=punch_id,
+			)
+			frappe.db.release_savepoint("kiosk_sync")
+			return SyncResult(id=punch_id, status="recorded")
+		except Exception as error:
+			frappe.db.rollback(save_point="kiosk_sync")
+			reason = str(error) or type(error).__name__
+	# The employee has long left the kiosk, so the refusal goes where HR will see it. The badge
+	# itself is left out, as everywhere the kiosk logs.
+	frappe.log_error(
+		title="Timeclock: an offline punch was not recorded",
+		message=f"Punch {punch_id} at {queued.get('time')} was not recorded: {reason}.",
+	)
+	return SyncResult(id=punch_id, status="rejected")
+
+
+def _resync_workdays(punch_ids: list[str]) -> None:
+	"""Rebuild the Workdays the synced punches belong to, once the whole batch is in.
+
+	Each punch updates its Workday as it is recorded, but one that lands within a minute of an
+	earlier one leaves a just-saved Workday alone (``update_workday_from_checkin``). A batch often
+	holds an employee's IN and OUT together, so its OUT would otherwise be missing from the Workday.
+	"""
+	# frappe drops an empty "in" filter, which would rebuild every employee's Workdays
+	if not punch_ids:
+		return
+	times: dict[str, list[datetime.datetime]] = {}
+	for checkin in frappe.get_all(
+		"Employee Checkin", filters={"kiosk_punch_id": ["in", punch_ids]}, fields=["employee", "time"]
+	):
+		times.setdefault(checkin.employee, []).append(checkin.time)
+	for employee, punched_at in times.items():
+		resync_around(employee, punched_at)
+
+
+@frappe.whitelist(methods=["POST"])
+@rate_limit(limit=KIOSK_SCAN_LIMIT, seconds=KIOSK_SCAN_WINDOW)
+def sync_punches(punches: list[dict[str, Any]]) -> SyncAnswer:
+	"""Record the punches a kiosk queued while it was offline, oldest first.
+
+	Each queued punch is ``{id, badge, time, log_type?, manual?}``, its time taken from the tablet's
+	clock (kept in step with the server's). IN or OUT is decided at that time, as if it had been sent
+	then. A punch already recorded under its id is a ``duplicate``; one that can't be recorded (an
+	unknown badge, a time out of range) is ``rejected`` and logged for HR. Either way the kiosk can
+	drop it from its queue.
+
+	Raises:
+		frappe.PermissionError: The user is not a Timeclock Kiosk user.
+		frappe.RateLimitExceededError: Too many calls from this client.
+		frappe.ValidationError: More punches than one call takes, or a punch without an id.
+	"""
+	require_kiosk_role()
+	if len(punches) > SYNC_BATCH_LIMIT:
+		frappe.throw(_("Send at most {0} punches at a time.").format(SYNC_BATCH_LIMIT))
+	if not all(str(queued.get("id") or "") for queued in punches):
+		frappe.throw(_("Every punch needs its id."))
+	now = now_datetime()
+	results = [
+		_sync_one(queued, now) for queued in sorted(punches, key=lambda queued: str(queued.get("time")))
+	]
+	_resync_workdays([result["id"] for result in results if result["status"] == "recorded"])
+	return SyncAnswer(results=results, server_time=now.strftime(TIME_FORMAT))
 
 
 def refresh_token(employee_id: str) -> str:

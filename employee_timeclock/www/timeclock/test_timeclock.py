@@ -118,6 +118,32 @@ class TestTimeclockKiosk(IntegrationTestCase):
 		self.assertEqual(second["log_type"], "IN")
 		self.assertEqual(len(self._checkins()), 1)
 
+	def test_punch_answers_with_the_servers_clock(self) -> None:
+		with patch.object(kiosk, "now_datetime", return_value=_today_at("12:00:00")):
+			result = kiosk.punch(self.rfid)
+
+		self.assertEqual(result["server_time"], f"{today()} 12:00:00")
+
+	def test_a_punch_sent_again_under_its_id_is_recorded_once(self) -> None:
+		"""A retry after a lost answer keeps the punch already recorded, even a minute later."""
+		with patch.object(kiosk, "now_datetime", return_value=_today_at("12:00:00")):
+			first = kiosk.punch(self.rfid, punch_id="tablet-1-0001")
+		with patch.object(kiosk, "now_datetime", return_value=_today_at("12:02:00")):
+			again = kiosk.punch(self.rfid, punch_id="tablet-1-0001")
+
+		self.assertEqual((first["log_type"], again["log_type"]), ("IN", "IN"))
+		self.assertEqual(len(self._checkins()), 1)
+		self.assertEqual(
+			frappe.db.get_value("Employee Checkin", {"employee": self.employee}, "kiosk_punch_id"),
+			"tablet-1-0001",
+		)
+
+	def test_punch_refuses_a_user_without_the_kiosk_role(self) -> None:
+		frappe.set_user("Guest")
+
+		with self.assertRaises(frappe.PermissionError):
+			kiosk.punch(self.rfid)
+
 	def test_punch_refuses_an_unknown_badge(self) -> None:
 		with self.assertRaises(KioskAuthenticationError):
 			kiosk.punch("not-a-badge")
