@@ -136,7 +136,7 @@ frappe.init_client_script = () => {
 		// the new kiosk page at /timeclock, while it is being tried out; a label, as the form hides other buttons
 		jQuery("<label class='btn btn-light btn-lg ml-4' id='new-timeclock'>Use new timeclock</label>")
 			.insertAfter("#reset")
-			.click(function() {
+			.click(function () {
 				window.location.href = "/timeclock";
 			});
 
