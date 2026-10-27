@@ -4,14 +4,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@carbon/react";
 import { Time } from "@carbon/react/icons";
+import { rememberServerTime, serverNow } from "../../../public/js/kiosk/clock";
 import { KioskHeader } from "../../../public/js/kiosk/KioskHeader";
+import { KioskStatus } from "../../../public/js/kiosk/KioskStatus";
 import { reloadPage } from "../../../public/js/kiosk/navigate";
 import { useBackendCall } from "../../../public/js/kiosk/useBackendCall";
 import { useKeyboardWedge } from "../../../public/js/kiosk/useKeyboardWedge";
+import { usePunchSync } from "../../../public/js/kiosk/usePunchSync";
 import { Clock } from "./components/Clock";
 import { ManualPunchModal } from "./components/ManualPunchModal";
-import { PunchResult } from "./components/PunchResult";
-import type { KioskPunch, ManualPunch } from "./types";
+import { PunchResult, SavedPunch } from "./components/PunchResult";
+import type { KioskPunch, KioskPunchAnswer, ManualPunch } from "./types";
 
 /** How long a punch's result stays up before the kiosk is ready for the next person. */
 const RESULT_MS = 7000;
@@ -23,11 +26,13 @@ const RELOAD_INTERVAL_MS = 60 * 60 * 1000;
 const OLD_TIMECLOCK = "/employee-timeclock?new=1";
 
 export function App() {
-	const { call: punch } = useBackendCall<KioskPunch>(
+	const { call: punch } = useBackendCall<KioskPunchAnswer>(
 		"employee_timeclock.www.timeclock.punch",
 		"The punch wasn't recorded. Please scan again.",
 	);
-	const [result, setResult] = useState<KioskPunch | null>(null);
+	const { online, waiting, keep } = usePunchSync();
+	// The punch just recorded, or "saved" for one kept on the tablet to send later.
+	const [result, setResult] = useState<KioskPunch | "saved" | null>(null);
 	const [manualOpen, setManualOpen] = useState(false);
 	const [armed, setArmed] = useState<ManualPunch | null>(null);
 	// A scanner that fires twice sends the same badge again before the first punch is saved.
@@ -44,19 +49,29 @@ export function App() {
 			// While a forgotten punch is still being entered, a scan isn't the employee's to record yet.
 			if (manualOpen && !armed) return;
 			pendingScans.current.add(badge);
+			// The punch's own id, so the server records it once however often it is sent; and the
+			// time of the scan, should it have to wait on the tablet.
+			const id = crypto.randomUUID();
+			const time = armed ? armed.time : serverNow();
+			const choice = armed ? { log_type: armed.log_type } : {};
 			try {
-				const recorded = await punch(
-					armed ? { badge, time: armed.time, log_type: armed.log_type } : { badge },
-				);
+				// Offline, there's no point waiting for the network to fail first.
+				const recorded = navigator.onLine
+					? await punch({ badge, punch_id: id, ...(armed && { time, ...choice }) })
+					: ({ ok: false, offline: true } as const);
 				if (recorded.ok) {
+					rememberServerTime(recorded.data.server_time);
 					setResult(recorded.data);
-					if (armed) closeManual();
+				} else if (recorded.offline) {
+					await keep({ id, badge, time, ...choice, ...(armed && { manual: 1 as const }) });
+					setResult("saved");
 				}
+				if (armed && (recorded.ok || recorded.offline)) closeManual();
 			} finally {
 				pendingScans.current.delete(badge);
 			}
 		},
-		[armed, manualOpen, punch, closeManual],
+		[armed, manualOpen, punch, keep, closeManual],
 	);
 
 	useKeyboardWedge((badge) => void recordScan(badge));
@@ -75,13 +90,16 @@ export function App() {
 	return (
 		<>
 			<KioskHeader name="Timeclock">
+				<KioskStatus online={online} waiting={waiting} />
 				<Button kind="ghost" href={OLD_TIMECLOCK}>
 					Use old timeclock
 				</Button>
 			</KioskHeader>
 			<main className="tc-kiosk">
 				<Clock />
-				{result ? (
+				{result === "saved" ? (
+					<SavedPunch />
+				) : result ? (
 					<PunchResult punch={result} />
 				) : (
 					<p className="tc-prompt">Scan your badge to clock in or out.</p>

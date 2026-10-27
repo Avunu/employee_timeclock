@@ -3,7 +3,7 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { PunchResult } from "./PunchResult";
+import { PunchResult, SavedPunch } from "./PunchResult";
 
 describe("PunchResult", () => {
 	it("shows who clocked in and their hours this week", () => {
@@ -21,5 +21,13 @@ describe("PunchResult", () => {
 
 		expect(screen.getByRole("status").textContent).toContain("Clocked out");
 		expect(screen.getByRole("status").querySelector(".cds--tag--red")).not.toBeNull();
+	});
+
+	it("says a punch kept on the tablet will be sent later", () => {
+		render(<SavedPunch />);
+
+		expect(screen.getByRole("status").textContent).toBe(
+			"Punch savedIt will be sent when the tablet is back online.",
+		);
 	});
 });

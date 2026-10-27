@@ -11,6 +11,11 @@ export interface KioskPunch {
 	weekly_hours: number;
 }
 
+/** What punch() answers: the punch, and the server's clock for the kiosk to keep in step with. */
+export interface KioskPunchAnswer extends KioskPunch {
+	server_time: string;
+}
+
 /** A forgotten punch, entered by hand and waiting for the employee's badge. */
 export interface ManualPunch {
 	/** `YYYY-MM-DD HH:MM:SS`, as punch() takes it. */

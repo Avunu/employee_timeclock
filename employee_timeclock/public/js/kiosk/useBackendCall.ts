@@ -6,24 +6,24 @@ import { KioskCallError, kioskCall } from "./call";
 import { useSession } from "./session";
 import { useToasts } from "./Toasts";
 
-export type BackendResult<T> = { ok: true; data: T } | { ok: false };
+/** A call's answer, or that it failed: `offline` when it never reached the server. */
+export type BackendResult<T> = { ok: true; data: T } | { ok: false; offline: boolean };
 
 /**
- * The human-readable text of a failed call. kioskCall already reads
- * frappe.throw()'s message out of `_server_messages` into the error; with no
- * HTTP response at all (offline, the server down) fetch throws a TypeError,
- * which gets a message of our own.
+ * The human-readable text of a failed call: kioskCall has already read
+ * frappe.throw()'s message out of `_server_messages` into the error.
  */
 export function getErrorMessage(error: unknown, fallback: string): string {
 	if (error instanceof KioskCallError) return error.message || fallback;
-	if (error instanceof TypeError) return "Couldn't reach the server. Check the tablet's connection.";
 	return fallback;
 }
 
 /**
  * kioskCall plus the plumbing every kiosk call site needs: restarts the
  * session timer on success, reloads the page on a 403 (see SessionProvider),
- * and shows any other failure as an error toast. Callers get a result instead
+ * and shows any other answer from the server as an error toast. A call that
+ * never reached the server (fetch's TypeError) gets no toast: it comes back
+ * `offline`, for the caller to keep for later. Callers get a result instead
  * of an exception, so a fire-and-forget call can't leak an unhandled rejection.
  */
 export function useBackendCall<T>(method: string, errorTitle: string) {
@@ -39,12 +39,13 @@ export function useBackendCall<T>(method: string, errorTitle: string) {
 				recordActivity();
 				return { ok: true, data };
 			} catch (error) {
+				const offline = error instanceof TypeError;
 				if (error instanceof KioskCallError && error.status === 403) {
 					reportForbidden();
-				} else {
+				} else if (!offline) {
 					showToast({ kind: "error", title: getErrorMessage(error, errorTitle) });
 				}
-				return { ok: false };
+				return { ok: false, offline };
 			} finally {
 				setLoading(false);
 			}

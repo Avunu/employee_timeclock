@@ -25,12 +25,6 @@ describe("getErrorMessage", () => {
 		expect(getErrorMessage(new KioskCallError(500, ""), FALLBACK)).toBe(FALLBACK);
 	});
 
-	it("says the tablet is offline when there was no answer at all", () => {
-		expect(getErrorMessage(new TypeError("Failed to fetch"), FALLBACK)).toBe(
-			"Couldn't reach the server. Check the tablet's connection.",
-		);
-	});
-
 	it("falls back for anything else", () => {
 		expect(getErrorMessage(new Error("boom"), FALLBACK)).toBe(FALLBACK);
 		expect(getErrorMessage("boom", FALLBACK)).toBe(FALLBACK);
@@ -101,9 +95,25 @@ describe("useBackendCall", () => {
 			answer = await result.current.call();
 		});
 
-		expect(answer).toEqual({ ok: false });
+		expect(answer).toEqual({ ok: false, offline: false });
 		expect(showToast).toHaveBeenCalledExactlyOnceWith({ kind: "error", title: "Badge not recognised." });
 		expect(recordActivity).not.toHaveBeenCalled();
+		expect(reportForbidden).not.toHaveBeenCalled();
+	});
+
+	it("keeps quiet when the call never reached the server, and says it's offline", async () => {
+		stubFetch(async () => {
+			throw new TypeError("Failed to fetch");
+		});
+		const result = backend();
+
+		let answer;
+		await act(async () => {
+			answer = await result.current.call();
+		});
+
+		expect(answer).toEqual({ ok: false, offline: true });
+		expect(showToast).not.toHaveBeenCalled();
 		expect(reportForbidden).not.toHaveBeenCalled();
 	});
 

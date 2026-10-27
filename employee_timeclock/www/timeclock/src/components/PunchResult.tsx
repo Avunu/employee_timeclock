@@ -17,3 +17,15 @@ export function PunchResult({ punch }: { punch: KioskPunch }) {
 		</Tile>
 	);
 }
+
+/** A punch the tablet kept because it couldn't reach the server: it goes with the next sync. */
+export function SavedPunch() {
+	return (
+		<Tile className="tc-result" role="status">
+			<Tag type="cool-gray" size="lg">
+				Punch saved
+			</Tag>
+			<div className="tc-result-hours">It will be sent when the tablet is back online.</div>
+		</Tile>
+	);
+}

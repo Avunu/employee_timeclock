@@ -8,7 +8,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Listener = (event: unknown) => void;
 
-const CACHE = "employee-timeclock-kiosk-v1";
+const CACHE = "employee-timeclock-kiosk-v2";
+
+/** What a cache keys a request by: its URL, or the path a page is kept under. */
+const keyOf = (request: string | { url: string }) => (typeof request === "string" ? request : request.url);
 
 /** A fake CacheStorage: named caches of url -> Response. */
 function fakeCaches(names: string[] = []) {
@@ -21,8 +24,9 @@ function fakeCaches(names: string[] = []) {
 			const store = stores.get(name) ?? new Map<string, Response>();
 			stores.set(name, store);
 			return {
-				match: async (request: { url: string }) => store.get(request.url),
-				put: async (request: { url: string }, response: Response) => void store.set(request.url, response),
+				match: async (request: string | { url: string }) => store.get(keyOf(request)),
+				put: async (request: string | { url: string }, response: Response) =>
+					void store.set(keyOf(request), response),
 			};
 		}),
 	};
@@ -79,7 +83,7 @@ describe("the kiosk service worker", () => {
 	});
 
 	it("drops its own older caches, and nobody else's, when it activates", async () => {
-		await loadWorker(["employee-timeclock-kiosk-v0", CACHE, "little-cocalico-portal-v1"]);
+		await loadWorker(["employee-timeclock-kiosk-v1", CACHE, "little-cocalico-portal-v1"]);
 		const event = workerEvent();
 
 		dispatch("activate", event);
@@ -97,7 +101,7 @@ describe("the kiosk service worker", () => {
 		expect(event.responded).toBeUndefined();
 	});
 
-	it("loads the page itself from the network", async () => {
+	it("loads the page from the network, and keeps a copy for offline", async () => {
 		const page = new Response("the timeclock");
 		vi.stubGlobal(
 			"fetch",
@@ -108,9 +112,55 @@ describe("the kiosk service worker", () => {
 		dispatch("fetch", event);
 
 		await expect(event.responded).resolves.toBe(page);
+		expect(await caches.stores.get(CACHE)!.get("/timeclock")!.text()).toBe("the timeclock");
 	});
 
-	it("shows the offline screen when the page can't be loaded", async () => {
+	it("keeps one copy of the page, whatever its query string", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => new Response("the probe")),
+		);
+		const event = workerEvent(get("http://localhost:8000/timeclock?probe=nfc", "navigate"));
+
+		dispatch("fetch", event);
+		await event.responded;
+
+		expect([...caches.stores.get(CACHE)!.keys()]).toEqual(["/timeclock"]);
+	});
+
+	it("never keeps a redirect to the login, or an error page", async () => {
+		const login = new Response("login");
+		Object.defineProperty(login, "redirected", { value: true });
+		const failed = new Response("oops", { status: 500 });
+		const answers = [login, failed];
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => answers.shift()),
+		);
+		const events = [1, 2].map(() => workerEvent(get("http://localhost:8000/timeclock", "navigate")));
+
+		for (const event of events) dispatch("fetch", event);
+
+		expect(await Promise.all(events.map((event) => event.responded))).toEqual([login, failed]);
+		expect(caches.stores.get(CACHE)!.size).toBe(0);
+	});
+
+	it("opens the kept page when the tablet is offline", async () => {
+		await (await caches.open(CACHE)).put("/timeclock", new Response("kept timeclock"));
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => {
+				throw new TypeError("Failed to fetch");
+			}),
+		);
+		const event = workerEvent(get("http://localhost:8000/timeclock", "navigate"));
+
+		dispatch("fetch", event);
+
+		expect(await (await event.responded!).text()).toBe("kept timeclock");
+	});
+
+	it("shows the offline screen when offline with no page kept yet", async () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn(async () => {

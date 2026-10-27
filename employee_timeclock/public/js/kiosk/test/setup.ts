@@ -4,7 +4,8 @@
 // Runs before every kiosk test file (vitest.config.ts setupFiles).
 
 import { cleanup } from "@testing-library/react";
-import { afterEach, vi } from "vitest";
+import { IDBFactory } from "fake-indexeddb";
+import { afterEach, beforeEach, vi } from "vitest";
 
 // Carbon reads these, and jsdom has neither.
 window.matchMedia = (query: string) => ({
@@ -23,6 +24,11 @@ window.ResizeObserver = class {
 	disconnect() {}
 };
 
+// A fresh, empty IndexedDB (the punch queue) for every test; jsdom has none of its own.
+beforeEach(() => {
+	globalThis.indexedDB = new IDBFactory();
+});
+
 afterEach(() => {
 	cleanup();
 	vi.useRealTimers();
@@ -30,4 +36,5 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 	delete window.csrf_token;
 	delete window.kiosk_boot;
+	window.localStorage.clear();
 });
