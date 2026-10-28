@@ -15,6 +15,7 @@ Badge-scan timeclock kiosks and job-card time tracking for ERPNext and HRMS
 [![Latest release](https://img.shields.io/github/v/release/Avunu/employee_timeclock)](https://github.com/Avunu/employee_timeclock/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](license.txt)
 [![Frappe v16](https://img.shields.io/badge/Frappe-v16-blue)](https://github.com/frappe/frappe/tree/version-16)
+[![Documentation](https://img.shields.io/badge/docs-docs.avunu.net-blue)](https://docs.avunu.net/employee-timeclock/)
 
 <picture>
   <img src="docs/screenshots/job-tracker-light.webp" alt="The job time tracker: open work orders, the workbench order's operations with logged time, and a welding timer running">
@@ -105,6 +106,7 @@ The full list, and the messages the app shows with their fixes, are in [docs/tro
 
 ## Support
 
+- Documentation: [docs.avunu.net/employee-timeclock/](https://docs.avunu.net/employee-timeclock/)
 - Bug reports and questions: [GitHub issues](https://github.com/Avunu/employee_timeclock/issues)
 - E-mail: <mail@avu.nu>
 
