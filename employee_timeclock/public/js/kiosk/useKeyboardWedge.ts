@@ -23,12 +23,15 @@ export function useKeyboardWedge(onScan: (code: string) => void): void {
 
 	useEffect(() => {
 		const options = {
-			// ignoreIfFocusOn backs off whenever a real input is focused, so typing
-			// into a field (the forgotten-punch time) fills that field instead of
-			// also being read as a page-level scan. @types/onscan.js types this as
-			// boolean only, but onscan.js itself also accepts a selector/element
-			// (or array of them) - see its own doc comment on the option.
-			ignoreIfFocusOn: "input, textarea, select",
+			// ignoreIfFocusOn backs off whenever a text field is focused, so typing
+			// into it (the forgotten-punch date) fills that field instead of also
+			// being read as a page-level scan. Radio buttons take no typed text,
+			// so a badge scanned while one has focus (right after choosing the
+			// forgotten punch's IN/OUT) is still heard.
+			// @types/onscan.js types this as boolean only, but onscan.js itself
+			// also accepts a selector/element (or array of them) - see its own doc
+			// comment on the option.
+			ignoreIfFocusOn: "input:not([type='radio']), textarea, select",
 			// onscan.js's default decoder only recognizes keyCodes 48-90 and
 			// 96-111 (letters, digits, numpad) and silently drops everything
 			// else - the "-" and "_" in an issued badge token among them.

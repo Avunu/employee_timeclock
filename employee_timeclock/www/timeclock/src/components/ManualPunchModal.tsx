@@ -2,25 +2,33 @@
 // For license information, please see license.txt
 
 import { useEffect, useState } from "react";
-import { DatePicker, DatePickerInput, Modal, RadioButton, RadioButtonGroup, TextInput } from "@carbon/react";
+import {
+	DatePicker,
+	DatePickerInput,
+	InlineNotification,
+	Modal,
+	RadioButton,
+	RadioButtonGroup,
+} from "@carbon/react";
 import type { LogType, ManualPunch } from "../types";
+import { TimeSpinner } from "./TimeSpinner";
 
 /** A forgotten punch nobody finishes is dropped after this long, so the next person's scan is
  * an ordinary punch again. */
 const IDLE_MS = 2 * 60 * 1000;
 
-/** What a time input holds once its hours and minutes are both filled in: 07:30, 19:05. */
-const TIME_VALUE = /^([01]\d|2[0-3]):([0-5]\d)$/;
-
 const pad = (value: number): string => String(value).padStart(2, "0");
 
-/** The entered day and time as one Date, or null while the time isn't filled in. */
-function enteredAt(day: Date, time: string): Date | null {
-	const match = TIME_VALUE.exec(time);
-	if (!match) return null;
+/** The entered day and time, in minutes since midnight, as one Date. */
+function enteredAt(day: Date, minutes: number): Date {
 	const at = new Date(day);
-	at.setHours(Number(match[1]), Number(match[2]), 0, 0);
+	at.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
 	return at;
+}
+
+function minutesNow(): number {
+	const now = new Date();
+	return now.getHours() * 60 + now.getMinutes();
 }
 
 function toManualPunch(at: Date, logType: LogType): ManualPunch {
@@ -40,71 +48,48 @@ function startOfToday(): Date {
 }
 
 interface ManualPunchModalProps {
-	/** The punch waiting for a badge, once the employee has entered it. */
-	armed: ManualPunch | null;
-	onArm: (punch: ManualPunch) => void;
-	/** Back from waiting for the badge to the entered punch. */
-	onBack: () => void;
+	/** The punch the form holds, once its time and IN/OUT are filled in; null until then. */
+	onArm: (punch: ManualPunch | null) => void;
 	onClose: () => void;
 }
 
 /**
  * A punch the employee forgot: they enter its date, time and IN/OUT, then scan their badge to
- * record it (the scan itself is handled by App, which sends `armed` along with the badge).
- * Mounted fresh each time it opens, so it always starts empty.
+ * record it. The scan itself is handled by App, which sends the punch this form last armed along
+ * with the badge. Mounted fresh each time it opens, so it always starts on today and the time now.
  */
-export function ManualPunchModal({ armed, onArm, onBack, onClose }: ManualPunchModalProps) {
+export function ManualPunchModal({ onArm, onClose }: ManualPunchModalProps) {
 	const [day, setDay] = useState(startOfToday);
-	// HH:MM, 24-hour, as the time input gives it; empty until hours and minutes are both set.
-	const [time, setTime] = useState("");
+	// Minutes since midnight, starting at the time now: a forgotten punch is stepped back from it.
+	const [time, setTime] = useState(minutesNow);
 	const [logType, setLogType] = useState<LogType | null>(null);
 
 	// Restarted by every change, so it only runs out while nobody is using the form.
 	useEffect(() => {
 		const timeout = window.setTimeout(onClose, IDLE_MS);
 		return () => window.clearTimeout(timeout);
-	}, [day, time, logType, armed, onClose]);
-
-	if (armed) {
-		return (
-			<Modal
-				open
-				size="sm"
-				modalHeading="Scan your badge"
-				primaryButtonText="Waiting for your badge…"
-				primaryButtonDisabled
-				secondaryButtonText="Back"
-				onSecondarySubmit={onBack}
-				onRequestClose={onClose}
-				preventCloseOnClickOutside
-			>
-				<p className="tc-manual-armed">
-					{armed.log_type === "IN" ? "Clock in" : "Clock out"} at {armed.label}
-				</p>
-			</Modal>
-		);
-	}
+	}, [day, time, logType, onClose]);
 
 	const at = enteredAt(day, time);
-	const inFuture = at !== null && at.getTime() > Date.now();
-	// The punch to arm, once the form holds one.
-	const entered = at && !inFuture && logType ? toManualPunch(at, logType) : null;
+	const inFuture = at.getTime() > Date.now();
+	// The punch a scan records, once the form holds one.
+	const entered = !inFuture && logType ? toManualPunch(at, logType) : null;
+
+	// Keyed on what the punch is, as `entered` is a new object every render.
+	const armedTime = entered?.time;
+	const armedLabel = entered?.label;
+	useEffect(() => {
+		onArm(
+			armedTime && armedLabel && logType ? { time: armedTime, log_type: logType, label: armedLabel } : null,
+		);
+	}, [armedTime, armedLabel, logType, onArm]);
 
 	return (
 		<Modal
 			open
+			passiveModal
 			size="sm"
 			modalHeading="Forgot to punch?"
-			primaryButtonText="Next: scan your badge"
-			primaryButtonDisabled={!entered}
-			secondaryButtonText="Cancel"
-			{...(entered && {
-				onRequestSubmit: () => {
-					// The badge scan comes next, and onscan.js ignores keystrokes into a focused field.
-					for (const element of document.querySelectorAll<HTMLElement>(":focus")) element.blur();
-					onArm(entered);
-				},
-			})}
 			onRequestClose={onClose}
 			preventCloseOnClickOutside
 		>
@@ -120,18 +105,15 @@ export function ManualPunchModal({ armed, onArm, onBack, onClose }: ManualPunchM
 				>
 					<DatePickerInput id="tc-manual-date" labelText="Date" placeholder="mm/dd/yyyy" />
 				</DatePicker>
-				{/* A native time input, as in the Workday Management report: hours, minutes and AM/PM are
-				    separate parts, stepped with the arrow keys or picked from the tablet's own time picker. */}
-				<TextInput
-					id="tc-manual-time"
-					type="time"
-					labelText="Time"
-					size="lg"
-					value={time}
-					onChange={(event) => setTime(event.target.value)}
-					invalid={inFuture}
-					invalidText="That time hasn't happened yet."
-				/>
+				<TimeSpinner value={time} onChange={setTime} />
+				{inFuture && (
+					<InlineNotification
+						kind="error"
+						lowContrast
+						hideCloseButton
+						title="That time hasn't happened yet."
+					/>
+				)}
 				<RadioButtonGroup
 					legendText="Clock in or out"
 					name="tc-manual-log-type"
@@ -141,6 +123,11 @@ export function ManualPunchModal({ armed, onArm, onBack, onClose }: ManualPunchM
 					<RadioButton id="tc-manual-in" labelText="Clock in" value="IN" />
 					<RadioButton id="tc-manual-out" labelText="Clock out" value="OUT" />
 				</RadioButtonGroup>
+				<p className="tc-manual-armed" role="status">
+					{entered
+						? `Scan your badge to ${entered.log_type === "IN" ? "clock in" : "clock out"} at ${entered.label}.`
+						: "Enter the time and choose clock in or out, then scan your badge."}
+				</p>
 			</div>
 		</Modal>
 	);

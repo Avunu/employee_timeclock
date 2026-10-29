@@ -52,6 +52,19 @@ describe("useKeyboardWedge", () => {
 		expect(onScan).not.toHaveBeenCalled();
 	});
 
+	it("hears a scan while a radio button, which takes no typed text, has focus", () => {
+		const onScan = vi.fn();
+		renderHook(() => useKeyboardWedge(onScan));
+		const input = document.body.appendChild(document.createElement("input"));
+		input.type = "radio";
+		input.focus();
+
+		scan([..."BADGE6"], input);
+		input.remove();
+
+		expect(onScan).toHaveBeenCalledExactlyOnceWith("BADGE6");
+	});
+
 	it("calls the latest callback it was given", () => {
 		const first = vi.fn();
 		const second = vi.fn();

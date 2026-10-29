@@ -9,6 +9,7 @@ import { SessionProvider } from "../../../public/js/kiosk/session";
 import { respond, stubFetch, thrown } from "../../../public/js/kiosk/test/server";
 import { ToastProvider } from "../../../public/js/kiosk/Toasts";
 import { App } from "./App";
+import { setTime } from "./test/setTime";
 
 vi.mock("../../../public/js/kiosk/navigate", () => ({ goTo: vi.fn(), reloadPage: vi.fn() }));
 
@@ -89,12 +90,11 @@ async function scanOffline(badge: string): Promise<void> {
 	await waitFor(() => expect(result()?.textContent).toContain("Punch saved"));
 }
 
-/** `clock` is what the time input holds: HH:MM on a 24-hour clock. */
+/** `clock` is HH:MM on a 24-hour clock, set by tapping the time spinner's arrows. */
 function enterForgottenPunch(clock: string, choice: "Clock in" | "Clock out"): void {
 	fireEvent.click(screen.getByRole("button", { name: "Forgot to punch?" }));
-	fireEvent.change(screen.getByLabelText("Time"), { target: { value: clock } });
+	setTime(clock);
 	fireEvent.click(screen.getByLabelText(choice));
-	fireEvent.click(screen.getByRole("button", { name: "Next: scan your badge" }));
 }
 
 const result = () => document.querySelector(".tc-result");
@@ -191,16 +191,16 @@ describe("App", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Forgot to punch?" }));
 		await scan("RFID1234");
 		expect(callsTo(fetch, PUNCH)).toEqual([]); // still entering it
-		fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+		fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
 		enterForgottenPunch("07:30", "Clock out");
-		expect(screen.getByText(/Clock out at 7:30/)).toBeTruthy();
+		expect(screen.getByText(/Scan your badge to clock out at 7:30/)).toBeTruthy();
 		await scan("RFID1234");
 
 		expect(callsTo(fetch, PUNCH)).toEqual([
 			{ badge: "RFID1234", punch_id: expect.any(String), time: "2026-10-23 07:30:00", log_type: "OUT" },
 		]);
-		expect(screen.queryByText(/Waiting for your badge/)).toBeNull();
+		expect(screen.queryByText(/Scan your badge to/)).toBeNull();
 		expect(result()?.textContent).toContain("Clocked out");
 	});
 
@@ -211,16 +211,20 @@ describe("App", () => {
 		await scan("UNKNOWN1");
 
 		expect(screen.getByText("Badge not recognised.")).toBeTruthy();
-		expect(screen.getByText(/Waiting for your badge/)).toBeTruthy();
+		expect(screen.getByText(/Scan your badge to clock in at 7:30/)).toBeTruthy();
 	});
 
-	it("goes back from waiting for the badge to the entered punch", async () => {
-		await openApp(server());
+	it("records a forgotten punch scanned while IN/OUT still has focus", async () => {
+		const fetch = server();
+		await openApp(fetch);
 		enterForgottenPunch("07:30", "Clock in");
+		screen.getByLabelText("Clock in").focus();
 
-		fireEvent.click(screen.getByRole("button", { name: "Back" }));
+		await scan("RFID1234");
 
-		expect(screen.getByLabelText("Time")).toBeTruthy();
+		expect(callsTo(fetch, PUNCH)).toEqual([
+			{ badge: "RFID1234", punch_id: expect.any(String), time: "2026-10-23 07:30:00", log_type: "IN" },
+		]);
 	});
 
 	describe("offline", () => {
@@ -269,7 +273,7 @@ describe("App", () => {
 			expect(await queuedPunches()).toEqual([
 				{ id: expect.any(String), badge: "RFID1234", time: "2026-10-23 07:30:00", log_type: "IN", manual: 1 },
 			]);
-			expect(screen.queryByText(/Waiting for your badge/)).toBeNull();
+			expect(screen.queryByText(/Scan your badge to/)).toBeNull();
 		});
 
 		it("sends what it kept once it's back online", async () => {

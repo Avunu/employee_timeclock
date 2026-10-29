@@ -46,7 +46,7 @@ export function App() {
 	const recordScan = useCallback(
 		async (badge: string) => {
 			if (!badge || pendingScans.current.has(badge)) return;
-			// While a forgotten punch is still being entered, a scan isn't the employee's to record yet.
+			// While a forgotten punch is still being filled in, a scan has nothing to record yet.
 			if (manualOpen && !armed) return;
 			pendingScans.current.add(badge);
 			// The punch's own id, so the server records it once however often it is sent; and the
@@ -108,14 +108,7 @@ export function App() {
 					Forgot to punch?
 				</Button>
 			</main>
-			{manualOpen && (
-				<ManualPunchModal
-					armed={armed}
-					onArm={setArmed}
-					onBack={() => setArmed(null)}
-					onClose={closeManual}
-				/>
-			)}
+			{manualOpen && <ManualPunchModal onArm={setArmed} onClose={closeManual} />}
 		</>
 	);
 }

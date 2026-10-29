@@ -77,6 +77,57 @@
 	font-size: 1.5rem;
 }
 
+// The forgotten punch's time: hours, minutes and AM/PM in a row, each a big number between arrows
+// sized for a finger (Carbon's 2xl buttons are 5rem square).
+.tc-spinner {
+	border: 0;
+	margin: 0;
+	padding: 0;
+}
+
+.tc-spinner-columns {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+}
+
+.tc-spinner-column {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+// No double-tap zoom or text selection while a finger holds an arrow down.
+.tc-spinner-arrow {
+	justify-content: center;
+	inline-size: 5rem;
+	padding: 0;
+	touch-action: manipulation;
+	user-select: none;
+
+	svg {
+		inline-size: 2rem;
+		block-size: 2rem;
+	}
+}
+
+.tc-spinner-value,
+.tc-spinner-colon {
+	font-size: 3.5rem;
+	font-variant-numeric: tabular-nums;
+	line-height: 1.2;
+}
+
+.tc-spinner-value {
+	min-inline-size: 5rem;
+	text-align: center;
+}
+
+.tc-spinner-colon {
+	align-self: center;
+}
+
 // The temporary NFC probe (/timeclock?probe=nfc).
 .tc-probe {
 	display: flex;
