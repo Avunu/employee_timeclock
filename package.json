@@ -41,7 +41,7 @@
 		"vue3-spinners": "^1.3.3"
 	},
 	"devDependencies": {
-		"@iconify-json/lucide": "^1.2.146",
+		"@iconify-json/lucide": "^1.2.147",
 		"@redis/client": "^6.3.0",
 		"@tiptap/core": "^3.32.0",
 		"@tiptap/extension-blockquote": "^3.32.0",
