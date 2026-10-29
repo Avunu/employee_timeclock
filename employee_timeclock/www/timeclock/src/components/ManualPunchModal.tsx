@@ -2,35 +2,24 @@
 // For license information, please see license.txt
 
 import { useEffect, useState } from "react";
-import {
-	DatePicker,
-	DatePickerInput,
-	Modal,
-	RadioButton,
-	RadioButtonGroup,
-	SelectItem,
-	TimePicker,
-	TimePickerSelect,
-} from "@carbon/react";
+import { DatePicker, DatePickerInput, Modal, RadioButton, RadioButtonGroup, TextInput } from "@carbon/react";
 import type { LogType, ManualPunch } from "../types";
 
 /** A forgotten punch nobody finishes is dropped after this long, so the next person's scan is
  * an ordinary punch again. */
 const IDLE_MS = 2 * 60 * 1000;
 
-/** h:mm on a 12-hour clock: 7:30, 07:30, 12:05. */
-const TIME_TEXT = /^(1[0-2]|0?[1-9]):([0-5]\d)$/;
-
-type Period = "AM" | "PM";
+/** What a time input holds once its hours and minutes are both filled in: 07:30, 19:05. */
+const TIME_VALUE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 const pad = (value: number): string => String(value).padStart(2, "0");
 
-/** The entered day and time as one Date, or null while the time isn't h:mm. */
-function enteredAt(day: Date, text: string, period: Period): Date | null {
-	const match = TIME_TEXT.exec(text.trim());
+/** The entered day and time as one Date, or null while the time isn't filled in. */
+function enteredAt(day: Date, time: string): Date | null {
+	const match = TIME_VALUE.exec(time);
 	if (!match) return null;
 	const at = new Date(day);
-	at.setHours((Number(match[1]) % 12) + (period === "PM" ? 12 : 0), Number(match[2]), 0, 0);
+	at.setHours(Number(match[1]), Number(match[2]), 0, 0);
 	return at;
 }
 
@@ -66,15 +55,15 @@ interface ManualPunchModalProps {
  */
 export function ManualPunchModal({ armed, onArm, onBack, onClose }: ManualPunchModalProps) {
 	const [day, setDay] = useState(startOfToday);
-	const [timeText, setTimeText] = useState("");
-	const [period, setPeriod] = useState<Period>(() => (new Date().getHours() < 12 ? "AM" : "PM"));
+	// HH:MM, 24-hour, as the time input gives it; empty until hours and minutes are both set.
+	const [time, setTime] = useState("");
 	const [logType, setLogType] = useState<LogType | null>(null);
 
 	// Restarted by every change, so it only runs out while nobody is using the form.
 	useEffect(() => {
 		const timeout = window.setTimeout(onClose, IDLE_MS);
 		return () => window.clearTimeout(timeout);
-	}, [day, timeText, period, logType, armed, onClose]);
+	}, [day, time, logType, armed, onClose]);
 
 	if (armed) {
 		return (
@@ -96,14 +85,8 @@ export function ManualPunchModal({ armed, onArm, onBack, onClose }: ManualPunchM
 		);
 	}
 
-	const at = enteredAt(day, timeText, period);
+	const at = enteredAt(day, time);
 	const inFuture = at !== null && at.getTime() > Date.now();
-	const timeError =
-		timeText.trim() && !at
-			? "Enter the time as h:mm, like 7:30."
-			: inFuture
-				? "That time hasn't happened yet."
-				: "";
 	// The punch to arm, once the form holds one.
 	const entered = at && !inFuture && logType ? toManualPunch(at, logType) : null;
 
@@ -137,25 +120,18 @@ export function ManualPunchModal({ armed, onArm, onBack, onClose }: ManualPunchM
 				>
 					<DatePickerInput id="tc-manual-date" labelText="Date" placeholder="mm/dd/yyyy" />
 				</DatePicker>
-				<TimePicker
+				{/* A native time input, as in the Workday Management report: hours, minutes and AM/PM are
+				    separate parts, stepped with the arrow keys or picked from the tablet's own time picker. */}
+				<TextInput
 					id="tc-manual-time"
+					type="time"
 					labelText="Time"
-					placeholder="hh:mm"
-					value={timeText}
-					onChange={(event) => setTimeText(event.target.value)}
-					invalid={Boolean(timeError)}
-					invalidText={timeError}
-				>
-					<TimePickerSelect
-						id="tc-manual-period"
-						aria-label="AM or PM"
-						value={period}
-						onChange={(event) => setPeriod(event.target.value === "PM" ? "PM" : "AM")}
-					>
-						<SelectItem value="AM" text="AM" />
-						<SelectItem value="PM" text="PM" />
-					</TimePickerSelect>
-				</TimePicker>
+					size="lg"
+					value={time}
+					onChange={(event) => setTime(event.target.value)}
+					invalid={inFuture}
+					invalidText="That time hasn't happened yet."
+				/>
 				<RadioButtonGroup
 					legendText="Clock in or out"
 					name="tc-manual-log-type"

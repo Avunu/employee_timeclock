@@ -89,10 +89,10 @@ async function scanOffline(badge: string): Promise<void> {
 	await waitFor(() => expect(result()?.textContent).toContain("Punch saved"));
 }
 
-function enterForgottenPunch(clock: string, ampm: "AM" | "PM", choice: "Clock in" | "Clock out"): void {
+/** `clock` is what the time input holds: HH:MM on a 24-hour clock. */
+function enterForgottenPunch(clock: string, choice: "Clock in" | "Clock out"): void {
 	fireEvent.click(screen.getByRole("button", { name: "Forgot to punch?" }));
 	fireEvent.change(screen.getByLabelText("Time"), { target: { value: clock } });
-	fireEvent.change(screen.getByLabelText("AM or PM"), { target: { value: ampm } });
 	fireEvent.click(screen.getByLabelText(choice));
 	fireEvent.click(screen.getByRole("button", { name: "Next: scan your badge" }));
 }
@@ -193,7 +193,7 @@ describe("App", () => {
 		expect(callsTo(fetch, PUNCH)).toEqual([]); // still entering it
 		fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-		enterForgottenPunch("7:30", "AM", "Clock out");
+		enterForgottenPunch("07:30", "Clock out");
 		expect(screen.getByText(/Clock out at 7:30/)).toBeTruthy();
 		await scan("RFID1234");
 
@@ -206,7 +206,7 @@ describe("App", () => {
 
 	it("keeps a forgotten punch waiting when the server refuses it", async () => {
 		await openApp(server());
-		enterForgottenPunch("7:30", "AM", "Clock in");
+		enterForgottenPunch("07:30", "Clock in");
 
 		await scan("UNKNOWN1");
 
@@ -216,7 +216,7 @@ describe("App", () => {
 
 	it("goes back from waiting for the badge to the entered punch", async () => {
 		await openApp(server());
-		enterForgottenPunch("7:30", "AM", "Clock in");
+		enterForgottenPunch("07:30", "Clock in");
 
 		fireEvent.click(screen.getByRole("button", { name: "Back" }));
 
@@ -262,7 +262,7 @@ describe("App", () => {
 			await openApp(server(reachable));
 			setOnline(false);
 			reachable.value = false;
-			enterForgottenPunch("7:30", "AM", "Clock in");
+			enterForgottenPunch("07:30", "Clock in");
 
 			await scanOffline("RFID1234");
 
