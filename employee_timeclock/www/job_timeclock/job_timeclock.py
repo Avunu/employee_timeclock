@@ -12,6 +12,7 @@ from frappe import _
 from frappe.query_builder import Case, DocType
 from frappe.query_builder.functions import Coalesce, Max, Sum
 from frappe.rate_limiter import rate_limit
+from frappe.utils import now_datetime
 from frappe.utils.data import get_datetime
 
 from employee_timeclock.auth import get_token_secret
@@ -39,14 +40,29 @@ from employee_timeclock.www.job_timeclock.models import (
 	GetWorkOrdersResponse,
 	GetWorkstationsResponse,
 	MachineTimer,
+	OfflineSnapshot,
 	Operation,
 	StartTimerResponse,
 	StopMachineTimerResponse,
 	StopTimerResponse,
 	SubmitJobCardResponse,
+	SyncTimerEventsResponse,
+	TimerEventResult,
 	UserSessionEmployee,
 	WorkOrder,
 )
+from employee_timeclock.www.timeclock import (
+	OFFLINE_PUNCH_MAX_AGE,
+	OFFLINE_PUNCH_MAX_AHEAD,
+	SYNC_BATCH_LIMIT,
+	TIME_FORMAT,
+	parse_kiosk_time,
+)
+
+
+def _server_time() -> str:
+	"""The server's clock, for a kiosk to keep its own in step with (clock.ts)."""
+	return now_datetime().strftime(TIME_FORMAT)
 
 
 def _get_machine_employee_ids(operation: str) -> list[str]:
@@ -425,33 +441,8 @@ def log_out_employee(time: str, token: str | None = None) -> EmployeeCheckinResp
 	return EmployeeCheckinResponse(status="unsuccessful", log=new_log).model_dump()
 
 
-@frappe.whitelist()
-@rate_limit(limit=2, seconds=1)
-def get_work_orders(token: str | None = None) -> GetWorkOrdersResponse:
-	"""
-	Retrieve all active work orders for display in the job timeclock.
-
-	Fetches work orders with status of "Submitted", "Not Started", or "In Process".
-	Authenticates the employee via Frappe session or JWT token.
-
-	Args:
-		token: Optional JWT authentication token (NFC auth)
-
-	Returns:
-		Dict containing:
-			- status: "success" or "error"
-			- token: Refreshed JWT token (None for session auth)
-			- work_orders: List of work order dicts with name, production_item, and status
-			- message: Error message if authentication failed
-
-	Raises:
-		None: Returns error dict on exception
-	"""
-	try:
-		_employee_id, token = _resolve_employee(token)
-	except Exception as e:
-		return GetWorkOrdersResponse(status="error", message=str(e)).model_dump()
-
+def _open_work_orders() -> list[WorkOrder]:
+	"""Every work order the tracker lists, with its planned and logged time."""
 	# Get work orders with aggregated planned and logged times in a single query
 	WorkOrders = DocType("Work Order")
 	WOOp = DocType("Work Order Operation")
@@ -492,20 +483,158 @@ def get_work_orders(token: str | None = None) -> GetWorkOrdersResponse:
 		.where(WorkOrders.status.isin(["Submitted", "Not Started", "In Process"]))
 	).run(as_dict=True)
 
-	return GetWorkOrdersResponse(
-		status="success",
-		token=token,
-		work_orders=[
-			WorkOrder(
-				name=wo["name"],
-				production_item=wo["production_item"],
-				status=wo["status"],
-				planned_time_mins=float(wo.get("planned_time_mins", 0)),
-				logged_time_mins=float(wo.get("logged_time_mins", 0)),
-			)
-			for wo in work_orders
-		],
-	).model_dump()
+	return [
+		WorkOrder(
+			name=wo["name"],
+			production_item=wo["production_item"],
+			status=wo["status"],
+			planned_time_mins=float(wo.get("planned_time_mins", 0)),
+			logged_time_mins=float(wo.get("logged_time_mins", 0)),
+		)
+		for wo in work_orders
+	]
+
+
+@frappe.whitelist()
+@rate_limit(limit=2, seconds=1)
+def get_work_orders(token: str | None = None) -> GetWorkOrdersResponse:
+	"""
+	Retrieve all active work orders for display in the job timeclock.
+
+	Fetches work orders with status of "Submitted", "Not Started", or "In Process".
+	Authenticates the employee via Frappe session or JWT token.
+
+	Args:
+		token: Optional JWT authentication token (NFC auth)
+
+	Returns:
+		Dict containing:
+			- status: "success" or "error"
+			- token: Refreshed JWT token (None for session auth)
+			- work_orders: List of work order dicts with name, production_item, and status
+			- message: Error message if authentication failed
+
+	Raises:
+		None: Returns error dict on exception
+	"""
+	try:
+		_employee_id, token = _resolve_employee(token)
+	except Exception as e:
+		return GetWorkOrdersResponse(status="error", message=str(e)).model_dump()
+
+	return GetWorkOrdersResponse(status="success", token=token, work_orders=_open_work_orders()).model_dump()
+
+
+def _operations_of(
+	work_order: str, employee_id: str, groups: list[str] | None, ws_list: list[str]
+) -> list[Operation]:
+	"""A work order's operations with their time totals, those at ``ws_list`` first.
+
+	Args:
+		work_order: Name of the work order.
+		employee_id: Whose own totals to fill in.
+		groups: The Employee Groups whose machine operations to include; None for all of them.
+		ws_list: Workstations to sort to the top.
+	"""
+	WorkOrderOperations = DocType("Work Order Operation")
+	JobCards = DocType("Job Card")
+	JobCardTimeLogs = DocType("Job Card Time Log")
+	Operations = DocType("Operation")
+
+	# CASE: map operation -> expected employee (machine ops use machine employee)
+	employee_case = _build_machine_employee_case(WorkOrderOperations.operation, employee_id)
+
+	# Machine operations are only visible to employees who belong to the
+	# operation's Employee Group (e.g. CNC operators); regular (labor)
+	# operations remain visible to everyone.
+	machine_visibility = (
+		(Operations.is_machine_time == 0) | (Operations.employee_group.isin(groups))
+		if groups
+		else Operations.is_machine_time == 0
+	)
+
+	results: list[dict[str, Any]] = (
+		frappe.qb.from_(WorkOrderOperations)
+		.join(Operations)
+		.on(Operations.name == WorkOrderOperations.operation)
+		.left_join(JobCards)
+		.on(
+			(JobCards.work_order == WorkOrderOperations.parent)
+			& (JobCards.operation == WorkOrderOperations.operation)
+			& (JobCards.docstatus < 2)
+		)
+		.left_join(JobCardTimeLogs)
+		.on((JobCardTimeLogs.parent == JobCards.name) & (JobCardTimeLogs.parentfield == "time_logs"))
+		.select(
+			WorkOrderOperations.name.as_("work_order_operation"),
+			WorkOrderOperations.operation,
+			WorkOrderOperations.workstation,
+			WorkOrderOperations.time_in_mins.as_("planned_time_mins"),
+			Operations.is_machine_time,
+			Operations.employee_group,
+			Coalesce(
+				Sum(Case().when(JobCards.is_corrective_job_card == 0, JobCardTimeLogs.time_in_mins).else_(0)),
+				0,
+			).as_("actual_time_mins"),
+			Coalesce(
+				Sum(
+					Case()
+					.when(
+						(JobCards.is_corrective_job_card == 0) & (JobCardTimeLogs.employee == employee_case),
+						JobCardTimeLogs.time_in_mins,
+					)
+					.else_(0)
+				),
+				0,
+			).as_("employee_time_mins"),
+			Coalesce(
+				Sum(Case().when(JobCards.is_corrective_job_card == 1, JobCardTimeLogs.time_in_mins).else_(0)),
+				0,
+			).as_("corrective_total_time_mins"),
+			Coalesce(
+				Sum(
+					Case()
+					.when(
+						(JobCards.is_corrective_job_card == 1) & (JobCardTimeLogs.employee == employee_case),
+						JobCardTimeLogs.time_in_mins,
+					)
+					.else_(0)
+				),
+				0,
+			).as_("corrective_employee_time_mins"),
+			Coalesce(
+				Max(Case().when(JobCards.is_corrective_job_card == 0, JobCards.docstatus).else_(None)),
+				0,
+			).as_("regular_docstatus"),
+		)
+		.where(WorkOrderOperations.parent == work_order)
+		.where(WorkOrderOperations.parenttype == "Work Order")
+		.where(machine_visibility if groups is not None else Operations.name.isnotnull())
+		.groupby(WorkOrderOperations.name)
+		.orderby(
+			Case().when(WorkOrderOperations.workstation.isin(ws_list), 0).else_(1)
+			if ws_list
+			else WorkOrderOperations.idx
+		)
+		.orderby(WorkOrderOperations.idx)
+	).run(as_dict=True)
+
+	return [
+		Operation(
+			name=row["work_order_operation"],
+			operation=row["operation"],
+			workstation=row.get("workstation", ""),
+			planned_time_mins=float(row.get("planned_time_mins", 0)),
+			actual_time_mins=float(row.get("actual_time_mins", 0)),
+			employee_time_mins=float(row.get("employee_time_mins", 0)),
+			corrective_total_time_mins=float(row.get("corrective_total_time_mins", 0)),
+			corrective_employee_time_mins=float(row.get("corrective_employee_time_mins", 0)),
+			is_submitted=int(row.get("regular_docstatus", 0)) == 1,
+			is_machine_time=bool(row.get("is_machine_time")),
+			employee_group=row.get("employee_group"),
+		)
+		for row in results
+	]
 
 
 @frappe.whitelist()
@@ -549,114 +678,37 @@ def get_operations(
 	except ValueError, TypeError:
 		ws_list = [workstations] if workstations else []
 
-	WorkOrderOperations = DocType("Work Order Operation")
-	JobCards = DocType("Job Card")
-	JobCardTimeLogs = DocType("Job Card Time Log")
-	Operations = DocType("Operation")
-
-	# CASE: map operation -> expected employee (machine ops use machine employee)
-	employee_case = _build_machine_employee_case(WorkOrderOperations.operation, employee_id)
-
-	# Machine operations are only visible to employees who belong to the
-	# operation's Employee Group (e.g. CNC operators); regular (labor)
-	# operations remain visible to everyone.
-	groups = _get_employee_groups_for_employee(employee_id)
-	machine_visibility = (
-		(Operations.is_machine_time == 0) | (Operations.employee_group.isin(groups))
-		if groups
-		else Operations.is_machine_time == 0
+	operations = _operations_of(
+		work_order, employee_id, _get_employee_groups_for_employee(employee_id), ws_list
 	)
-
-	results: list[dict[str, Any]] = (
-		frappe.qb.from_(WorkOrderOperations)
-		.join(Operations)
-		.on(Operations.name == WorkOrderOperations.operation)
-		.left_join(JobCards)
-		.on(
-			(JobCards.work_order == WorkOrderOperations.parent)
-			& (JobCards.operation == WorkOrderOperations.operation)
-			& (JobCards.docstatus < 2)
-		)
-		.left_join(JobCardTimeLogs)
-		.on((JobCardTimeLogs.parent == JobCards.name) & (JobCardTimeLogs.parentfield == "time_logs"))
-		.select(
-			WorkOrderOperations.name.as_("work_order_operation"),
-			WorkOrderOperations.operation,
-			WorkOrderOperations.workstation,
-			WorkOrderOperations.time_in_mins.as_("planned_time_mins"),
-			Operations.is_machine_time,
-			Coalesce(
-				Sum(Case().when(JobCards.is_corrective_job_card == 0, JobCardTimeLogs.time_in_mins).else_(0)),
-				0,
-			).as_("actual_time_mins"),
-			Coalesce(
-				Sum(
-					Case()
-					.when(
-						(JobCards.is_corrective_job_card == 0) & (JobCardTimeLogs.employee == employee_case),
-						JobCardTimeLogs.time_in_mins,
-					)
-					.else_(0)
-				),
-				0,
-			).as_("employee_time_mins"),
-			Coalesce(
-				Sum(Case().when(JobCards.is_corrective_job_card == 1, JobCardTimeLogs.time_in_mins).else_(0)),
-				0,
-			).as_("corrective_total_time_mins"),
-			Coalesce(
-				Sum(
-					Case()
-					.when(
-						(JobCards.is_corrective_job_card == 1) & (JobCardTimeLogs.employee == employee_case),
-						JobCardTimeLogs.time_in_mins,
-					)
-					.else_(0)
-				),
-				0,
-			).as_("corrective_employee_time_mins"),
-			Coalesce(
-				Max(Case().when(JobCards.is_corrective_job_card == 0, JobCards.docstatus).else_(None)),
-				0,
-			).as_("regular_docstatus"),
-		)
-		.where(WorkOrderOperations.parent == work_order)
-		.where(WorkOrderOperations.parenttype == "Work Order")
-		.where(machine_visibility)
-		.groupby(WorkOrderOperations.name)
-		.orderby(
-			Case().when(WorkOrderOperations.workstation.isin(ws_list), 0).else_(1)
-			if ws_list
-			else WorkOrderOperations.idx
-		)
-		.orderby(WorkOrderOperations.idx)
-	).run(as_dict=True)
-
-	operations = [
-		Operation(
-			name=row["work_order_operation"],
-			operation=row["operation"],
-			workstation=row.get("workstation", ""),
-			planned_time_mins=float(row.get("planned_time_mins", 0)),
-			actual_time_mins=float(row.get("actual_time_mins", 0)),
-			employee_time_mins=float(row.get("employee_time_mins", 0)),
-			corrective_total_time_mins=float(row.get("corrective_total_time_mins", 0)),
-			corrective_employee_time_mins=float(row.get("corrective_employee_time_mins", 0)),
-			is_submitted=int(row.get("regular_docstatus", 0)) == 1,
-			is_machine_time=bool(row.get("is_machine_time")),
-		)
-		for row in results
-	]
 
 	return GetOperationsResponse(status="success", token=token, operations=operations).model_dump()
 
 
-def _close_open_timers_on_operation(operation: str, close_time: datetime) -> int:
+def _close_logs(cards: dict[str, list[str]], close_time: datetime, stop_id: str | None) -> int:
+	"""Close the named open time logs of each job card, and return how many were closed."""
+	closed = 0
+	for card_name, log_names in cards.items():
+		job_card: TimeclockJobCard = cast(TimeclockJobCard, frappe.get_doc("Job Card", card_name))
+		for tl in job_card.time_logs:
+			if tl.name in log_names:
+				tl.to_time = close_time
+				tl.kiosk_stop_id = stop_id
+				closed += 1
+		job_card.save(ignore_permissions=True)
+	return closed
+
+
+def _close_open_timers_on_operation(
+	operation: str, close_time: datetime, *, started_by_then: bool = False
+) -> int:
 	"""Close all open time logs on a given operation across every job card.
 
 	Args:
 		operation: The Operation name to close timers on.
 		close_time: Timestamp string to write into to_time.
+		started_by_then: Leave a log started after ``close_time`` open: a synced event is older
+			than what other tablets have recorded since.
 
 	Returns:
 		The number of time-log rows that were closed.
@@ -672,6 +724,7 @@ def _close_open_timers_on_operation(operation: str, close_time: datetime) -> int
 		.where(TL.to_time.isnull())
 		.where(JC.operation == operation)
 		.where(JC.docstatus == 0)
+		.where(TL.from_time <= close_time if started_by_then else TL.to_time.isnull())
 	).run(as_dict=True)
 
 	if not open_logs:
@@ -682,24 +735,24 @@ def _close_open_timers_on_operation(operation: str, close_time: datetime) -> int
 	for row in open_logs:
 		cards.setdefault(row["parent"], []).append(row["name"])
 
-	closed = 0
-	for card_name, log_names in cards.items():
-		job_card: TimeclockJobCard = cast(TimeclockJobCard, frappe.get_doc("Job Card", card_name))
-		for tl in job_card.time_logs:
-			if tl.name in log_names:
-				tl.to_time = close_time
-				closed += 1
-		job_card.save(ignore_permissions=True)
-
-	return closed
+	return _close_logs(cards, close_time, None)
 
 
-def _close_open_timers_on_employee(employee_id: str, close_time: datetime) -> int:
+def _close_open_timers_on_employee(
+	employee_id: str,
+	close_time: datetime,
+	*,
+	started_by_then: bool = False,
+	stop_id: str | None = None,
+) -> int:
 	"""Close open time logs for an employee across every job card.
 
 	Args:
 		employee_id: The human employee ID.
 		close_time: Timestamp string to write into to_time.
+		started_by_then: Leave a log started after ``close_time`` open: a synced event is older
+			than what other tablets have recorded since.
+		stop_id: The stop's own id, so it is recorded once however often it is sent.
 
 	Returns:
 		The number of time-log rows that were closed.
@@ -715,6 +768,7 @@ def _close_open_timers_on_employee(employee_id: str, close_time: datetime) -> in
 		.where(TL.to_time.isnull())
 		.where(TL.employee == employee_id)
 		.where(JC.docstatus == 0)
+		.where(TL.from_time <= close_time if started_by_then else TL.to_time.isnull())
 	).run(as_dict=True)
 
 	if not open_logs:
@@ -725,16 +779,7 @@ def _close_open_timers_on_employee(employee_id: str, close_time: datetime) -> in
 	for row in open_logs:
 		cards.setdefault(row["parent"], []).append(row["name"])
 
-	closed = 0
-	for card_name, log_names in cards.items():
-		job_card: TimeclockJobCard = cast(TimeclockJobCard, frappe.get_doc("Job Card", card_name))
-		for tl in job_card.time_logs:
-			if tl.name in log_names:
-				tl.to_time = close_time
-				closed += 1
-		job_card.save(ignore_permissions=True)
-
-	return closed
+	return _close_logs(cards, close_time, stop_id)
 
 
 @frappe.whitelist()
@@ -791,6 +836,120 @@ def get_active_timer(token: str | None = None) -> GetActiveTimerResponse:
 	return GetActiveTimerResponse(status="success", token=token, active_timer=active_timer).model_dump()
 
 
+def _record_start(
+	employee_id: str,
+	work_order: str,
+	operation: str,
+	start_time: datetime,
+	is_corrective: bool,
+	event_id: str | None = None,
+	*,
+	started_by_then: bool = False,
+) -> str | None:
+	"""Start a timer, and return why it can't be started, if it can't.
+
+	Args:
+		employee_id: Whose timer it is.
+		work_order: Work order name.
+		operation: Operation name.
+		start_time: When work began.
+		is_corrective: Whether this is a corrective (rework) timer.
+		event_id: The start's own id, so it is recorded once however often it is sent.
+		started_by_then: Leave logs started after ``start_time`` open, for a synced event.
+	"""
+	if event_id and frappe.db.exists("Job Card Time Log", {"kiosk_start_id": event_id}):
+		return None
+
+	# Resolve the original (non-corrective) job card
+	jobcard_name = _resolve_job_card_name(work_order, operation) or ""
+	if not jobcard_name:
+		return "Job card not found for this operation"
+
+	is_machine = _is_machine_operation(operation)
+	time_log = {}
+	time_log["from_time"] = start_time
+	time_log["kiosk_start_id"] = event_id
+	if is_machine:
+		time_log["machine_operator"] = employee_id
+	else:
+		time_log["employee"] = employee_id
+
+	if is_machine:
+		# Machine timer: close any open timers on this operation across all employees to prevent overlap
+		_close_open_timers_on_operation(operation, start_time, started_by_then=started_by_then)
+	else:
+		# Labor timer: close any open labor time logs before starting
+		_close_open_timers_on_employee(employee_id, start_time, started_by_then=started_by_then)
+
+	if is_corrective:
+		original_job_card: TimeclockJobCard = cast(TimeclockJobCard, frappe.get_doc("Job Card", jobcard_name))
+
+		# Find or create corrective job card
+		existing_corrective = frappe.db.get_value(
+			"Job Card",
+			{"for_job_card": jobcard_name, "is_corrective_job_card": 1, "docstatus": 0},
+			"name",
+		)
+
+		if existing_corrective:
+			target_card: TimeclockJobCard = cast(
+				TimeclockJobCard, frappe.get_doc("Job Card", existing_corrective)
+			)
+			target_card.reload()
+		else:
+			target_card = cast(TimeclockJobCard, frappe.new_doc("Job Card"))
+			target_card.work_order = original_job_card.work_order
+			target_card.bom_no = original_job_card.bom_no
+			target_card.production_item = original_job_card.production_item
+			target_card.operation = original_job_card.operation
+			target_card.workstation = original_job_card.workstation
+			target_card.for_quantity = 0
+			target_card.wip_warehouse = original_job_card.wip_warehouse
+			target_card.is_corrective_job_card = 1
+			target_card.for_job_card = jobcard_name
+			target_card.hour_rate = original_job_card.hour_rate
+			target_card.project = original_job_card.project
+			target_card.company = original_job_card.company
+			target_card.sequence_id = original_job_card.sequence_id
+			target_card.operation_id = original_job_card.operation_id
+
+		target_card.append("time_logs", time_log)
+		target_card.save(ignore_permissions=True)
+	else:
+		job_card: TimeclockJobCard = cast(TimeclockJobCard, frappe.get_doc("Job Card", jobcard_name))
+		job_card.reload()
+		job_card.append("time_logs", time_log)
+		job_card.save(ignore_permissions=True)
+
+	# Broadcast machine timer start to all connected clients
+	if is_machine:
+		Operations = DocType("Operation")
+		EmployeeGroups = (
+			frappe.qb.from_(Operations)
+			.select(Operations.employee_group)
+			.where(Operations.name == operation)
+			.limit(1)
+			.run(pluck="employee_group")
+		)
+		frappe.publish_realtime(
+			"machine_timer_update",
+			{
+				"action": "start",
+				"timer": MachineTimer(
+					work_order=work_order,
+					operation=operation,
+					from_time=start_time,
+					employee_group=EmployeeGroups[0] if EmployeeGroups else "",
+					is_corrective=is_corrective,
+				).model_dump(),
+			},
+			room="website",
+			after_commit=True,
+		)
+
+	return None
+
+
 @frappe.whitelist()
 def start_timer(
 	work_order: str,
@@ -798,6 +957,7 @@ def start_timer(
 	start_time: datetime | str,
 	is_corrective: bool = False,
 	token: str | None = None,
+	event_id: str | None = None,
 ) -> StartTimerResponse:
 	"""
 	Start a timer on a job card (regular or corrective).
@@ -813,11 +973,13 @@ def start_timer(
 		start_time: Timestamp string for when work begins
 		is_corrective: Whether this is a corrective (rework) timer
 		token: Optional JWT authentication token (NFC auth)
+		event_id: The kiosk's own id for the start, so a retry is recorded once
 
 	Returns:
 		Dict containing:
 			- status: "success" or "failed"
 			- error: Error message string if failed
+			- server_time: The server's clock, for the kiosk to keep in step with
 
 	Raises:
 		None: Catches and logs exceptions
@@ -828,115 +990,33 @@ def start_timer(
 	try:
 		employee_id, _token = _resolve_employee(token)
 	except Exception as e:
-		return StartTimerResponse(status="failed", error=str(e)).model_dump()
+		return StartTimerResponse(status="failed", error=str(e)).model_dump(exclude_none=True)
 
 	# convert start_time to datetime if it's a string
 	if isinstance(start_time, str):
 		try:
 			start_time = datetime.fromisoformat(start_time)
 		except ValueError:
-			return StartTimerResponse(status="failed", error="Invalid start_time format").model_dump()
-
-	# Resolve the original (non-corrective) job card
-	jobcard_name = _resolve_job_card_name(work_order, operation) or ""
-	if not jobcard_name:
-		return StartTimerResponse(status="failed", error="Job card not found for this operation").model_dump()
-
-	is_machine = _is_machine_operation(operation)
-	time_log = {}
-	time_log["from_time"] = start_time
-	if is_machine:
-		time_log["machine_operator"] = employee_id
-	else:
-		time_log["employee"] = employee_id
+			return StartTimerResponse(status="failed", error="Invalid start_time format").model_dump(
+				exclude_none=True
+			)
 
 	try:
-		if is_machine:
-			# Machine timer: close any open timers on this operation across all employees to prevent overlap
-			_close_open_timers_on_operation(operation, start_time)
-		else:
-			# Labor timer: close any open labor time logs before starting
-			_close_open_timers_on_employee(employee_id, start_time)
-
-		if is_corrective:
-			original_job_card: TimeclockJobCard = cast(
-				TimeclockJobCard, frappe.get_doc("Job Card", jobcard_name)
-			)
-
-			# Find or create corrective job card
-			existing_corrective = frappe.db.get_value(
-				"Job Card",
-				{"for_job_card": jobcard_name, "is_corrective_job_card": 1, "docstatus": 0},
-				"name",
-			)
-
-			if existing_corrective:
-				target_card: TimeclockJobCard = cast(
-					TimeclockJobCard, frappe.get_doc("Job Card", existing_corrective)
-				)
-				target_card.reload()
-			else:
-				target_card = cast(TimeclockJobCard, frappe.new_doc("Job Card"))
-				target_card.work_order = original_job_card.work_order
-				target_card.bom_no = original_job_card.bom_no
-				target_card.production_item = original_job_card.production_item
-				target_card.operation = original_job_card.operation
-				target_card.workstation = original_job_card.workstation
-				target_card.for_quantity = 0
-				target_card.wip_warehouse = original_job_card.wip_warehouse
-				target_card.is_corrective_job_card = 1
-				target_card.for_job_card = jobcard_name
-				target_card.hour_rate = original_job_card.hour_rate
-				target_card.project = original_job_card.project
-				target_card.company = original_job_card.company
-				target_card.sequence_id = original_job_card.sequence_id
-				target_card.operation_id = original_job_card.operation_id
-
-			target_card.append("time_logs", time_log)
-			target_card.save(ignore_permissions=True)
-		else:
-			job_card: TimeclockJobCard = cast(TimeclockJobCard, frappe.get_doc("Job Card", jobcard_name))
-			job_card.reload()
-			job_card.append("time_logs", time_log)
-			job_card.save(ignore_permissions=True)
-
-		# Broadcast machine timer start to all connected clients
-		if is_machine:
-			Operations = DocType("Operation")
-			EmployeeGroups = (
-				frappe.qb.from_(Operations)
-				.select(Operations.employee_group)
-				.where(Operations.name == operation)
-				.limit(1)
-				.run(pluck="employee_group")
-			)
-			frappe.publish_realtime(
-				"machine_timer_update",
-				{
-					"action": "start",
-					"timer": MachineTimer(
-						work_order=work_order,
-						operation=operation,
-						from_time=start_time,
-						employee_group=EmployeeGroups[0] if EmployeeGroups else "",
-						is_corrective=is_corrective,
-					).model_dump(),
-				},
-				room="website",
-				after_commit=True,
-			)
-
-		return StartTimerResponse(status="success").model_dump()
+		error = _record_start(employee_id, work_order, operation, start_time, is_corrective, event_id)
+		if error:
+			return StartTimerResponse(status="failed", error=error).model_dump(exclude_none=True)
+		return StartTimerResponse(status="success", server_time=_server_time()).model_dump()
 
 	except Exception as e:
 		frappe.log_error("Error in start_timer", e)
-		return StartTimerResponse(status="failed", error=str(e)).model_dump()
+		return StartTimerResponse(status="failed", error=str(e)).model_dump(exclude_none=True)
 
 
 @frappe.whitelist()
 def stop_timer(
 	end_time: datetime | str,
 	token: str | None = None,
+	event_id: str | None = None,
 	**_kwargs: Any,
 ) -> StopTimerResponse:
 	"""
@@ -948,6 +1028,7 @@ def stop_timer(
 	Args:
 		end_time: Timestamp string for when work ends
 		token: Optional JWT authentication token (NFC auth)
+		event_id: The kiosk's own id for the stop, so a retry is recorded once
 
 	Returns:
 		Dict with status "success" or "failed".
@@ -958,24 +1039,30 @@ def stop_timer(
 	try:
 		employee_id, _token = _resolve_employee(token)
 	except Exception as e:
-		return StopTimerResponse(status="failed", error=str(e)).model_dump()
+		return StopTimerResponse(status="failed", error=str(e)).model_dump(exclude_none=True)
 
 	# convert end_time to datetime if it's a string
 	if isinstance(end_time, str):
 		try:
 			end_time = datetime.fromisoformat(end_time)
 		except ValueError:
-			return StopTimerResponse(status="failed", error="Invalid end_time format").model_dump()
+			return StopTimerResponse(status="failed", error="Invalid end_time format").model_dump(
+				exclude_none=True
+			)
 
 	try:
-		closed = _close_open_timers_on_employee(employee_id, end_time)
+		if event_id and frappe.db.exists("Job Card Time Log", {"kiosk_stop_id": event_id}):
+			return StopTimerResponse(status="success", server_time=_server_time()).model_dump()
+		closed = _close_open_timers_on_employee(employee_id, end_time, stop_id=event_id)
 		if closed == 0:
-			return StopTimerResponse(status="failed", error="No active time log found").model_dump()
-		return StopTimerResponse(status="success").model_dump()
+			return StopTimerResponse(status="failed", error="No active time log found").model_dump(
+				exclude_none=True
+			)
+		return StopTimerResponse(status="success", server_time=_server_time()).model_dump()
 
 	except Exception as e:
 		frappe.log_error("Error in stop_timer", e)
-		return StopTimerResponse(status="failed", error=str(e)).model_dump()
+		return StopTimerResponse(status="failed", error=str(e)).model_dump(exclude_none=True)
 
 
 @frappe.whitelist()
@@ -1121,47 +1208,29 @@ def get_machine_timers(token: str | None = None) -> GetMachineTimersResponse:
 	).model_dump()
 
 
-@frappe.whitelist()
-@rate_limit(limit=4, seconds=1)
-def stop_machine_timer(
+def _record_machine_stop(
 	work_order: str,
 	operation: str,
 	end_time: datetime,
-	token: str | None = None,
-) -> StopMachineTimerResponse:
-	"""Stop a specific machine timer.
-
-	Finds the open time log for the machine employee on the given
-	work_order + operation and closes it.  Broadcasts the stop event
-	to all connected clients.
+	event_id: str | None = None,
+	*,
+	started_by_then: bool = False,
+) -> str | None:
+	"""Stop a machine timer, and return why it can't be stopped, if it can't.
 
 	Args:
 		work_order: Work Order name.
 		operation: Operation name (must be a machine operation).
-		end_time: Timestamp string for when the machine timer ends.
-		token: Optional JWT authentication token (NFC auth).
-
-	Returns:
-		Dict with status "success" or "failed".
+		end_time: When the machine timer ends.
+		event_id: The stop's own id, so it is recorded once however often it is sent.
+		started_by_then: Leave logs started after ``end_time`` open, for a synced event.
 	"""
-
-	frappe.flags.in_timeclock = True
-
-	try:
-		_employee_id, _token = _resolve_employee(token)
-	except Exception as e:
-		return StopMachineTimerResponse(status="failed", error=str(e)).model_dump()
-
-	# convert end_time to datetime if it's a string
-	if isinstance(end_time, str):
-		try:
-			end_time = datetime.fromisoformat(end_time)
-		except ValueError:
-			return StopMachineTimerResponse(status="failed", error="Invalid end_time format").model_dump()
+	if event_id and frappe.db.exists("Job Card Time Log", {"kiosk_stop_id": event_id}):
+		return None
 
 	machine_employees = _get_machine_employee_ids(operation)
 	if not machine_employees:
-		return StopMachineTimerResponse(status="failed", error="Not a machine operation").model_dump()
+		return "Not a machine operation"
 
 	JobCardTimeLogs = DocType("Job Card Time Log")
 	JobCards = DocType("Job Card")
@@ -1175,22 +1244,18 @@ def stop_machine_timer(
 		.where(JobCards.operation == operation)
 		.where(JobCards.docstatus == 0)
 		.where(JobCardTimeLogs.to_time.isnull())
+		.where(JobCardTimeLogs.from_time <= end_time if started_by_then else JobCardTimeLogs.to_time.isnull())
 	).run(as_dict=True)
 
 	if not open_logs:
-		return StopMachineTimerResponse(status="failed", error="No active machine timer found").model_dump()
+		return "No active machine timer found"
 
 	# Group by parent card and close
 	cards: dict[str, list[str]] = {}
 	for row in open_logs:
 		cards.setdefault(row["parent"], []).append(row["name"])
 
-	for card_name, log_names in cards.items():
-		jc: TimeclockJobCard = cast(TimeclockJobCard, frappe.get_doc("Job Card", card_name))
-		for tl in jc.time_logs:
-			if tl.name in log_names:
-				tl.to_time = end_time
-		jc.save(ignore_permissions=True)
+	_close_logs(cards, end_time, event_id)
 
 	# Broadcast stop event
 	Operations = DocType("Operation")
@@ -1215,7 +1280,262 @@ def stop_machine_timer(
 		after_commit=True,
 	)
 
-	return StopMachineTimerResponse(status="success").model_dump()
+	return None
+
+
+@frappe.whitelist()
+@rate_limit(limit=4, seconds=1)
+def stop_machine_timer(
+	work_order: str,
+	operation: str,
+	end_time: datetime,
+	token: str | None = None,
+	event_id: str | None = None,
+) -> StopMachineTimerResponse:
+	"""Stop a specific machine timer.
+
+	Finds the open time log for the machine employee on the given
+	work_order + operation and closes it.  Broadcasts the stop event
+	to all connected clients.
+
+	Args:
+		work_order: Work Order name.
+		operation: Operation name (must be a machine operation).
+		end_time: Timestamp string for when the machine timer ends.
+		token: Optional JWT authentication token (NFC auth).
+		event_id: The kiosk's own id for the stop, so a retry is recorded once.
+
+	Returns:
+		Dict with status "success" or "failed".
+	"""
+
+	frappe.flags.in_timeclock = True
+
+	try:
+		_employee_id, _token = _resolve_employee(token)
+	except Exception as e:
+		return StopMachineTimerResponse(status="failed", error=str(e)).model_dump(exclude_none=True)
+
+	# convert end_time to datetime if it's a string
+	if isinstance(end_time, str):
+		try:
+			end_time = datetime.fromisoformat(end_time)
+		except ValueError:
+			return StopMachineTimerResponse(status="failed", error="Invalid end_time format").model_dump(
+				exclude_none=True
+			)
+
+	error = _record_machine_stop(work_order, operation, end_time, event_id)
+	if error:
+		return StopMachineTimerResponse(status="failed", error=error).model_dump(exclude_none=True)
+	return StopMachineTimerResponse(status="success", server_time=_server_time()).model_dump()
+
+
+def _running_machine_timers() -> list[MachineTimer]:
+	"""Every running machine timer, for a tablet to filter by the employee who badges in."""
+	Operations = DocType("Operation")
+	JobCards = DocType("Job Card")
+	JobCardTimeLogs = DocType("Job Card Time Log")
+	rows: list[dict[str, Any]] = (
+		frappe.qb.from_(JobCardTimeLogs)
+		.inner_join(JobCards)
+		.on((JobCardTimeLogs.parent == JobCards.name) & (JobCardTimeLogs.parentfield == "time_logs"))
+		.inner_join(Operations)
+		.on(Operations.name == JobCards.operation)
+		.select(
+			JobCards.work_order,
+			JobCards.operation,
+			JobCardTimeLogs.from_time,
+			Operations.employee_group,
+			JobCards.is_corrective_job_card,
+		)
+		.where(JobCards.docstatus == 0)
+		.where(JobCardTimeLogs.to_time.isnull())
+		.where(Operations.is_machine_time == 1)
+	).run(as_dict=True)
+	return [
+		MachineTimer(
+			work_order=r["work_order"],
+			operation=r["operation"],
+			from_time=r["from_time"],
+			employee_group=r["employee_group"] or "",
+			is_corrective=bool(r.get("is_corrective_job_card")),
+		)
+		for r in rows
+	]
+
+
+@frappe.whitelist()
+@rate_limit(limit=KIOSK_SCAN_LIMIT, seconds=KIOSK_SCAN_WINDOW)
+def get_offline_snapshot() -> OfflineSnapshot:
+	"""Everything a tablet keeps to show the tracker while offline.
+
+	Taken before anyone badges in, so it holds no employee's own totals: every open work order, all
+	of their operations, with each machine operation's Employee Group for the tablet to filter by,
+	the running machine timers and the workstations.
+
+	Raises:
+		frappe.PermissionError: The user is neither a kiosk nor linked to an Employee.
+	"""
+	if not get_employee_for_user():
+		require_kiosk_role()
+	work_orders = _open_work_orders()
+	WS = DocType("Workstation")
+	return OfflineSnapshot(
+		status="success",
+		server_time=_server_time(),
+		work_orders=work_orders,
+		operations={wo.name: _operations_of(wo.name, "", None, []) for wo in work_orders},
+		machine_timers=_running_machine_timers(),
+		workstations=(frappe.qb.from_(WS).select(WS.name).orderby(WS.name)).run(pluck="name"),
+	).model_dump()
+
+
+def _event_employee(event: dict[str, Any]) -> str | None:
+	"""Whose event it is: its badge's employee, or the signed-in employee when it has no badge."""
+	badge = event.get("badge")
+	return resolve_badge(str(badge)) if badge else get_employee_for_user()
+
+
+def _refusal(event: dict[str, Any], now: datetime) -> tuple[str, str | None, datetime | None]:
+	"""Why a queued event can't be recorded, with its employee and time when it can (reason "")."""
+	at = parse_kiosk_time(event.get("time"))
+	if at is None:
+		return "its time is not a date and time", None, None
+	if at > now + OFFLINE_PUNCH_MAX_AHEAD:
+		return "its time is ahead of the server's clock", None, None
+	if at < now - OFFLINE_PUNCH_MAX_AGE:
+		return "it is more than a week old", None, None
+	employee = _event_employee(event)
+	if not employee:
+		return "its badge is not recognised", None, None
+	return "", employee, at
+
+
+def _apply_event(event: dict[str, Any], employee_id: str, at: datetime) -> str | None:
+	"""Record one queued event, and return why it can't be recorded, if it can't."""
+	action, event_id = event.get("action"), str(event["id"])
+	if action == "start":
+		return _record_start(
+			employee_id,
+			str(event.get("work_order")),
+			str(event.get("operation")),
+			at,
+			bool(event.get("is_corrective")),
+			event_id,
+			started_by_then=True,
+		)
+	if action == "stop":
+		closed = _close_open_timers_on_employee(employee_id, at, started_by_then=True, stop_id=event_id)
+		return None if closed else "no time log was open"
+	if action == "stop_machine":
+		return _record_machine_stop(
+			str(event.get("work_order")),
+			str(event.get("operation")),
+			at,
+			event_id,
+			started_by_then=True,
+		)
+	return "its action is not known"
+
+
+def _sync_event(event: dict[str, Any], now: datetime) -> TimerEventResult:
+	"""Record one queued event in its own savepoint, so a failure leaves the rest of the batch alone."""
+	event_id = str(event["id"])
+	field = "kiosk_start_id" if event.get("action") == "start" else "kiosk_stop_id"
+	if frappe.db.exists("Job Card Time Log", {field: event_id}):
+		return TimerEventResult(id=event_id, status="duplicate")
+	reason, employee, at = _refusal(event, now)
+	if employee and at:
+		frappe.db.savepoint("timer_sync")
+		try:
+			reason = _apply_event(event, employee, at) or ""
+			if not reason:
+				frappe.db.release_savepoint("timer_sync")
+				return TimerEventResult(id=event_id, status="recorded")
+		except Exception as error:
+			reason = str(error) or type(error).__name__
+		frappe.db.rollback(save_point="timer_sync")
+	# The employee has long left the tablet, so the refusal goes where HR will see it. The badge
+	# itself is left out, as everywhere the kiosk logs.
+	frappe.log_error(
+		title="Timeclock: an offline timer event was not recorded",
+		message=f"Timer event {event_id} at {event.get('time')} was not recorded: {reason}.",
+	)
+	return TimerEventResult(id=event_id, status="rejected")
+
+
+def _end_at_next_log(start_id: str) -> None:
+	"""End a synced start that was never stopped where the next log begins.
+
+	Its stop was lost to nothing: the employee moved on on another tablet, whose log is newer and so
+	wasn't closed by this older start. Left open, the log would run over that one. Runs after the
+	whole batch, so a stop sent with the start closes it first.
+	"""
+	TL = DocType("Job Card Time Log")
+	JC = DocType("Job Card")
+	opened: list[dict[str, Any]] = (
+		frappe.qb.from_(TL)
+		.inner_join(JC)
+		.on((TL.parent == JC.name) & (TL.parentfield == "time_logs"))
+		.select(TL.parent, TL.name, TL.from_time, TL.employee, TL.machine_operator, JC.operation)
+		.where(TL.kiosk_start_id == start_id)
+		.where(TL.to_time.isnull())
+	).run(as_dict=True)
+	if not opened:
+		return
+	log = opened[0]
+	whose = JC.operation == log["operation"] if log["machine_operator"] else TL.employee == log["employee"]
+	next_start: list[datetime] = (
+		frappe.qb.from_(TL)
+		.inner_join(JC)
+		.on((TL.parent == JC.name) & (TL.parentfield == "time_logs"))
+		.select(TL.from_time)
+		.where(TL.from_time > log["from_time"])
+		.where(JC.docstatus < 2)
+		.where(whose)
+		.orderby(TL.from_time)
+		.limit(1)
+	).run(pluck="from_time")
+	if next_start:
+		_close_logs({log["parent"]: [log["name"]]}, next_start[0], None)
+
+
+@frappe.whitelist(methods=["POST"])
+@rate_limit(limit=KIOSK_SCAN_LIMIT, seconds=KIOSK_SCAN_WINDOW)
+def sync_timer_events(events: list[dict[str, Any]]) -> SyncTimerEventsResponse:
+	"""Record the timer events a tablet queued while it was offline, oldest first.
+
+	Each event is ``{id, action, badge?, work_order?, operation?, time, is_corrective?}``, where
+	``action`` is ``start``, ``stop`` or ``stop_machine`` and ``time`` is the tablet's clock, kept
+	in step with the server's. An event with no badge is the signed-in employee's.
+
+	An event is older than whatever other tablets recorded while this one was offline, so it only
+	closes logs that had started by its time, and a start nothing stopped ends where the next log
+	begins. One recorded before under its id is a ``duplicate``; one that can't be recorded is
+	``rejected`` and logged for HR. Either way the tablet can drop it from its queue.
+
+	Raises:
+		frappe.PermissionError: A badge was sent from a session that isn't a Timeclock Kiosk user.
+		frappe.RateLimitExceededError: Too many calls from this client.
+		frappe.ValidationError: More events than one call takes, or an event without an id.
+	"""
+	if len(events) > SYNC_BATCH_LIMIT:
+		frappe.throw(_("Send at most {0} events at a time.").format(SYNC_BATCH_LIMIT))
+	if not all(str(event.get("id") or "") for event in events):
+		frappe.throw(_("Every event needs its id."))
+	# Up front, not per event: refused here the tablet keeps its queue, instead of losing it.
+	if any(event.get("badge") for event in events):
+		require_kiosk_role()
+
+	frappe.flags.in_timeclock = True
+	now = now_datetime()
+	ordered = sorted(events, key=lambda event: str(event.get("time")))
+	results = [_sync_event(event, now) for event in ordered]
+	for event, result in zip(ordered, results, strict=True):
+		if event.get("action") == "start" and result.status == "recorded":
+			_end_at_next_log(result.id)
+	return SyncTimerEventsResponse(results=results, server_time=now.strftime(TIME_FORMAT)).model_dump()
 
 
 @frappe.whitelist()

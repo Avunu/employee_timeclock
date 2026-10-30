@@ -54,7 +54,7 @@ class SyncAnswer(TypedDict):
 	server_time: str
 
 
-def _parse_time(text: object) -> datetime.datetime | None:
+def parse_kiosk_time(text: object) -> datetime.datetime | None:
 	try:
 		return datetime.datetime.strptime(str(text), TIME_FORMAT)
 	except ValueError:
@@ -90,7 +90,7 @@ def punch(
 	require_kiosk_role()
 	now = now_datetime()
 	if time:
-		entered = _parse_time(time)
+		entered = parse_kiosk_time(time)
 		if entered is None:
 			frappe.throw(_("Enter the date and time of the punch you missed."))
 		elif entered > now:
@@ -114,7 +114,7 @@ def punch(
 
 def _refusal(queued: dict[str, Any], now: datetime.datetime) -> tuple[str, str | None]:
 	"""Why a queued punch can't be recorded, and its employee when it can (the reason is then "")."""
-	at = _parse_time(queued.get("time"))
+	at = parse_kiosk_time(queued.get("time"))
 	if at is None:
 		return "its time is not a date and time", None
 	if at > now + OFFLINE_PUNCH_MAX_AHEAD:
