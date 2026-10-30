@@ -2,7 +2,7 @@
 // For license information, please see license.txt
 
 import { describe, expect, it } from "vitest";
-import { elapsedSince, formatMins, progress } from "./format";
+import { elapsedSince, formatMins } from "./format";
 
 describe("formatMins", () => {
 	it.each([
@@ -26,19 +26,5 @@ describe("elapsedSince", () => {
 
 	it("never counts below zero", () => {
 		expect(elapsedSince("2026-10-23 15:00:00", now)).toBe("00:00:00");
-	});
-});
-
-describe("progress", () => {
-	it("is empty with nothing planned", () => {
-		expect(progress(30, 0)).toEqual({ percent: 0, overrun: 0, isOverrun: false });
-	});
-
-	it("is a share of the plan within it", () => {
-		expect(progress(30, 60)).toEqual({ percent: 50, overrun: 0, isOverrun: false });
-	});
-
-	it("splits the bar over the plan", () => {
-		expect(progress(80, 60)).toEqual({ percent: 75, overrun: 25, isOverrun: true });
 	});
 });

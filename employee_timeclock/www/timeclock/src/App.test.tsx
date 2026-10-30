@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { reloadPage } from "../../../public/js/kiosk/navigate";
 import { queuedPunches } from "./punchQueue";
 import { SessionProvider } from "../../../public/js/kiosk/session";
+import { Frappe } from "../../../public/js/kiosk/test/Frappe";
 import { respond, stubFetch, thrown } from "../../../public/js/kiosk/test/server";
 import { ToastProvider } from "../../../public/js/kiosk/Toasts";
 import { App } from "./App";
@@ -59,11 +60,13 @@ function setOnline(online: boolean): void {
 
 function renderApp() {
 	return render(
-		<SessionProvider>
-			<ToastProvider>
-				<App />
-			</ToastProvider>
-		</SessionProvider>,
+		<Frappe>
+			<SessionProvider>
+				<ToastProvider>
+					<App />
+				</ToastProvider>
+			</SessionProvider>
+		</Frappe>,
 	);
 }
 

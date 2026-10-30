@@ -5,6 +5,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { goTo } from "../../../public/js/kiosk/navigate";
 import { SessionProvider } from "../../../public/js/kiosk/session";
+import { Frappe } from "../../../public/js/kiosk/test/Frappe";
 import { ToastProvider } from "../../../public/js/kiosk/Toasts";
 import { App } from "./App";
 import { queuedEvents, recallEmployee, SESSION_KEY } from "./offlineData";
@@ -12,11 +13,7 @@ import { BADGE, operation, trackerServer, type TrackerServer, workOrder } from "
 
 vi.mock("../../../public/js/kiosk/navigate", () => ({ goTo: vi.fn(), reloadPage: vi.fn() }));
 
-const socket = vi.hoisted(() => ({
-	on: vi.fn(),
-	disconnect: vi.fn(),
-}));
-vi.mock("./socket", () => ({ connectSocket: () => socket }));
+const socket = { on: vi.fn(), off: vi.fn() };
 
 function setOnline(online: boolean): void {
 	vi.spyOn(navigator, "onLine", "get").mockReturnValue(online);
@@ -36,14 +33,18 @@ async function settle(): Promise<void> {
 	});
 }
 
-async function open(): Promise<void> {
-	render(
+const Page = () => (
+	<Frappe socket={socket}>
 		<SessionProvider>
 			<ToastProvider>
 				<App />
 			</ToastProvider>
-		</SessionProvider>,
-	);
+		</SessionProvider>
+	</Frappe>
+);
+
+async function open(): Promise<void> {
+	render(<Page />);
 	await settle();
 }
 
@@ -104,7 +105,7 @@ describe("the job tracker", () => {
 		});
 		setOnline(true);
 		socket.on.mockClear();
-		socket.disconnect.mockClear();
+		socket.off.mockClear();
 		vi.mocked(goTo).mockClear();
 		Element.prototype.scrollIntoView = vi.fn();
 		// The real digest runs on another thread, past what fake timers can wait for.
@@ -193,25 +194,61 @@ describe("the job tracker", () => {
 		});
 
 		it("ends the session when the server no longer takes the token", async () => {
-			const server = trackerServer({ deadFor: ["get_operations"] });
+			trackerServer({ deadFor: ["get_operations"] });
 			await open();
 			await scan(BADGE);
 
 			await openWorkOrder("WO-1");
 
-			expect(server.calls["get_operations"]).toHaveLength(1);
 			expect(screen.getByText("Scan your badge to start tracking time.")).toBeTruthy();
 		});
 
-		it("ends the session on a 401, with no error toast", async () => {
-			trackerServer({ statusFor: { get_operations: 401 } });
+		it.each(["get_operations", "start_timer"])(
+			"ends the session on a 401 from %s, with no toast",
+			async (method) => {
+				trackerServer({ statusFor: { [method]: 401 } });
+				await open();
+				await scan(BADGE);
+
+				await openWorkOrder("WO-1");
+				if (screen.queryByRole("button", { name: "Start Timer" })) await tap("Start Timer");
+
+				expect(screen.getByText("Scan your badge to start tracking time.")).toBeTruthy();
+				expect(screen.queryByText(/failed/)).toBeNull();
+			},
+		);
+
+		it("ends the session when a timer's token is no longer good", async () => {
+			trackerServer({ deadFor: ["start_timer"] });
+			await open();
+			await scan(BADGE);
+			await openWorkOrder("WO-1");
+
+			await tap("Start Timer");
+
+			expect(screen.getByText("Scan your badge to start tracking time.")).toBeTruthy();
+		});
+
+		it("reloads the page when the server forbids a read", async () => {
+			trackerServer({ statusFor: { get_operations: 403 } });
 			await open();
 			await scan(BADGE);
 
 			await openWorkOrder("WO-1");
 
-			expect(screen.getByText("Scan your badge to start tracking time.")).toBeTruthy();
-			expect(screen.queryByText("The job cards couldn't be loaded.")).toBeNull();
+			expect(goTo).toHaveBeenCalled();
+		});
+
+		it("says nothing when a read finds the server gone", async () => {
+			const server = trackerServer();
+			await open();
+			await scan(BADGE);
+			server.reachable = false;
+
+			await openWorkOrder("WO-1");
+
+			expect(screen.queryByText(/get_operations/)).toBeNull();
+			expect(screen.getByText("Weld")).toBeTruthy();
 		});
 	});
 
@@ -234,34 +271,8 @@ describe("the job tracker", () => {
 			await wake();
 
 			expect(server.calls["get_active_timer"]).toHaveLength(1);
-			expect(server.calls["get_work_orders"]).toHaveLength(1);
+			expect(server.calls["get_offline_snapshot"]).toHaveLength(1);
 			expect(server.calls["get_operations"]).toHaveLength(1);
-		});
-
-		it("ends a session that ran out while asleep", async () => {
-			trackerServer();
-			await open();
-			await scan(BADGE);
-			vi.setSystemTime(new Date(2026, 9, 23, 15, 0));
-
-			await wake();
-
-			expect(screen.getByText("Scan your badge to start tracking time.")).toBeTruthy();
-		});
-
-		it("does nothing when the page is hidden", async () => {
-			const server = trackerServer();
-			await open();
-			await scan(BADGE);
-			server.calls = {};
-			vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
-
-			await act(async () => {
-				document.dispatchEvent(new Event("visibilitychange"));
-			});
-			await settle();
-
-			expect(server.calls["get_active_timer"]).toBeUndefined();
 		});
 	});
 
@@ -420,36 +431,34 @@ describe("the job tracker", () => {
 			expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
 		});
 
-		it("follows realtime starts for the employee's groups only", async () => {
-			trackerServer({ groups: ["Cutters"] });
+		it("asks the server again when a machine timer changes anywhere", async () => {
+			const server = trackerServer({ groups: ["Cutters"] });
 			await open();
 			await scan(BADGE);
-			const update = socketEvent("machine_timer_update");
+			await openWorkOrder("WO-1");
+			server.calls = {};
+			server.machineTimers = [running];
 
-			act(() => update({ action: "start", timer: { ...running, employee_group: "Others" } }));
-			expect(screen.queryByRole("button", { name: "Stop Machine Timer" })).toBeNull();
+			await act(async () => socketEvent("machine_timer_update")());
+			await settle();
 
-			act(() => update({ action: "start", timer: running }));
-			act(() => update({ action: "start", timer: { ...running, work_order: "WO-2" } }));
-			expect(screen.getAllByRole("button", { name: "Stop Machine Timer" })).toHaveLength(1);
-
-			act(() => update(null));
-			act(() => update({ action: "other", timer: running }));
-			act(() => update({ action: "stop", timer: { ...running, work_order: "WO-2" } }));
-			expect(screen.queryByRole("button", { name: "Stop Machine Timer" })).toBeNull();
+			expect(server.calls["get_operations"]).toHaveLength(1);
+			expect(button("Stop Machine Timer")).toBeTruthy();
 		});
 
-		it("refetches when the socket connects, and hangs up on sign out", async () => {
+		it("refetches when the socket connects, and lets go on leaving", async () => {
 			const server = trackerServer();
-			await open();
+			const { unmount } = render(<Page />);
+			await settle();
 			await scan(BADGE);
 			server.calls = {};
 
 			await act(async () => socketEvent("connect")());
+			await settle();
 			expect(server.calls["get_machine_timers"]).toHaveLength(1);
 
-			await tap("Sign Out");
-			expect(socket.disconnect).toHaveBeenCalled();
+			unmount();
+			expect(socket.off).toHaveBeenCalled();
 		});
 	});
 
@@ -527,7 +536,7 @@ describe("the job tracker", () => {
 			expect(document.querySelector('[data-operation="Paint"]')).toBeNull();
 		});
 
-		it("loads a pinned job's work order one at a time, and unpins", async () => {
+		it("shows pinned jobs from what it kept, and unpins", async () => {
 			window.localStorage.setItem(
 				"pinnedCards",
 				JSON.stringify({ "HR-EMP-1": ["WO-1::Weld", "WO-2::Paint", "not a pin", "WO-9::Gone"] }),
@@ -537,13 +546,11 @@ describe("the job tracker", () => {
 			await scan(BADGE);
 
 			await tap(/Pinned Jobs \(3\)/);
-			await settle();
 
-			expect(server.calls["get_operations"]).toHaveLength(3);
+			expect(server.calls["get_operations"]).toBeUndefined();
 			expect(screen.getByRole("button", { name: "Paint" })).toBeTruthy();
 			fireEvent.click(screen.getAllByRole("button", { name: "Unpin" })[0]!);
 			expect(JSON.parse(window.localStorage.getItem("pinnedCards")!)["HR-EMP-1"]).toHaveLength(3);
-			await tap(/Pinned Jobs/);
 		});
 
 		it("says when nothing is pinned, and swaps panels", async () => {
@@ -764,13 +771,7 @@ describe("the job tracker", () => {
 			const first = trackerServer({
 				sessionEmployee: { employee_id: "HR-EMP-2", employee_name: "Sam Okafor" },
 			});
-			const { unmount } = render(
-				<SessionProvider>
-					<ToastProvider>
-						<App />
-					</ToastProvider>
-				</SessionProvider>,
-			);
+			const { unmount } = render(<Page />);
 			await settle();
 			unmount();
 			first.reachable = false;
@@ -870,7 +871,7 @@ describe("the job tracker", () => {
 
 			expect(button("Stop Timer")).toBeTruthy();
 			await openWorkOrder("WO-2");
-			expect(document.querySelector("[data-operation]")).toBeNull();
+			expect(document.querySelector('[data-operation="Paint"]')).toBeTruthy(); // as last seen
 		});
 	});
 
@@ -921,24 +922,6 @@ describe("the job tracker", () => {
 			await settle();
 
 			expect(screen.getByText("WO-9")).toBeTruthy();
-		});
-
-		it("refreshes only the selected work order when another's timer stops", async () => {
-			const server = trackerServer({ groups: ["Cutters"] });
-			await open();
-			await scan(BADGE);
-			await openWorkOrder("WO-1");
-			server.calls = {};
-
-			await act(async () => {
-				socketEvent("machine_timer_update")({
-					action: "stop",
-					timer: { work_order: "WO-2", operation: "Laser", employee_group: "Cutters" },
-				});
-			});
-			await settle();
-
-			expect(server.calls["get_operations"]).toBeUndefined();
 		});
 
 		it("shows a rework machine timer, and one with no start yet", async () => {
@@ -999,7 +982,7 @@ describe("the job tracker", () => {
 		it("queues a machine start with no group", async () => {
 			const server = trackerServer({
 				operations: { "WO-1": [operation("Laser", { is_machine_time: true })] },
-				groups: ["Cutters"],
+				groups: [""],
 			});
 			await open();
 			await scan(BADGE);

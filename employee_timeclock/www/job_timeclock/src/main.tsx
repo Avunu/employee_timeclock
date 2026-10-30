@@ -4,4 +4,5 @@
 import { mountKiosk } from "../../../public/js/kiosk/mount";
 import { App } from "./App";
 
-mountKiosk(<App />);
+// Realtime on: machine timers change from other tablets.
+mountKiosk(<App />, { realtime: true });

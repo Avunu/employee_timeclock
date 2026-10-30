@@ -2,49 +2,41 @@
 // For license information, please see license.txt
 
 import { useEffect, useState } from "react";
-import { kioskCall } from "../../../public/js/kiosk/call";
+import { useFrappeGetCall } from "frappe-react-sdk";
 import { rememberServerTime } from "../../../public/js/kiosk/clock";
 import { METHOD } from "./api";
 import { loadSnapshot, saveSnapshot } from "./offlineData";
 import type { OfflineSnapshot } from "./types";
 
 /** How often a tablet online refreshes what it would show offline. */
-export const SNAPSHOT_INTERVAL_MS = 10 * 60 * 1000;
+const SNAPSHOT_INTERVAL_MS = 10 * 60 * 1000;
 
 /**
- * The work as last seen, kept for showing offline. Refreshed when the page loads, when the tablet
- * comes back online, and every ten minutes, whoever is or isn't signed in: the next thing that
- * happens may be the network going away. A refresh that fails just leaves the last one in place.
+ * Every open work order and its operations, for whoever signs in, and for showing offline. It is
+ * fetched with nobody signed in too: the next thing that happens may be the network going away.
+ * The copy kept in IndexedDB shows until the first answer, and for as long as there isn't one.
  */
-export function useSnapshot(online: boolean): OfflineSnapshot | undefined {
-	const [snapshot, setSnapshot] = useState<OfflineSnapshot>();
+export function useSnapshot() {
+	const [kept, setKept] = useState<OfflineSnapshot>();
 
 	useEffect(() => {
-		let current = true;
-		void loadSnapshot().then((kept) => {
-			if (current && kept) setSnapshot((latest) => latest ?? kept);
-		});
-		return () => {
-			current = false;
-		};
+		void loadSnapshot().then(setKept);
 	}, []);
 
-	useEffect(() => {
-		if (!online) return undefined;
-		const refresh = async () => {
-			try {
-				const fresh = await kioskCall<OfflineSnapshot>(`${METHOD}.get_offline_snapshot`);
-				rememberServerTime(fresh.server_time);
-				await saveSnapshot(fresh);
-				setSnapshot(fresh);
-			} catch {
-				// Kept as it was, until the next refresh.
-			}
-		};
-		void refresh();
-		const interval = window.setInterval(() => void refresh(), SNAPSHOT_INTERVAL_MS);
-		return () => window.clearInterval(interval);
-	}, [online]);
+	const { data, mutate } = useFrappeGetCall<{ message: OfflineSnapshot }>(
+		`${METHOD}.get_offline_snapshot`,
+		undefined,
+		"offline-snapshot",
+		{
+			isPaused: () => !navigator.onLine,
+			refreshInterval: SNAPSHOT_INTERVAL_MS,
+			shouldRetryOnError: false,
+			onSuccess: ({ message }) => {
+				rememberServerTime(message.server_time);
+				void saveSnapshot(message);
+			},
+		},
+	);
 
-	return snapshot;
+	return { snapshot: data?.message ?? kept, refreshSnapshot: mutate };
 }

@@ -347,3 +347,4 @@ class TestTimeclockKiosk(IntegrationTestCase):
 		self.assertEqual(context.title, "Timeclock")
 		self.assertEqual(context.pwa["manifest_url"], "/timeclock/manifest.webmanifest")
 		self.assertIn("session_expiry", context.boot)
+		self.assertEqual(context.boot["sitename"], frappe.local.site)

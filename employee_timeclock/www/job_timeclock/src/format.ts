@@ -21,21 +21,3 @@ export function elapsedSince(serverTime: string, deviceNow: number): string {
 	const seconds = Math.max(0, Math.floor((serverMillis(deviceNow) - started) / 1000));
 	return `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor((seconds % 3600) / 60))}:${pad(seconds % 60)}`;
 }
-
-/** How far through its planned time something is, split for a bar with a red overrun. */
-export interface Progress {
-	/** Percent of the bar in the normal colour. */
-	percent: number;
-	/** Percent of the bar in red. */
-	overrun: number;
-	isOverrun: boolean;
-}
-
-export function progress(loggedMins: number, plannedMins: number): Progress {
-	if (plannedMins <= 0) return { percent: 0, overrun: 0, isOverrun: false };
-	if (loggedMins <= plannedMins) {
-		return { percent: Math.round((loggedMins / plannedMins) * 100), overrun: 0, isOverrun: false };
-	}
-	const percent = Math.round((plannedMins / loggedMins) * 100);
-	return { percent, overrun: 100 - percent, isOverrun: true };
-}

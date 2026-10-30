@@ -3,8 +3,8 @@
 
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { KioskCallError } from "./call";
 import { useSession } from "./session";
+import { Frappe } from "./test/Frappe";
 import { respond, stubFetch, thrown } from "./test/server";
 import { useToasts } from "./Toasts";
 import { getErrorMessage, useBackendCall, useKioskRequest } from "./useBackendCall";
@@ -16,13 +16,25 @@ const FALLBACK = "The punch wasn't recorded.";
 
 describe("getErrorMessage", () => {
 	it("shows the server's message", () => {
-		expect(getErrorMessage(new KioskCallError(417, "Choose Clock In or Clock Out."), FALLBACK)).toBe(
+		expect(getErrorMessage(thrown("Choose Clock In or Clock Out."), FALLBACK)).toBe(
 			"Choose Clock In or Clock Out.",
 		);
 	});
 
 	it("falls back when the server's error has no message", () => {
-		expect(getErrorMessage(new KioskCallError(500, ""), FALLBACK)).toBe(FALLBACK);
+		expect(getErrorMessage(thrown(""), FALLBACK)).toBe(FALLBACK);
+	});
+
+	it("skips what can't be read in the server's messages", () => {
+		const messages = JSON.stringify([
+			1,
+			"not json",
+			JSON.stringify({ other: 1 }),
+			JSON.stringify({ message: "Yes." }),
+		]);
+
+		expect(getErrorMessage({ _server_messages: messages }, FALLBACK)).toBe("Yes.");
+		expect(getErrorMessage({ _server_messages: "not json" }, FALLBACK)).toBe(FALLBACK);
 	});
 
 	it("falls back for anything else", () => {
@@ -42,7 +54,8 @@ describe("useBackendCall", () => {
 		for (const spy of [recordActivity, reportForbidden, showToast]) spy.mockClear();
 	});
 
-	const backend = () => renderHook(() => useBackendCall<{ ok: boolean }>("a.method", FALLBACK)).result;
+	const backend = () =>
+		renderHook(() => useBackendCall<{ ok: boolean }>("a.method", FALLBACK), { wrapper: Frappe }).result;
 
 	it("answers the method's return value and restarts the session timer", async () => {
 		const fetch = stubFetch(async () => respond(200, { message: { ok: true } }));
@@ -70,12 +83,13 @@ describe("useBackendCall", () => {
 
 	it("is loading while the call is out", async () => {
 		let answer: (response: Response) => void = () => {};
-		stubFetch(() => new Promise((resolve) => (answer = resolve)));
+		const fetch = stubFetch(() => new Promise((resolve) => (answer = resolve)));
 		const result = backend();
 
 		let call: Promise<unknown> = Promise.resolve();
-		act(() => {
+		await act(async () => {
 			call = result.current.call();
+			await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
 		});
 		expect(result.current.loading).toBe(true);
 
@@ -86,24 +100,9 @@ describe("useBackendCall", () => {
 		expect(result.current.loading).toBe(false);
 	});
 
-	it("falls back on its own title for an error that isn't the server's", async () => {
-		stubFetch(async () => {
-			throw new Error("broken");
-		});
-		const result = backend();
-
-		let answer;
-		await act(async () => {
-			answer = await result.current.call();
-		});
-
-		expect(answer).toEqual({ ok: false, offline: false });
-		expect(showToast).toHaveBeenCalledOnce();
-	});
-
 	it("leaves a quiet status to the caller, with no toast", async () => {
 		stubFetch(async () => respond(401, thrown("Badge not recognised.")));
-		const { result } = renderHook(() => useKioskRequest());
+		const { result } = renderHook(() => useKioskRequest(), { wrapper: Frappe });
 
 		let answer;
 		await act(async () => {

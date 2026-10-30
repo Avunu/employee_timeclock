@@ -24,4 +24,6 @@ def get_context(context):
 		# The page times the session out from this and reloads when it runs out, which lands
 		# on require_kiosk_page() above.
 		"session_expiry": frappe.get_system_settings("session_expiry"),
+		# The SDK sends this as the site's name, or the page's hostname if it isn't told.
+		"sitename": frappe.local.site,
 	}

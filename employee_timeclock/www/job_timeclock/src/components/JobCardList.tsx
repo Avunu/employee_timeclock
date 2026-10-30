@@ -3,10 +3,10 @@
 
 import { useState } from "react";
 import { Toggle } from "@carbon/react";
-import { formatMins, progress } from "../format";
+import { formatMins } from "../format";
 import type { ActiveTimer, MachineTimer, Operation, WorkOrder } from "../types";
 import { JobCard, type JobCardActions } from "./JobCard";
-import { TimeBar } from "./TimeBar";
+import { EstimateBar } from "./EstimateBar";
 
 interface JobCardListProps extends JobCardActions {
 	workOrder: WorkOrder;
@@ -44,7 +44,7 @@ export function JobCardList({
 		(sum, operation) => sum + operation.actual_time_mins + operation.corrective_total_time_mins,
 		0,
 	);
-	const bar = progress(logged, planned);
+	const over = logged > planned;
 
 	return (
 		<section className="jt-column jt-column-half">
@@ -64,11 +64,11 @@ export function JobCardList({
 			<p className="jt-muted">Select a job card to start the timer</p>
 			{planned > 0 && (
 				<div className="jt-estimate">
-					<p className={bar.isOverrun ? "jt-text-overrun" : undefined}>
+					<p className={over ? "jt-text-overrun" : undefined}>
 						{formatMins(logged)} logged of {formatMins(planned)} estimated
-						{bar.isOverrun && ` · +${formatMins(logged - planned)} overrun`}
+						{over && ` · +${formatMins(logged - planned)} overrun`}
 					</p>
-					<TimeBar progress={bar} kind="labor" />
+					<EstimateBar loggedMins={logged} plannedMins={planned} />
 				</div>
 			)}
 			<div id="JobCards">

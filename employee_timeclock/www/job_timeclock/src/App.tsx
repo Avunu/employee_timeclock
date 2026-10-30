@@ -4,9 +4,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, HeaderGlobalAction } from "@carbon/react";
 import { Logout, Pin, PinFilled, Settings } from "@carbon/react/icons";
+import { useFrappeEventListener } from "frappe-react-sdk";
 import { KioskHeader } from "../../../public/js/kiosk/KioskHeader";
 import { KioskStatus } from "../../../public/js/kiosk/KioskStatus";
 import { useToasts } from "../../../public/js/kiosk/Toasts";
+import { useFrappeSocket } from "../../../public/js/kiosk/useBackendCall";
 import { useKeyboardWedge } from "../../../public/js/kiosk/useKeyboardWedge";
 import { ActiveTimer } from "./components/ActiveTimer";
 import { JobCardList } from "./components/JobCardList";
@@ -15,14 +17,17 @@ import { type PinnedCard, PinnedPanel } from "./components/PinnedPanel";
 import { SessionStatus } from "./components/SessionStatus";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { WorkOrderList } from "./components/WorkOrderList";
-import type { Operation } from "./types";
+import type { GetDeviceInfoResponse, Operation } from "./types";
 import { useEmployee } from "./useEmployee";
 import { usePins } from "./usePins";
 import { useSnapshot } from "./useSnapshot";
 import { useTimers } from "./useTimers";
 import { useTimerSync } from "./useTimerSync";
-import { useWork } from "./useWork";
+import { useTrackerData } from "./useTrackerData";
+import { useWork, visibleTo } from "./useWork";
 import { useWorkstations } from "./useWorkstations";
+
+const NO_STATIONS: string[] = [];
 
 /** The old Vue tracker, while the two are tried side by side. */
 const OLD_TRACKER = "/job_timeclock_vue";
@@ -42,109 +47,84 @@ function scrollToCard(attribute: "workOrder" | "operation", value: string): void
 
 export function App() {
 	const showToast = useToasts();
-	const { employee, expiry, wakes, request, scan, signOut, canCall, touch } = useEmployee();
+	const { employee, expiry, session, request, scan, signOut, canCall, touch } = useEmployee();
 	const { online, waiting, events, keep } = useTimerSync();
-	const snapshot = useSnapshot(online);
-	const stations = useWorkstations(request, snapshot);
+	const { snapshot, refreshSnapshot } = useSnapshot();
+	const stations = useWorkstations();
 	const [panel, setPanel] = useState<Panel>(null);
 	const [scrollTarget, setScrollTarget] = useState<{ workOrder: string; operation: string } | null>(null);
-
 	// The job last gone to, kept in view whatever the station filter says.
 	const [revealed, setRevealed] = useState<string | null>(null);
-	// The work order a timer last stopped on, whose totals have changed.
-	const [stopped, onStopped] = useState<string | null>(null);
+	const live = online && canCall();
+
+	const work = useWork({ employee, session, snapshot, workstations: stations.chosen });
+	const { selected, select, selectByName, refreshOperations, workOrders } = work;
+
+	const onStopped = useCallback(() => {
+		refreshOperations();
+		void refreshSnapshot();
+	}, [refreshOperations, refreshSnapshot]);
 
 	const timers = useTimers({
 		employee,
+		session,
 		request,
-		canCall,
 		touch,
-		online,
+		live,
 		waiting,
 		events,
 		keep,
 		snapshot,
 		onStopped,
 	});
-	const { activeTimer, machineTimers, refresh } = timers;
-
-	const work = useWork({
-		employee,
-		groups: timers.groups,
-		request,
-		canCall,
-		online,
-		snapshot,
-		workstations: stations.chosen,
-	});
-	const { selected, select, selectByName, loadOperations, refreshOrders, workOrders } = work;
+	const { activeTimer, machineTimers, groups, refresh } = timers;
 	const pins = usePins(employee?.id);
-
-	const selectedName = selected?.name;
-	useEffect(() => {
-		if (stopped === null) return;
-		onStopped(null);
-		if (stopped === selectedName) void loadOperations(stopped);
-	}, [stopped, selectedName, loadOperations]);
+	const device = useTrackerData<GetDeviceInfoResponse>(
+		session,
+		"get_device_info",
+		panel === "settings" ? "device-info" : null,
+	);
 
 	useKeyboardWedge((badge) => void scan(badge));
 
-	const signedIn = employee !== null;
-	const refreshAll = useCallback(async () => {
-		await Promise.all([refresh(), refreshOrders(), ...(selectedName ? [loadOperations(selectedName)] : [])]);
-	}, [refresh, refreshOrders, loadOperations, selectedName]);
-
-	// Whoever signs in sees the work now, not as the last person left it.
-	const key = employee?.key;
+	// Machine timers belong to whole groups, so other tablets' changes arrive by realtime event. The
+	// server decides what this employee sees, so whatever changed, ask it again.
+	const refreshAll = useCallback(() => {
+		refresh();
+		onStopped();
+	}, [refresh, onStopped]);
+	useFrappeEventListener("machine_timer_update", refreshAll);
+	// Events sent while the socket was down are gone.
+	const socket = useFrappeSocket();
 	useEffect(() => {
-		if (key && online && canCall()) void refreshOrders();
-	}, [key, online, canCall, refreshOrders]);
+		socket?.on("connect", refreshAll);
+		return () => {
+			socket?.off("connect", refreshAll);
+		};
+	}, [socket, refreshAll]);
 
-	// Back from sleep, or with the queue just sent: what's on screen is out of date.
-	const seenWakes = useRef(wakes);
+	// What was waiting has just been sent, so the screen is out of date.
 	const wasWaiting = useRef(waiting);
 	useEffect(() => {
-		const woke = wakes !== seenWakes.current;
-		const sent = waiting === 0 && wasWaiting.current > 0;
-		seenWakes.current = wakes;
+		if (waiting === 0 && wasWaiting.current > 0) refreshAll();
 		wasWaiting.current = waiting;
-		if ((woke || sent) && signedIn && online && canCall()) void refreshAll();
-	}, [wakes, waiting, signedIn, online, canCall, refreshAll]);
+	}, [waiting, refreshAll]);
 
-	// One at a time: the server takes four of these a second.
-	const pinKeys = pins.pins;
-	const { cache } = work;
-	useEffect(() => {
-		if (panel !== "pinned") return;
-		void (async () => {
-			/* oxlint-disable no-await-in-loop -- one at a time, on purpose */
-			for (const workOrder of new Set(pinKeys.map((pin) => pin.workOrder))) {
-				if (!cache[workOrder]) await loadOperations(workOrder);
-			}
-			/* oxlint-enable no-await-in-loop */
-		})();
-		// Each time the panel opens, not as each answer lands.
-		// oxlint-disable-next-line react-hooks/exhaustive-deps
-	}, [panel]);
-
-	const { loadDevice } = stations;
-	useEffect(() => {
-		if (panel === "settings") void loadDevice();
-	}, [panel, loadDevice]);
+	const operations = useMemo(() => visibleTo(work.operations, groups), [work.operations, groups]);
 
 	const pinnedCards = useMemo<PinnedCard[]>(
 		() =>
-			pinKeys.flatMap(({ workOrder, operation }) => {
-				const found = cache[workOrder]?.find((item) => item.operation === operation);
+			pins.pins.flatMap(({ workOrder, operation }) => {
+				const kept = visibleTo(snapshot?.operations[workOrder] ?? [], groups);
+				const found = kept.find((item) => item.operation === operation);
 				if (!found) return [];
 				const order = workOrders.find((item) => item.name === workOrder);
 				return [{ workOrder, operation: found, productName: order?.production_item ?? workOrder }];
 			}),
-		[pinKeys, cache, workOrders],
+		[pins.pins, snapshot, groups, workOrders],
 	);
 
 	// Scroll once the work order's cards are on screen.
-	const { operations } = work;
 	useEffect(() => {
 		if (!scrollTarget) return;
 		if (!operations.some((operation) => operation.operation === scrollTarget.operation)) return;
@@ -154,11 +134,11 @@ export function App() {
 	}, [scrollTarget, operations]);
 
 	const open = useCallback(
-		async (target: { work_order: string; operation: string }) => {
+		(target: { work_order: string; operation: string }) => {
 			setPanel(null);
 			setRevealed(target.operation);
 			setScrollTarget({ workOrder: target.work_order, operation: target.operation });
-			await selectByName(target.work_order);
+			selectByName(target.work_order);
 		},
 		[selectByName],
 	);
@@ -186,7 +166,7 @@ export function App() {
 				<Button kind="ghost" href={OLD_TRACKER}>
 					Use old tracker
 				</Button>
-				{signedIn && (
+				{employee && (
 					<>
 						<HeaderGlobalAction aria-label="Sign Out" onClick={leave}>
 							<Logout size={20} />
@@ -215,7 +195,7 @@ export function App() {
 						{activeTimer && (
 							<ActiveTimer
 								timer={activeTimer}
-								onOpen={() => void open(activeTimer)}
+								onOpen={() => open(activeTimer)}
 								onStop={() =>
 									void timers.stop(
 										activeTimer.work_order,
@@ -235,7 +215,7 @@ export function App() {
 							onSelect={(workOrder) => {
 								setRevealed(null);
 								setPanel((now) => (now === "pinned" ? null : now));
-								void select(workOrder);
+								select(workOrder);
 							}}
 						/>
 						{panel === "pinned" && (
@@ -243,9 +223,7 @@ export function App() {
 								cards={pinnedCards}
 								activeTimer={activeTimer}
 								machineTimers={machineTimers}
-								onOpen={(card) =>
-									void open({ work_order: card.workOrder, operation: card.operation.operation })
-								}
+								onOpen={(card) => open({ work_order: card.workOrder, operation: card.operation.operation })}
 								{...cardActions}
 							/>
 						)}
@@ -266,14 +244,15 @@ export function App() {
 					<MachineTimerBar
 						timers={machineTimers}
 						workOrders={workOrders}
-						onOpen={(timer) => void open(timer)}
+						onOpen={open}
 						onStop={(timer) => void timers.stopMachine(timer.work_order, timer.operation)}
 					/>
 					<SettingsPanel
 						open={panel === "settings"}
-						available={stations.available}
+						available={snapshot?.workstations ?? NO_STATIONS}
 						chosen={stations.chosen}
-						device={stations.device}
+						ip={device.data?.message.ip}
+						mac={device.data?.message.mac}
 						onToggle={stations.toggle}
 					/>
 				</div>

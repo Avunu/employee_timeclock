@@ -1,7 +1,7 @@
 // Copyright (c) 2026, Avunu LLC and contributors
 // For license information, please see license.txt
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import { useToasts } from "../../../public/js/kiosk/Toasts";
 import { type BackendResult, useKioskRequest } from "../../../public/js/kiosk/useBackendCall";
@@ -34,6 +34,16 @@ export type TrackerRequest = <T extends object>(
 	errorTitle: string,
 ) => Promise<BackendResult<T>>;
 
+/** What useTrackerData needs from the sign-in: reading tokens, and taking what answers say. */
+export interface TrackerSession {
+	token: () => string | null;
+	/** Whether a call to the server can be made for this employee at all. */
+	canCall: () => boolean;
+	/** Take a new token from an answer; an answer of "error" means the server no longer takes it. */
+	accept: (answer: { status?: string; token?: string | null }) => boolean;
+	signOut: () => void;
+}
+
 interface TokenClaims {
 	exp: number;
 	employee_id: string;
@@ -56,11 +66,14 @@ export function useEmployee() {
 	const [employee, setEmployee] = useState<Employee | null>(null);
 	// When the sign-in runs out, in ms; 0 for an employee's own login, which has no end.
 	const [expiry, setExpiry] = useState(0);
-	const [wakes, setWakes] = useState(0);
 	const token = useRef<string | null>(null);
+	const ownLogin = useRef(false);
+
+	const canCall = useCallback(() => token.current !== null || ownLogin.current, []);
 
 	const signOut = useCallback(() => {
 		token.current = null;
+		ownLogin.current = false;
 		setEmployee(null);
 		setExpiry(0);
 	}, []);
@@ -71,6 +84,24 @@ export function useEmployee() {
 		setExpiry(claims.exp * 1000);
 		return claims;
 	}, []);
+
+	const accept = useCallback<TrackerSession["accept"]>(
+		(answer) => {
+			// The endpoints answer a dead token this way rather than with an error status.
+			if (answer.status === "error") {
+				signOut();
+				return false;
+			}
+			if (answer.token) takeToken(answer.token);
+			return true;
+		},
+		[signOut, takeToken],
+	);
+
+	const session = useMemo<TrackerSession>(
+		() => ({ token: () => token.current, canCall, accept, signOut }),
+		[canCall, accept, signOut],
+	);
 
 	const request = useCallback<TrackerRequest>(
 		async <T extends object>(method: string, params: Record<string, unknown>, errorTitle: string) => {
@@ -84,15 +115,9 @@ export function useEmployee() {
 				if (answer.status === 401) signOut();
 				return answer;
 			}
-			// The endpoints answer a dead token this way rather than with an error status.
-			if (answer.data.status === "error") {
-				signOut();
-				return { ok: false, offline: false };
-			}
-			if (answer.data.token) takeToken(answer.data.token);
-			return answer;
+			return accept(answer.data) ? answer : { ok: false, offline: false };
 		},
-		[kioskRequest, signOut, takeToken],
+		[kioskRequest, accept, signOut],
 	);
 
 	const signInOffline = useCallback(async (key: string, badge?: string) => {
@@ -139,9 +164,6 @@ export function useEmployee() {
 		[kioskRequest, showToast, signInOffline, signOut, takeToken],
 	);
 
-	/** Whether a call to the server can be made for this employee at all. */
-	const canCall = useCallback(() => token.current !== null || employee?.key === SESSION_KEY, [employee]);
-
 	/** Keep an offline sign-in alive: each thing the employee does restarts its time. */
 	const touch = useCallback(() => {
 		if (token.current === null && employee?.badge !== undefined) {
@@ -159,8 +181,10 @@ export function useEmployee() {
 			);
 			if (answer.ok && answer.data.user_id !== "Guest" && answer.data.employee_id) {
 				const { employee_id: id, employee_name: name } = answer.data;
+				ownLogin.current = true;
 				setEmployee({ key: SESSION_KEY, id, name: name ?? "", groups: [] });
 			} else if (!answer.ok && answer.offline && (await recallEmployee(SESSION_KEY))) {
+				ownLogin.current = true;
 				await signInOffline(SESSION_KEY);
 			}
 		})();
@@ -172,17 +196,5 @@ export function useEmployee() {
 		return () => window.clearTimeout(timeout);
 	}, [expiry, signOut]);
 
-	// A tablet asleep past the end of the sign-in may not have run the timeout above; one still
-	// signed in has missed whatever happened in the meantime.
-	useEffect(() => {
-		const onVisible = () => {
-			if (document.visibilityState !== "visible") return;
-			if (expiry && Date.now() >= expiry) signOut();
-			else setWakes((count) => count + 1);
-		};
-		document.addEventListener("visibilitychange", onVisible);
-		return () => document.removeEventListener("visibilitychange", onVisible);
-	}, [expiry, signOut]);
-
-	return { employee, expiry, wakes, request, scan, signOut, canCall, touch };
+	return { employee, expiry, session, request, scan, signOut, canCall, touch };
 }

@@ -35,6 +35,15 @@ describe("mountKiosk", () => {
 		expect(registerServiceWorker).toHaveBeenCalledOnce();
 	});
 
+	it("tells the SDK the site and socket port it was booted with", async () => {
+		document.body.innerHTML = '<div id="app"></div>';
+		window.kiosk_boot = { sitename: "erp.example.com", socketio_port: 9001 };
+
+		await act(async () => mountKiosk(<Page />));
+
+		expect(await screen.findByText("ready")).toBeTruthy();
+	});
+
 	it("does nothing on a page without #app", () => {
 		mountKiosk(<Page />);
 

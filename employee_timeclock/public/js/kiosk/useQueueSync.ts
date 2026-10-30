@@ -2,9 +2,9 @@
 // For license information, please see license.txt
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { KioskCallError } from "./call";
 import { reloadPage } from "./navigate";
 import { useSession } from "./session";
+import { failedStatus } from "./useBackendCall";
 
 /** How often a kiosk sends what it has queued, and keeps its clock in step with the server's. */
 export const SYNC_INTERVAL_MS = 60 * 1000;
@@ -12,7 +12,7 @@ export const SYNC_INTERVAL_MS = 60 * 1000;
 interface QueueSyncOptions<T> {
 	/** What is waiting to be sent, oldest first. */
 	pending: () => Promise<T[]>;
-	/** Send everything, and forget what the server dealt with. Throws what kioskCall throws. */
+	/** Send everything, and forget what the server dealt with. Throws what the SDK throws. */
 	send: (items: T[]) => Promise<void>;
 }
 
@@ -51,8 +51,9 @@ export function useQueueSync<T>({ pending, send }: QueueSyncOptions<T>): QueueSy
 			recordActivity();
 			setOnline(true);
 		} catch (error) {
-			if (error instanceof KioskCallError && (error.status === 400 || error.status === 403)) reloadPage();
-			else if (error instanceof TypeError) setOnline(false);
+			const status = failedStatus(error);
+			if (status === 400 || status === 403) reloadPage();
+			else if (status === 0) setOnline(false);
 			// Anything else (the rate limit, a server error) is tried again at the next sync.
 		} finally {
 			setWaiting((await pending()).length);

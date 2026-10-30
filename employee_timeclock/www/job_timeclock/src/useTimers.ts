@@ -1,46 +1,43 @@
 // Copyright (c) 2026, Avunu LLC and contributors
 // For license information, please see license.txt
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { rememberServerTime, serverNow } from "../../../public/js/kiosk/clock";
 import { useToasts } from "../../../public/js/kiosk/Toasts";
 import type { BackendResult } from "../../../public/js/kiosk/useBackendCall";
-import { connectSocket } from "./socket";
 import { rememberEmployee, type TimerEvent } from "./offlineData";
 import { replay } from "./replay";
-import type { Employee, TrackerRequest } from "./useEmployee";
+import type { Employee, TrackerRequest, TrackerSession } from "./useEmployee";
 import type {
 	ActiveTimer,
 	GetActiveTimerResponse,
 	GetMachineTimersResponse,
-	MachineTimer,
 	OfflineSnapshot,
 	Operation,
 	StartTimerResponse,
 	StopMachineTimerResponse,
 	StopTimerResponse,
 } from "./types";
+import { useTrackerData } from "./useTrackerData";
 
-const sameTimer = (a: MachineTimer, b: MachineTimer): boolean =>
-	a.work_order === b.work_order && a.operation === b.operation;
-
-interface TimerUpdate {
-	action?: string;
-	timer?: MachineTimer;
+interface TimerAnswer {
+	status: string;
+	error?: string | null;
+	server_time?: string | null;
 }
 
 interface TimerOptions {
 	employee: Employee | null;
+	session: TrackerSession;
 	request: TrackerRequest;
-	canCall: () => boolean;
 	touch: () => void;
-	online: boolean;
+	live: boolean;
 	waiting: number;
 	events: TimerEvent[];
 	keep: (event: TimerEvent) => Promise<void>;
 	snapshot: OfflineSnapshot | undefined;
-	/** After a timer stopped on a work order, whose totals have changed. */
-	onStopped: (workOrder: string) => void;
+	/** After a timer stopped, which changes the totals on screen. */
+	onStopped: () => void;
 }
 
 /**
@@ -52,10 +49,10 @@ interface TimerOptions {
  */
 export function useTimers({
 	employee,
+	session,
 	request,
-	canCall,
 	touch,
-	online,
+	live,
 	waiting,
 	events,
 	keep,
@@ -63,100 +60,61 @@ export function useTimers({
 	onStopped,
 }: TimerOptions) {
 	const showToast = useToasts();
-	const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
-	const [machineTimers, setMachineTimers] = useState<MachineTimer[]>([]);
-	const [groups, setGroups] = useState<string[]>([]);
-	const key = employee?.key;
-	const who = key ?? "";
+	const who = employee?.key ?? "";
+	const badge = employee?.badge;
+
+	const active = useTrackerData<GetActiveTimerResponse>(
+		session,
+		"get_active_timer",
+		employee && `active:${who}`,
+	);
+	const machines = useTrackerData<GetMachineTimersResponse>(
+		session,
+		"get_machine_timers",
+		employee && `machines:${who}`,
+	);
+	const setActiveTimer = active.mutate;
+	const refreshMachines = machines.mutate;
+
+	const activeTimer = active.data
+		? (active.data.message.active_timer ?? null)
+		: (employee?.lastTimer ?? null);
+	const groups = machines.data?.message.employee_groups ?? employee?.groups ?? [];
+	const known = machines.data?.message.machine_timers;
+	const machineTimers = useMemo(
+		() => known ?? snapshot?.machine_timers.filter((timer) => groups.includes(timer.employee_group)) ?? [],
+		[known, snapshot, groups],
+	);
+
+	// Remember them for signing in offline.
 	const id = employee?.id;
 	const name = employee?.name;
-	const badge = employee?.badge;
-	const live = online && canCall();
-	const groupsRef = useRef(groups);
+	const answered = active.data && machines.data;
 	useEffect(() => {
-		groupsRef.current = groups;
-	}, [groups]);
-
-	const refresh = useCallback(async () => {
-		const [active, machine] = await Promise.all([
-			request<GetActiveTimerResponse>("get_active_timer", {}, "The running timer couldn't be loaded."),
-			request<GetMachineTimersResponse>("get_machine_timers", {}, "The machine timers couldn't be loaded."),
-		]);
-		if (active.ok) setActiveTimer(active.data.active_timer ?? null);
-		if (machine.ok) {
-			setMachineTimers(machine.data.machine_timers ?? []);
-			setGroups(machine.data.employee_groups ?? []);
-		}
-		if (key && id && name && active.ok && machine.ok) {
-			await rememberEmployee({
-				id: key,
+		if (who && id && name && answered) {
+			void rememberEmployee({
+				id: who,
 				employee_id: id,
 				employee_name: name,
-				employee_groups: machine.data.employee_groups ?? [],
-				active_timer: active.data.active_timer ?? null,
+				employee_groups: groups,
+				active_timer: activeTimer,
 			});
 		}
-	}, [request, key, id, name]);
-
-	// Whoever signed in: from the server if it can be reached, or as this tablet last saw them.
-	useEffect(() => {
-		if (!employee) {
-			setActiveTimer(null);
-			setMachineTimers([]);
-			setGroups([]);
-		} else if (live) {
-			void refresh();
-		} else if (employee.lastTimer !== undefined) {
-			// Signed in offline. Losing the connection mid-session keeps what is already here.
-			setActiveTimer(employee.lastTimer);
-			setGroups(employee.groups);
-		}
-	}, [employee, live, refresh]);
-
-	useEffect(() => {
-		if (!key || live || !snapshot) return;
-		setMachineTimers(snapshot.machine_timers.filter((timer) => groups.includes(timer.employee_group)));
-	}, [key, live, snapshot, groups]);
-
-	// Machine timers belong to whole groups, so other tablets' changes arrive by realtime event.
-	useEffect(() => {
-		if (!key || !online) return undefined;
-		const socket = connectSocket();
-		socket.on("machine_timer_update", (update: TimerUpdate | null) => {
-			const timer = update?.timer;
-			if (!timer) return;
-			if (update.action === "start") {
-				if (!groupsRef.current.includes(timer.employee_group)) return;
-				setMachineTimers((timers) => [
-					// The operation may have moved here from another work order.
-					...timers.filter((other) => other.operation !== timer.operation),
-					timer,
-				]);
-			} else if (update.action === "stop") {
-				setMachineTimers((timers) => timers.filter((other) => !sameTimer(other, timer)));
-				onStopped(timer.work_order);
-			}
-		});
-		// Events sent while the socket was down are gone.
-		socket.on("connect", () => void refresh());
-		return () => {
-			socket.disconnect();
-		};
-	}, [key, online, onStopped, refresh]);
+	}, [who, id, name, answered, groups, activeTimer]);
 
 	const send = useCallback(
-		async <T extends { status: string; error?: string | null; server_time?: string | null }>(
+		async <T extends TimerAnswer>(
 			event: TimerEvent,
 			call: () => Promise<BackendResult<T>>,
 			failure: string,
-			succeeded: (answer: T) => void,
+			succeeded: () => void,
 		) => {
 			touch();
 			const answer = live && waiting === 0 ? await call() : ({ ok: false, offline: true } as const);
 			if (answer.ok) {
 				if (answer.data.status === "success") {
 					if (answer.data.server_time) rememberServerTime(answer.data.server_time);
-					succeeded(answer.data);
+					succeeded();
 				} else {
 					showToast({ kind: "error", title: failure });
 				}
@@ -180,6 +138,12 @@ export function useTimers({
 		[who, badge],
 	);
 
+	const showActive = useCallback(
+		(timer: ActiveTimer | null) =>
+			void setActiveTimer({ message: { status: "success", active_timer: timer } }, { revalidate: false }),
+		[setActiveTimer],
+	);
+
 	const start = useCallback(
 		async (workOrder: string, operation: Operation, isCorrective: boolean) => {
 			const label = operation.operation;
@@ -191,6 +155,7 @@ export function useTimers({
 				is_corrective: isCorrective,
 				...(machine && { machine_group: operation.employee_group ?? "" }),
 			};
+			const failure = `${label} failed to start.`;
 			const done = await send<StartTimerResponse>(
 				event,
 				() =>
@@ -203,13 +168,13 @@ export function useTimers({
 							is_corrective: isCorrective,
 							event_id: event.id,
 						},
-						`${label} failed to start.`,
+						failure,
 					),
-				`${label} failed to start.`,
+				failure,
 				() => {
-					if (machine) void refresh();
+					if (machine) void refreshMachines();
 					else {
-						setActiveTimer({
+						showActive({
 							work_order: workOrder,
 							operation: label,
 							from_time: event.time,
@@ -220,39 +185,46 @@ export function useTimers({
 			);
 			if (done && isCorrective) showToast({ kind: "success", title: `Rework started for ${label}.` });
 		},
-		[base, send, request, refresh, showToast],
+		[base, send, request, refreshMachines, showActive, showToast],
 	);
 
 	const stopMachine = useCallback(
 		async (workOrder: string, operation: string) => {
-			const event: TimerEvent = {
-				...base("stop_machine"),
-				work_order: workOrder,
-				operation,
-			};
+			const event: TimerEvent = { ...base("stop_machine"), work_order: workOrder, operation };
+			const failure = `${operation} machine timer failed to stop.`;
 			return send<StopMachineTimerResponse>(
 				event,
 				() =>
 					request(
 						"stop_machine_timer",
-						{
-							work_order: workOrder,
-							operation,
-							end_time: event.time,
-							event_id: event.id,
-						},
-						`${operation} machine timer failed to stop.`,
+						{ work_order: workOrder, operation, end_time: event.time, event_id: event.id },
+						failure,
 					),
-				`${operation} machine timer failed to stop.`,
+				failure,
 				() => {
-					setMachineTimers((timers) =>
-						timers.filter((timer) => timer.work_order !== workOrder || timer.operation !== operation),
-					);
-					onStopped(workOrder);
+					void refreshMachines();
+					onStopped();
 				},
 			);
 		},
-		[base, send, request, onStopped],
+		[base, send, request, refreshMachines, onStopped],
+	);
+
+	const stopLabor = useCallback(
+		async (label: string) => {
+			const event = base("stop");
+			const failure = `${label} failed to stop.`;
+			return send<StopTimerResponse>(
+				event,
+				() => request("stop_timer", { end_time: event.time, event_id: event.id }, failure),
+				failure,
+				() => {
+					showActive(null);
+					onStopped();
+				},
+			);
+		},
+		[base, send, request, showActive, onStopped],
 	);
 
 	const stop = useCallback(
@@ -262,29 +234,16 @@ export function useTimers({
 			isCorrective: boolean,
 		) => {
 			const label = operation.operation;
-			const done = operation.is_machine_time
-				? await stopMachine(workOrder, label)
-				: await (async () => {
-						const event = base("stop");
-						return send<StopTimerResponse>(
-							event,
-							() =>
-								request(
-									"stop_timer",
-									{ end_time: event.time, event_id: event.id },
-									`${label} failed to stop.`,
-								),
-							`${label} failed to stop.`,
-							() => {
-								setActiveTimer(null);
-								onStopped(workOrder);
-							},
-						);
-					})();
+			const done = operation.is_machine_time ? await stopMachine(workOrder, label) : await stopLabor(label);
 			if (done && isCorrective) showToast({ kind: "success", title: `Rework completed for ${label}.` });
 		},
-		[base, send, request, onStopped, stopMachine, showToast],
+		[stopMachine, stopLabor, showToast],
 	);
+
+	const refresh = useCallback(() => {
+		void active.mutate();
+		void refreshMachines();
+	}, [active, refreshMachines]);
 
 	const shown = useMemo(
 		() => replay({ activeTimer, machineTimers }, events, who),

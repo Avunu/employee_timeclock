@@ -281,25 +281,6 @@
 	margin-block: 0.75rem;
 }
 
-.jt-bar {
-	display: flex;
-	overflow: hidden;
-	block-size: 0.5rem;
-	background: var(--cds-layer-accent);
-}
-
-.jt-bar-fill-labor {
-	background: var(--cds-support-success);
-}
-
-.jt-bar-fill-machine {
-	background: var(--cds-support-info);
-}
-
-.jt-bar-fill-overrun {
-	background: var(--cds-support-error);
-}
-
 .jt-text-labor {
 	color: var(--cds-support-success);
 }
@@ -319,30 +300,6 @@
 .jt-elapsed {
 	font-variant-numeric: tabular-nums;
 	font-weight: 600;
-}
-
-.jt-ring {
-	flex: none;
-	inline-size: 3rem;
-	block-size: 3rem;
-}
-
-.jt-ring-track,
-.jt-ring-arc {
-	fill: none;
-	stroke-width: 6;
-}
-
-.jt-ring-track {
-	stroke: var(--cds-layer-accent);
-}
-
-.jt-ring-arc {
-	stroke: var(--cds-support-success);
-}
-
-.jt-ring-arc-overrun {
-	stroke: var(--cds-support-error);
 }
 
 .jt-machines {
@@ -365,12 +322,6 @@
 	overflow-y: auto;
 	background: var(--cds-layer);
 	color: var(--cds-text-primary);
-}
-
-.jt-stations {
-	margin-block: 1.5rem;
-	border: 0;
-	padding: 0;
 }
 
 .jt-device {

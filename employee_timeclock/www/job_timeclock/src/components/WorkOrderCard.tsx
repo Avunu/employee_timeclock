@@ -3,7 +3,7 @@
 
 import { ClickableTile, Tag } from "@carbon/react";
 import type { WorkOrder } from "../types";
-import { ProgressRing } from "./ProgressRing";
+import { EstimateBar } from "./EstimateBar";
 
 type TagType = "gray" | "blue" | "green" | "red";
 
@@ -39,10 +39,10 @@ export function WorkOrderCard({ workOrder, selected, active, corrective, onSelec
 				</div>
 				<div className="jt-card-foot">
 					<p className="jt-muted">{workOrder.name}</p>
-					{workOrder.planned_time_mins > 0 && (
-						<ProgressRing loggedMins={workOrder.logged_time_mins} plannedMins={workOrder.planned_time_mins} />
-					)}
 				</div>
+				{workOrder.planned_time_mins > 0 && (
+					<EstimateBar loggedMins={workOrder.logged_time_mins} plannedMins={workOrder.planned_time_mins} />
+				)}
 			</ClickableTile>
 		</div>
 	);

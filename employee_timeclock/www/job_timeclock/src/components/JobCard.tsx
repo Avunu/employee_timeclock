@@ -3,10 +3,10 @@
 
 import { Button, Tile } from "@carbon/react";
 import { Pin, PinFilled } from "@carbon/react/icons";
-import { elapsedSince, formatMins, progress } from "../format";
+import { elapsedSince, formatMins } from "../format";
 import type { ActiveTimer, MachineTimer, Operation } from "../types";
 import { useTick } from "../useTick";
-import { TimeBar } from "./TimeBar";
+import { EstimateBar } from "./EstimateBar";
 
 export interface JobCardActions {
 	onStart: (workOrder: string, operation: Operation, isCorrective: boolean) => void;
@@ -65,7 +65,6 @@ export function JobCard({
 	const kind = operation.is_machine_time ? "machine" : "labor";
 	const logged = operation.actual_time_mins + operation.corrective_total_time_mins;
 	const planned = operation.planned_time_mins;
-	const bar = progress(logged, planned);
 	const state = reworkStarted ? " jt-card-rework" : taskStarted ? ` jt-card-${kind}` : "";
 	const showRegular = taskStarted || operation.actual_time_mins > 0 || operation.employee_time_mins > 0;
 	const showRework =
@@ -144,11 +143,11 @@ export function JobCard({
 					<div className="jt-estimate">
 						<div className="jt-row">
 							<span>Estimated Time: {formatMins(planned)}</span>
-							{bar.isOverrun && (
+							{logged > planned && (
 								<span className="jt-text-overrun">+{formatMins(logged - planned)} overrun</span>
 							)}
 						</div>
-						<TimeBar progress={bar} kind={kind} />
+						<EstimateBar loggedMins={logged} plannedMins={planned} />
 					</div>
 				)}
 				{showRegular && (

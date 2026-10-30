@@ -1,35 +1,70 @@
 // Copyright (c) 2026, Avunu LLC and contributors
 // For license information, please see license.txt
 
-import { useCallback, useState } from "react";
-import { KioskCallError, kioskCall } from "./call";
+import { useCallback, useContext, useState } from "react";
+import { type FrappeConfig, FrappeContext, type FrappeError } from "frappe-react-sdk";
 import { useSession } from "./session";
 import { useToasts } from "./Toasts";
 
 /** A call's answer, or that it failed: `offline` when it never reached the server. */
 export type BackendResult<T> = { ok: true; data: T } | { ok: false; offline: boolean; status?: number };
 
-/**
- * The human-readable text of a failed call: kioskCall has already read
- * frappe.throw()'s message out of `_server_messages` into the error.
- */
-export function getErrorMessage(error: unknown, fallback: string): string {
-	if (error instanceof KioskCallError) return error.message || fallback;
-	return fallback;
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+/** JSON.parse that answers undefined for text that isn't JSON. */
+function parseJson(text: string): unknown {
+	try {
+		return JSON.parse(text);
+	} catch {
+		return undefined;
+	}
+}
+
+/** The status of what the SDK threw: 0 when there was no response at all. */
+export function failedStatus(error: unknown): number {
+	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+	return (error as FrappeError).httpStatus;
 }
 
 /**
- * kioskCall plus the plumbing every kiosk call site needs: restarts the
- * session timer on success, reloads the page on a 403 (see SessionProvider),
- * and shows any other answer from the server as an error toast. A call that
- * never reached the server (fetch's TypeError) gets no toast: it comes back
- * `offline`, for the caller to keep for later. Callers get a result instead
- * of an exception, so a fire-and-forget call can't leak an unhandled rejection.
+ * The text of a failed call: frappe.throw()'s message is in `_server_messages`, a JSON list of
+ * JSON-encoded `{message}` objects that may hold HTML. The SDK's own `message` is generic.
+ */
+export function getErrorMessage(error: unknown, fallback: string): string {
+	const raw = isRecord(error) ? error["_server_messages"] : undefined;
+	const entries = typeof raw === "string" ? parseJson(raw) : undefined;
+	if (!Array.isArray(entries)) return fallback;
+	const messages = entries.map((entry: unknown) => {
+		const parsed = typeof entry === "string" ? parseJson(entry) : undefined;
+		return isRecord(parsed) && typeof parsed["message"] === "string" ? parsed["message"] : "";
+	});
+	return new DOMParser().parseFromString(messages.join(" "), "text/html").body.textContent.trim() || fallback;
+}
+
+/** The SDK's client. Every kiosk page mounts inside FrappeProvider (mount.tsx). */
+function useFrappe(): FrappeConfig {
+	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+	return useContext(FrappeContext) as FrappeConfig;
+}
+
+export const useFrappeCall = (): FrappeConfig["call"] => useFrappe().call;
+
+/** The realtime socket, on a page mounted with `realtime`. */
+export const useFrappeSocket = (): FrappeConfig["socket"] => useFrappe().socket;
+
+/**
+ * The SDK's POST plus the plumbing every kiosk call site needs: restarts the session timer on
+ * success, reloads the page on a 403 (see SessionProvider), and shows any other answer from the
+ * server as an error toast. A call that never reached the server gets no toast: it comes back
+ * `offline`, for the caller to keep for later. Callers get a result instead of an exception, so a
+ * fire-and-forget call can't leak an unhandled rejection.
  *
- * `quiet` lists statuses the caller handles itself, with no toast: the failed
- * result carries the status.
+ * `quiet` lists statuses the caller handles itself, with no toast.
  */
 export function useKioskRequest() {
+	const call = useFrappeCall();
 	const { recordActivity, reportForbidden } = useSession();
 	const showToast = useToasts();
 
@@ -41,20 +76,20 @@ export function useKioskRequest() {
 			quiet: readonly number[] = [],
 		): Promise<BackendResult<T>> {
 			try {
-				const data = await kioskCall<T>(method, params);
+				const { message } = await call.post<{ message: T }>(method, params);
 				recordActivity();
-				return { ok: true, data };
+				return { ok: true, data: message };
 			} catch (error) {
-				if (error instanceof TypeError) return { ok: false, offline: true };
-				const status = error instanceof KioskCallError ? error.status : undefined;
+				const status = failedStatus(error);
+				if (status === 0) return { ok: false, offline: true };
 				if (status === 403) reportForbidden();
-				else if (!quiet.includes(status ?? 0)) {
+				else if (!quiet.includes(status)) {
 					showToast({ kind: "error", title: getErrorMessage(error, errorTitle) });
 				}
-				return { ok: false, offline: false, ...(status !== undefined && { status }) };
+				return { ok: false, offline: false, status };
 			}
 		},
-		[recordActivity, reportForbidden, showToast],
+		[call, recordActivity, reportForbidden, showToast],
 	);
 }
 

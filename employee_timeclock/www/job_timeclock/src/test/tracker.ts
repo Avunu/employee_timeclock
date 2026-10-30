@@ -101,6 +101,7 @@ export function trackerServer(overrides: Partial<TrackerServer> = {}): TrackerSe
 			if (method === "authenticate_employee" && server.badges.includes(String(args["rfid"]))) {
 				return answer({ status: "success", token });
 			}
+			if (method === "get_operations") return answer({ status: "success" });
 			if (method === "get_user_session_employee") {
 				return answer({ user_id: "me@example.com", employee_id: "HR-EMP-3" });
 			}
@@ -116,16 +117,11 @@ export function trackerServer(overrides: Partial<TrackerServer> = {}): TrackerSe
 						? { status: "success", token }
 						: { status: "error", message: "Badge not recognised." },
 				);
-			case "get_work_orders":
+			case "get_operations":
 				return answer({
 					status: "success",
 					// An employee's own login has no token to refresh.
 					token: server.sessionEmployee ? null : token,
-					work_orders: server.workOrders,
-				});
-			case "get_operations":
-				return answer({
-					status: "success",
 					operations: server.operations[String(args["work_order"])] ?? [],
 				});
 			case "get_active_timer":
@@ -133,11 +129,11 @@ export function trackerServer(overrides: Partial<TrackerServer> = {}): TrackerSe
 			case "get_machine_timers":
 				return answer({
 					status: "success",
-					machine_timers: server.machineTimers,
+					machine_timers: server.machineTimers.filter((timer) =>
+						server.groups.includes(timer.employee_group),
+					),
 					employee_groups: server.groups,
 				});
-			case "get_workstations":
-				return answer({ status: "success", workstations: server.workstations });
 			case "get_device_info":
 				return answer({ status: "success", ip: "10.0.0.7", mac: "aa:bb" });
 			case "get_offline_snapshot": {
@@ -158,6 +154,13 @@ export function trackerServer(overrides: Partial<TrackerServer> = {}): TrackerSe
 					server_time: SERVER_TIME,
 				});
 			}
+			case "stop_machine_timer":
+				if (!server.timerError) {
+					server.machineTimers = server.machineTimers.filter(
+						(timer) => timer.operation !== args["operation"],
+					);
+				}
+				return timerAnswer();
 			default:
 				return timerAnswer();
 		}

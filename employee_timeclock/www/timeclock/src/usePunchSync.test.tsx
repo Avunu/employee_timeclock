@@ -9,6 +9,7 @@ import { type QueuedPunch, queuePunch, queuedPunches } from "./punchQueue";
 import { useSession } from "../../../public/js/kiosk/session";
 import { respond, stubFetch, thrown } from "../../../public/js/kiosk/test/server";
 import { SYNC_INTERVAL_MS } from "../../../public/js/kiosk/useQueueSync";
+import { Frappe } from "../../../public/js/kiosk/test/Frappe";
 import { usePunchSync } from "./usePunchSync";
 
 vi.mock("../../../public/js/kiosk/navigate", () => ({ goTo: vi.fn(), reloadPage: vi.fn() }));
@@ -57,7 +58,7 @@ describe("usePunchSync", () => {
 
 	/** Render the hook and let its first sync finish. */
 	async function synced(fetch: ReturnType<typeof stubFetch>) {
-		const hook = renderHook(() => usePunchSync());
+		const hook = renderHook(() => usePunchSync(), { wrapper: Frappe });
 		await waitFor(() => expect(fetch).toHaveBeenCalled());
 		await act(async () => {});
 		return hook;
@@ -67,9 +68,9 @@ describe("usePunchSync", () => {
 		const fetch = server();
 		const { result } = await synced(fetch);
 
+		await waitFor(() => expect(recordActivity).toHaveBeenCalled());
 		expect(sentBatches(fetch)).toEqual([[]]);
 		expect(serverNow()).toMatch(/^2026-10-27 12:00:0\d$/);
-		expect(recordActivity).toHaveBeenCalled();
 		expect(result.current).toMatchObject({ online: true, waiting: 0 });
 	});
 
@@ -136,7 +137,7 @@ describe("usePunchSync", () => {
 		setOnline(false);
 		stubFetch(() => new Promise(() => {}));
 
-		const { result } = renderHook(() => usePunchSync());
+		const { result } = renderHook(() => usePunchSync(), { wrapper: Frappe });
 
 		expect(result.current.online).toBe(false);
 	});
@@ -173,7 +174,7 @@ describe("usePunchSync", () => {
 	it("doesn't start a second sync while one is still out", async () => {
 		let answer: (response: Response) => void = () => {};
 		const fetch = stubFetch(() => new Promise((resolve) => (answer = resolve)));
-		renderHook(() => usePunchSync());
+		renderHook(() => usePunchSync(), { wrapper: Frappe });
 		await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
 
 		await act(async () => {
