@@ -95,7 +95,7 @@ function Column({ name, text, onStep }: ColumnProps) {
 		<div className="tc-spinner-column">
 			<Button
 				kind="ghost"
-				size="2xl"
+				size="lg"
 				className="tc-spinner-arrow"
 				hasIconOnly
 				renderIcon={ChevronUp}
@@ -107,7 +107,7 @@ function Column({ name, text, onStep }: ColumnProps) {
 			</output>
 			<Button
 				kind="ghost"
-				size="2xl"
+				size="lg"
 				className="tc-spinner-arrow"
 				hasIconOnly
 				renderIcon={ChevronDown}

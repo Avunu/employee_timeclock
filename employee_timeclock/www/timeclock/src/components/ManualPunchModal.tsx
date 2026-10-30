@@ -41,6 +41,13 @@ function toManualPunch(at: Date, logType: LogType): ManualPunch {
 	return { time: `${date} ${time}`, log_type: logType, label };
 }
 
+/** Take focus off the date, once Carbon has finished putting it back there. */
+function releaseDate(): void {
+	window.setTimeout(() => {
+		for (const element of document.querySelectorAll<HTMLElement>(":focus")) element.blur();
+	});
+}
+
 function startOfToday(): Date {
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
@@ -88,24 +95,33 @@ export function ManualPunchModal({ onArm, onClose }: ManualPunchModalProps) {
 		<Modal
 			open
 			passiveModal
+			className="tc-manual-dialog"
 			size="sm"
 			modalHeading="Forgot to punch?"
 			onRequestClose={onClose}
 			preventCloseOnClickOutside
 		>
 			<div className="tc-manual">
-				<DatePicker
-					datePickerType="single"
-					dateFormat="m/d/Y"
-					maxDate={new Date().toLocaleDateString("en-US")}
-					value={day}
-					onChange={([picked]) => {
-						if (picked) setDay(picked);
-					}}
-				>
-					<DatePickerInput id="tc-manual-date" labelText="Date" placeholder="mm/dd/yyyy" />
-				</DatePicker>
-				<TimeSpinner value={time} onChange={setTime} />
+				<div className="tc-manual-when">
+					{/* Picked from the calendar only: inputMode keeps a tablet's keyboard from opening over it.
+					    The picker holds on to keystrokes while it has focus, so it lets go on closing, for the
+					    badge scan. */}
+					<DatePicker
+						datePickerType="single"
+						dateFormat="m/d/Y"
+						allowInput={false}
+						maxDate={new Date().toLocaleDateString("en-US")}
+						value={day}
+						onClose={releaseDate}
+						onChange={([picked]) => {
+							// Backspace clears the picker's date; the form keeps the last one.
+							if (picked) setDay(picked);
+						}}
+					>
+						<DatePickerInput id="tc-manual-date" labelText="Date" placeholder="mm/dd/yyyy" inputMode="none" />
+					</DatePicker>
+					<TimeSpinner value={time} onChange={setTime} />
+				</div>
 				{inFuture && (
 					<InlineNotification
 						kind="error"
@@ -115,6 +131,7 @@ export function ManualPunchModal({ onArm, onClose }: ManualPunchModalProps) {
 					/>
 				)}
 				<RadioButtonGroup
+					className="tc-manual-choice"
 					legendText="Clock in or out"
 					name="tc-manual-log-type"
 					valueSelected={logType ?? ""}
