@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mountKiosk } from "./mount";
 import { registerServiceWorker } from "./serviceWorker";
 import { useSession } from "./session";
-import { useToasts } from "./Toasts";
+import { useToasts } from "./components/Toasts";
 
 vi.mock("./serviceWorker", () => ({ registerServiceWorker: vi.fn() }));
 

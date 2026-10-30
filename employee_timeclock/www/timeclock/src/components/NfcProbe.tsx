@@ -3,8 +3,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button, InlineNotification } from "@carbon/react";
-import { KioskHeader } from "../../../../public/js/kiosk/KioskHeader";
-import { serialAsDecimal, serialBytes } from "../../../../public/js/kiosk/nfcSerial";
+import { KioskHeader } from "./KioskHeader";
+import { serialAsDecimal, serialBytes } from "../nfcSerial";
 
 /** One tap, as the tablet's NFC reported it. */
 interface Tap {

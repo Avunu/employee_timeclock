@@ -4,7 +4,7 @@
 import { useCallback, useState } from "react";
 import { KioskCallError, kioskCall } from "./call";
 import { useSession } from "./session";
-import { useToasts } from "./Toasts";
+import { useToasts } from "./components/Toasts";
 
 /** A call's answer, or that it failed: `offline` when it never reached the server. */
 export type BackendResult<T> = { ok: true; data: T } | { ok: false; offline: boolean };

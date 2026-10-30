@@ -18,7 +18,7 @@ browser's error page. It never caches a page or a call to the server: pages
 carry a login token and every punch is live.
 
 Icons are drawn by tools/build_kiosk_icons.py into public/images/kiosk/.
-Front-end counterpart: public/js/kiosk/serviceWorker.ts, which registers it.
+Front-end counterpart: www/timeclock/src/serviceWorker.ts, which registers it.
 """
 
 import json
@@ -58,8 +58,10 @@ KIOSK_APPS: dict[str, KioskApp] = {
 
 
 def service_worker_source() -> str:
-	"""The one worker every kiosk page runs: public/js/kiosk-sw.js."""
-	return Path(frappe.get_app_path("employee_timeclock", "public", "js", "kiosk-sw.js")).read_text()
+	"""The one worker every kiosk page runs: www/timeclock/src/kiosk-sw.js."""
+	return Path(
+		frappe.get_app_path("employee_timeclock", "www", "timeclock", "src", "kiosk-sw.js")
+	).read_text()
 
 
 def get_manifest(app: str) -> dict[str, Any]:

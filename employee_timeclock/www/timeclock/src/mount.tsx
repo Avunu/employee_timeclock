@@ -6,7 +6,7 @@ import { createRoot } from "react-dom/client";
 import { Theme } from "@carbon/react";
 import { registerServiceWorker } from "./serviceWorker";
 import { SessionProvider } from "./session";
-import { ToastProvider } from "./Toasts";
+import { ToastProvider } from "./components/Toasts";
 
 /** Renders a kiosk page's React app into index.html's `#app`, inside the
  * providers every kiosk page shares. No realtime socket: a kiosk only sends

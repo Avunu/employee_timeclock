@@ -5,7 +5,7 @@ import { act, render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ToastProvider, useToasts } from "./Toasts";
-import type { ShowToast } from "./types";
+import type { ShowToast } from "../types";
 
 /** Render a ToastProvider and hand back its showToast. */
 function toasts(): ShowToast {

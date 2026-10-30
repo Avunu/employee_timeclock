@@ -6,11 +6,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { KioskCallError } from "./call";
 import { useSession } from "./session";
 import { respond, stubFetch, thrown } from "./test/server";
-import { useToasts } from "./Toasts";
+import { useToasts } from "./components/Toasts";
 import { getErrorMessage, useBackendCall } from "./useBackendCall";
 
 vi.mock("./session", () => ({ useSession: vi.fn() }));
-vi.mock("./Toasts", () => ({ useToasts: vi.fn() }));
+vi.mock("./components/Toasts", () => ({ useToasts: vi.fn() }));
 
 const FALLBACK = "The punch wasn't recorded.";
 

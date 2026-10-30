@@ -1,7 +1,7 @@
 // Copyright (c) 2026, Avunu LLC and contributors
 // For license information, please see license.txt
 
-// The kiosk's service worker (../kiosk-sw.js), loaded into a stand-in for a worker's global scope:
+// The kiosk's service worker (./kiosk-sw.js), loaded into a stand-in for a worker's global scope:
 // its listeners are caught as it registers them, then handed fake install/activate/fetch events.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -63,7 +63,7 @@ async function loadWorker(cacheNames: string[] = []) {
 	vi.stubGlobal("skipWaiting", skipWaiting);
 	vi.stubGlobal("clients", { claim });
 	vi.resetModules();
-	const worker = "../kiosk-sw.js";
+	const worker = "./kiosk-sw.js";
 	await import(/* @vite-ignore */ worker);
 }
 

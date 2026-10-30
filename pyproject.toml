@@ -151,12 +151,7 @@ check = "node scripts/vue-tsc.cjs --noEmit -p tsconfig.json"
 # The React badge kiosk (www/timeclock), built by frappe's esbuild, and its service worker.
 [[tool.frappe-nix.typescript.spa]]
 root = "."
-include = [
-	"employee_timeclock/public/js/timeclock.bundle.ts",
-	"employee_timeclock/public/js/kiosk/**",
-	"employee_timeclock/public/js/kiosk-sw.js",
-	"employee_timeclock/www/timeclock/src/**",
-]
+include = ["employee_timeclock/public/js/timeclock.bundle.ts", "employee_timeclock/www/timeclock/src/**"]
 tsconfig = "tsconfig.react.json"
 check = "tsc -p tsconfig.react.json"
 

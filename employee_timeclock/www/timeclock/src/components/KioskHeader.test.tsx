@@ -5,9 +5,9 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { KioskHeader } from "./KioskHeader";
-import { reloadPage } from "./navigate";
+import { reloadPage } from "../navigate";
 
-vi.mock("./navigate", () => ({ goTo: vi.fn(), reloadPage: vi.fn() }));
+vi.mock("../navigate", () => ({ goTo: vi.fn(), reloadPage: vi.fn() }));
 
 describe("KioskHeader", () => {
 	it("names the page and shows its own actions before the utility ones", () => {

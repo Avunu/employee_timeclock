@@ -4,7 +4,7 @@
 import type { ReactNode } from "react";
 import { Header, HeaderGlobalAction, HeaderGlobalBar, HeaderName, Theme } from "@carbon/react";
 import { type CarbonIconType, Renew } from "@carbon/react/icons";
-import { reloadPage } from "./navigate";
+import { reloadPage } from "../navigate";
 
 interface UtilityAction {
 	label: string;

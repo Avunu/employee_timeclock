@@ -3,15 +3,15 @@
 
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { reloadPage } from "../../../public/js/kiosk/navigate";
-import { queuedPunches } from "../../../public/js/kiosk/punchQueue";
-import { SessionProvider } from "../../../public/js/kiosk/session";
-import { respond, stubFetch, thrown } from "../../../public/js/kiosk/test/server";
-import { ToastProvider } from "../../../public/js/kiosk/Toasts";
+import { reloadPage } from "./navigate";
+import { queuedPunches } from "./punchQueue";
+import { SessionProvider } from "./session";
+import { respond, stubFetch, thrown } from "./test/server";
+import { ToastProvider } from "./components/Toasts";
 import { App } from "./App";
 import { setTime } from "./test/setTime";
 
-vi.mock("../../../public/js/kiosk/navigate", () => ({ goTo: vi.fn(), reloadPage: vi.fn() }));
+vi.mock("./navigate", () => ({ goTo: vi.fn(), reloadPage: vi.fn() }));
 
 const PUNCH = "employee_timeclock.www.timeclock.punch";
 const SYNC = "employee_timeclock.www.timeclock.sync_punches";

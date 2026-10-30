@@ -1,7 +1,7 @@
 {
-	// The React kiosk pages (www/timeclock/src, public/js/kiosk), checked apart from the Vue
+	// The React kiosk page (www/timeclock/src), checked apart from the Vue
 	// SPAs in tsconfig.json: React needs "jsx": "react-jsx", Vue "preserve". The tsconfig.json
-	// in each of those folders extends this one, so esbuild compiles their TSX the same way.
+	// in that folder extends this one, so esbuild compiles its TSX the same way.
 	"compilerOptions": {
 		"target": "ES2022",
 		"module": "ESNext",
@@ -29,8 +29,6 @@
 	},
 	"include": [
 		"employee_timeclock/public/js/timeclock.bundle.ts",
-		"employee_timeclock/public/js/kiosk/**/*.ts",
-		"employee_timeclock/public/js/kiosk/**/*.tsx",
 		"employee_timeclock/www/timeclock/src/**/*.ts",
 		"employee_timeclock/www/timeclock/src/**/*.tsx"
 	],
