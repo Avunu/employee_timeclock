@@ -11,7 +11,7 @@ For license information, please see license.txt-->
 
 Badge-scan timeclock kiosks and job-card time tracking for ERPNext and HRMS
 
-[![CI](https://github.com/Avunu/employee_timeclock/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Avunu/employee_timeclock/actions/workflows/ci.yml)
+[![CI](https://github.com/Avunu/employee_timeclock/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/Avunu/employee_timeclock/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/Avunu/employee_timeclock)](https://github.com/Avunu/employee_timeclock/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](license.txt)
 [![Frappe v16](https://img.shields.io/badge/Frappe-v16-blue)](https://github.com/frappe/frappe/tree/version-16)
@@ -69,7 +69,7 @@ bench --site <site> install-app employee_timeclock
 
 <!-- frappe-nix:end installation -->
 
-The `version-16` branch still holds 16.0.0, from before the app was renamed from `timeclock`. Until the next release moves it, install from `main` instead: `bench get-app https://github.com/Avunu/employee_timeclock --branch main`.
+The `version-16` branch still holds 16.0.0, from before the app was renamed from `timeclock`. Until the next release moves it, install from `develop` instead: `bench get-app https://github.com/Avunu/employee_timeclock --branch develop`.
 
 ## Upgrading
 
