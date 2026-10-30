@@ -2,20 +2,20 @@
 
 Requires Node 24+ and yarn. `nix develop` (or direnv) gives you both, plus the git hooks and a dev bench with ERPNext and HRMS.
 
-| Command                             | What it does                                                                                                                                              |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `yarn build`                        | Builds the job time tracker with Vite, then registers it in the bench's `sites/assets/assets.json` (`scripts/vite-register.mjs`; skipped outside a bench) |
-| `yarn build:job_timeclock`          | Builds only the job time tracker (`/job_timeclock`), as `job_timeclock.bundle.*`                                                                          |
-| `yarn dev:job_timeclock`            | Rebuilds the job time tracker on change; reload the page to pick it up                                                                                    |
-| `yarn typecheck`                    | Type-checks the scripts, the desk JavaScript, the Vue SPA (`tsconfig.json`) and the React badge kiosk (`tsconfig.react.json`)                             |
-| `yarn test`                         | Runs the badge kiosk's tests (Vitest, `vitest.config.ts`) and fails unless they cover every line and branch of it                                         |
-| `yarn lint` / `yarn format`         | Runs oxlint and oxfmt                                                                                                                                     |
-| `generate-types`                    | Regenerates `public/js/job_timeclock/types.ts` from the Pydantic models in `www/job_timeclock/models.py`                                                  |
-| `frappe-test --reuse-site`          | Runs the Python tests on the dev site, with coverage                                                                                                      |
-| `python tools/build_kiosk_icons.py` | Redraws the badge kiosk's app icons into `public/images/kiosk/` (needs `inkscape`; the PNGs are committed)                                                |
-| `frappe-shots`                      | Rebuilds the demo site (`employee_timeclock/demo.py`) and retakes the screenshots in `docs/screenshots/`                                                  |
+| Command                             | What it does                                                                                                                                                 |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `yarn build`                        | Builds the old Vue job tracker with Vite, then registers it in the bench's `sites/assets/assets.json` (`scripts/vite-register.mjs`; skipped outside a bench) |
+| `yarn build:job_timeclock`          | Builds only the old Vue tracker (`/job_timeclock_vue`), as `job_timeclock_vue.bundle.*`                                                                      |
+| `yarn dev:job_timeclock`            | Rebuilds the job time tracker on change; reload the page to pick it up                                                                                       |
+| `yarn typecheck`                    | Type-checks the scripts, the desk JavaScript, the Vue SPA (`tsconfig.json`) and the React badge kiosk (`tsconfig.react.json`)                                |
+| `yarn test`                         | Runs the kiosks' tests (Vitest, `vitest.config.ts`) and fails unless they cover every line and branch of them                                                |
+| `yarn lint` / `yarn format`         | Runs oxlint and oxfmt                                                                                                                                        |
+| `generate-types`                    | Regenerates `www/job_timeclock/src/types.ts` from the Pydantic models in `www/job_timeclock/models.py`                                                       |
+| `frappe-test --reuse-site`          | Runs the Python tests on the dev site, with coverage                                                                                                         |
+| `python tools/build_kiosk_icons.py` | Redraws the kiosks' app icons into `public/images/kiosk/` (needs `inkscape`; the PNGs are committed)                                                         |
+| `frappe-shots`                      | Rebuilds the demo site (`employee_timeclock/demo.py`) and retakes the screenshots in `docs/screenshots/`                                                     |
 
-The desk JavaScript (`public/js/*.js` and the `*.bundle.js` files) and the badge kiosk (`public/js/timeclock.bundle.ts`, `public/scss/kiosk.bundle.scss`) are built by `bench build` with esbuild, as in any Frappe app. `bench build` also runs `yarn build`, so the job time tracker is built with it. Run `bench build` from the bench you serve the site from: inside the app folder, `bench` is the app's own dev bench.
+The desk JavaScript (`public/js/*.js` and the `*.bundle.js` files) and the kiosks (`public/js/timeclock.bundle.ts`, `public/js/job-timeclock.bundle.ts`, `public/scss/kiosk.bundle.scss`) are built by `bench build` with esbuild, as in any Frappe app. `bench build` also runs `yarn build`, so the old Vue tracker is built with it. Run `bench build` from the bench you serve the site from: inside the app folder, `bench` is the app's own dev bench.
 
 ## Where things live
 
@@ -25,11 +25,13 @@ The desk JavaScript (`public/js/*.js` and the `*.bundle.js` files) and the badge
 - `employee_timeclock/timeclock/doctype/workday/`: the Workday DocType, its list view's Bulk Add and `bulk_add_punches`.
 - `employee_timeclock/timeclock/report/workday_management/`: the Workday Management report and its punch-editing methods.
 - `employee_timeclock/timeclock/web_form/employee_timelog/`: the Employee Clock-in/out web form (`/employee-timeclock`).
-- `employee_timeclock/www/timeclock/`: the badge kiosk (`/timeclock`), a React + Carbon app in `src/` whose `punch` endpoint is in `__init__.py`. `public/js/timeclock.bundle.ts` is only its esbuild entry, which imports `src/main.tsx`; everything else lives in `src/`: mounting, the toolbar, the session timer, toasts, backend calls, the badge scanner, the offline punch queue (`punchQueue.ts` keeps punches in IndexedDB, `usePunchSync.ts` sends them to `sync_punches`, `clock.ts` stamps them with the server's time), and `kiosk-sw.js`, its service worker, which keeps the app's page so it opens offline.
+- `employee_timeclock/www/timeclock/`: the badge kiosk (`/timeclock`), a React + Carbon app in `src/` whose `punch` endpoint is in `__init__.py`. `public/js/timeclock.bundle.ts` is only its esbuild entry. The offline punch queue is in `src/`: `punchQueue.ts` keeps punches in IndexedDB and `usePunchSync.ts` sends them to `sync_punches`.
+- `employee_timeclock/public/js/kiosk/`: what the kiosk pages share (mounting, the toolbar, the session timer, toasts, backend calls, the badge scanner, and `clock.ts`, the server's clock), and `public/js/kiosk-sw.js`, their service worker, which keeps the app's page so it opens offline.
 - Every punch from the new kiosk carries its own id (`kiosk_punch_id` on Employee Checkin), so a retry or a synced offline punch is recorded once. `/timeclock?probe=nfc` is a temporary page showing what the tablet's NFC reads from a badge.
 - `employee_timeclock/kiosk_pwa.py`: makes each kiosk page an installable app: its manifest, icons (`public/images/kiosk/`, drawn by `tools/build_kiosk_icons.py`) and service worker, served at `/<page>/manifest.webmanifest` and `/<page>/sw.js`. Browsers only install it, and only run the worker, on HTTPS or `localhost`.
-- `employee_timeclock/www/job_timeclock/` and `public/js/job_timeclock/`: the job time tracker (`/job_timeclock`). `models.py` holds the API's Pydantic response models.
-- `employee_timeclock/www/job_timeclock_legacy/`: the old job time tracker, kept until a follow-up removes it. It is excluded from linting, type checks and coverage.
+- `employee_timeclock/www/job_timeclock/`: the job time tracker (`/job_timeclock`), a React + Carbon app in `src/`, with its backend in `job_timeclock.py` and `models.py`. `public/js/job-timeclock.bundle.ts` is only its esbuild entry. `src/types.ts` is generated from `models.py` by `generate-types`.
+- Offline, the tracker keeps a snapshot of the work (`get_offline_snapshot`) and queues timer events in IndexedDB (`src/offlineData.ts`). `src/replay.ts` shows them on top of the last server state, and `src/useTimerSync.ts` sends them to `sync_timer_events`. Each event has its own id (`kiosk_start_id` and `kiosk_stop_id` on Job Card Time Log), so it is recorded once. A synced event only closes logs that had started by its time, and a start nothing stopped ends where the next log begins. Rejected events go to the Error Log. Tablets can't see each other's offline timers until they sync, and events over a week old are rejected.
+- `employee_timeclock/www/job_timeclock_vue/` and `public/js/job_timeclock/`: the old Vue tracker (`/job_timeclock_vue`), kept beside the new one while it is tried out. It is built by Vite, and is the only reason the app still has Vite, Vue, Tailwind and frappe-ui.
 - `employee_timeclock/timeclock/custom/`: the custom fields on Employee, Employee Checkin, Job Card, Job Card Time Log and Operation, and the `TimeclockJobCard` class extension.
 - `employee_timeclock/public/dist/`: the build output. It is generated and not committed.
 - `marketplace/`: the marketplace listing and the screenshot spec.

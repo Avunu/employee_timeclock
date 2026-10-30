@@ -67,18 +67,44 @@
 	padding-inline: 0.5rem;
 }
 
+// Only as wide as what's in it. The dialog's container is the root's one div; the child selector
+// outweighs Carbon's width at each breakpoint.
+.tc-manual-dialog > div {
+	grid-template-columns: auto;
+	inline-size: fit-content;
+	max-inline-size: 100%;
+}
+
 .tc-manual {
 	display: flex;
 	flex-direction: column;
-	gap: 1.5rem;
+	align-items: center;
+	gap: 1rem;
+	text-align: center;
 }
 
+.tc-manual-when {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: center;
+	gap: 1rem;
+}
+
+// Carbon's radios are sized for a mouse, and nothing in them scales with font-size.
+.tc-manual-choice {
+	zoom: 1.4;
+}
+
+// A set width, so the dialog doesn't change size when this line's text does.
 .tc-manual-armed {
-	font-size: 1.5rem;
+	inline-size: 26rem;
+	max-inline-size: 100%;
+	font-size: 1.125rem;
 }
 
 // The forgotten punch's time: hours, minutes and AM/PM in a row, each a big number between arrows
-// sized for a finger (Carbon's 2xl buttons are 5rem square).
+// sized for a finger (Carbon's lg buttons are 3rem tall).
 .tc-spinner {
 	border: 0;
 	margin: 0;
@@ -101,31 +127,258 @@
 // No double-tap zoom or text selection while a finger holds an arrow down.
 .tc-spinner-arrow {
 	justify-content: center;
-	inline-size: 5rem;
+	inline-size: 3.5rem;
 	padding: 0;
 	touch-action: manipulation;
 	user-select: none;
 
 	svg {
-		inline-size: 2rem;
-		block-size: 2rem;
+		inline-size: 1.5rem;
+		block-size: 1.5rem;
 	}
 }
 
 .tc-spinner-value,
 .tc-spinner-colon {
-	font-size: 3.5rem;
+	font-size: 2.25rem;
 	font-variant-numeric: tabular-nums;
 	line-height: 1.2;
 }
 
 .tc-spinner-value {
-	min-inline-size: 5rem;
+	min-inline-size: 3.5rem;
 	text-align: center;
 }
 
 .tc-spinner-colon {
 	align-self: center;
+}
+
+// The job tracker (www/job_timeclock): the employee and running timer, the work orders beside the
+// selected one's job cards, and any machine timers along the bottom, all under the 3rem header.
+.jt-page {
+	display: flex;
+	flex-direction: column;
+	block-size: 100vh;
+	padding-block-start: 3rem;
+	background: var(--cds-background);
+	color: var(--cds-text-primary);
+}
+
+.jt-status {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.5rem 1rem;
+}
+
+.jt-main {
+	display: flex;
+	flex: 1;
+	min-block-size: 0;
+}
+
+.jt-column {
+	flex: 1;
+	padding: 1rem;
+	overflow-y: auto;
+}
+
+.jt-column-half {
+	flex-basis: 50%;
+}
+
+.jt-column-title {
+	font-size: 1.75rem;
+}
+
+.jt-muted {
+	color: var(--cds-text-secondary);
+}
+
+.jt-row,
+.jt-card-head,
+.jt-card-foot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+}
+
+.jt-card {
+	position: relative;
+	margin-block: 0.75rem;
+	border-inline-start: 0.25rem solid transparent;
+}
+
+.jt-card-selected {
+	border-inline-start-color: var(--cds-interactive);
+}
+
+.jt-card-active,
+.jt-card-labor {
+	border-inline-start-color: var(--cds-support-success);
+}
+
+.jt-card-machine {
+	border-inline-start-color: var(--cds-support-info);
+}
+
+.jt-card-rework {
+	border-inline-start-color: var(--cds-support-warning);
+}
+
+// The whole card is this button: its tap area stretches over the card, under the card's own buttons.
+.jt-card-open {
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	padding: 0;
+	text-align: start;
+
+	&::after {
+		position: absolute;
+		content: "";
+		inset: 0;
+	}
+}
+
+.jt-card-title {
+	font-size: 1.75rem;
+	font-weight: 600;
+	overflow-wrap: anywhere;
+}
+
+.jt-card-pin {
+	position: relative;
+	z-index: 1;
+}
+
+.jt-actions {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+// Label in the middle, with room for the longest ("Start Rework") so the buttons match.
+.jt-action {
+	align-items: center;
+	justify-content: center;
+	min-inline-size: 9rem;
+	padding-inline: 1rem;
+	text-align: center;
+}
+
+.jt-estimate {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	margin-block: 0.75rem;
+}
+
+.jt-bar {
+	display: flex;
+	overflow: hidden;
+	block-size: 0.5rem;
+	background: var(--cds-layer-accent);
+}
+
+.jt-bar-fill-labor {
+	background: var(--cds-support-success);
+}
+
+.jt-bar-fill-machine {
+	background: var(--cds-support-info);
+}
+
+.jt-bar-fill-overrun {
+	background: var(--cds-support-error);
+}
+
+.jt-text-labor {
+	color: var(--cds-support-success);
+}
+
+.jt-text-machine {
+	color: var(--cds-support-info);
+}
+
+.jt-text-rework {
+	color: var(--cds-text-secondary);
+}
+
+.jt-text-overrun {
+	color: var(--cds-support-error);
+}
+
+.jt-elapsed {
+	font-variant-numeric: tabular-nums;
+	font-weight: 600;
+}
+
+.jt-ring {
+	flex: none;
+	inline-size: 3rem;
+	block-size: 3rem;
+}
+
+.jt-ring-track,
+.jt-ring-arc {
+	fill: none;
+	stroke-width: 6;
+}
+
+.jt-ring-track {
+	stroke: var(--cds-layer-accent);
+}
+
+.jt-ring-arc {
+	stroke: var(--cds-support-success);
+}
+
+.jt-ring-arc-overrun {
+	stroke: var(--cds-support-error);
+}
+
+.jt-machines {
+	display: flex;
+	gap: 0.75rem;
+	padding: 0.5rem 1rem;
+	overflow-x: auto;
+	border-block-start: 1px solid var(--cds-border-subtle);
+}
+
+.jt-machine {
+	display: flex;
+	flex: none;
+	align-items: center;
+}
+
+.jt-panel {
+	inline-size: 20rem;
+	padding: 1.5rem;
+	overflow-y: auto;
+	background: var(--cds-layer);
+	color: var(--cds-text-primary);
+}
+
+.jt-stations {
+	margin-block: 1.5rem;
+	border: 0;
+	padding: 0;
+}
+
+.jt-device {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 0.25rem 1rem;
+	color: var(--cds-text-secondary);
+	font-variant-numeric: tabular-nums;
 }
 
 // The temporary NFC probe (/timeclock?probe=nfc).

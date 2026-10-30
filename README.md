@@ -117,7 +117,6 @@ For job time tracking:
 - A punch recorded less than a minute after its Workday was created or saved is not copied into the Workday; this guard stops the two sync hooks from triggering each other. The Workday Management report shows the day as Out of Sync, and _Rebuild Workdays_ fixes it.
 - Overtime in the payroll reports is hours over 40 in a week, and the 40 can't be configured. A week runs Sunday to Saturday, whatever the site's first day of the week.
 - The kiosk pages are in English only and have no dark theme. The job tracker's page is titled "Project Tracker".
-- The old job time tracker at `/job_timeclock_legacy` still ships; it is replaced by `/job_timeclock` and will be removed.
 
 <!-- frappe-nix:begin support -->
 

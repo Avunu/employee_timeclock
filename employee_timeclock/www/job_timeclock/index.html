@@ -2,28 +2,21 @@
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
-		<link rel="icon" href="/favicon.png" />
-		<link rel="stylesheet" href="{{ bundled_asset('job_timeclock.bundle.css', rtl=False) }}" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Project Tracker</title>
+		<title>{{ title }}</title>
+		{% include "employee_timeclock/templates/includes/kiosk_head.html" %} {{ include_style('kiosk.bundle.css')
+		}}
 	</head>
 
 	<body>
 		<div id="app"></div>
-		<div id="modals"></div>
-		<div id="popovers"></div>
 
 		<script>
 			window.csrf_token = "{{ csrf_token }}";
 		</script>
 		<script>
-			window.sitename = "{{ sitename }}";
+			window.kiosk_boot = {{ frappe.utils.orjson_dumps(boot, default=frappe.json_handler) }}
 		</script>
-		{% if developer_mode %}
-		<script>
-			window.developer_mode = true;
-		</script>
-		{% endif %}
-		<script type="module" src="{{ bundled_asset('job_timeclock.bundle.js') }}"></script>
+		{{ include_script('job-timeclock.bundle.ts') }}
 	</body>
 </html>

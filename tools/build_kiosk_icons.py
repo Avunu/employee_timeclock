@@ -36,6 +36,7 @@ OUT = ROOT.parent / "employee_timeclock" / "public" / "images" / "kiosk"
 # KIOSK_APPS in employee_timeclock/kiosk_pwa.py, which names the same pages.
 ICONS = {
 	"timeclock": ("time", "#0f62fe"),  # blue 60
+	"job_timeclock": ("timer", "#198038"),  # green 60
 }
 
 SIZE = 512  # the drawing's own size; PNGs are scaled from it

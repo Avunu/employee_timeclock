@@ -121,7 +121,7 @@ class TestKioskAppRenderer(IntegrationTestCase):
 			"timeclock/",
 			"timeclock/other.js",
 			"timeclock/manifest.json",
-			"job_timeclock/sw.js",
+			"job_timeclock_vue/sw.js",
 			"employee-timeclock/sw.js",
 			"sw.js",
 			"timeclock/sw.js/extra",
