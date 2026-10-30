@@ -96,8 +96,8 @@ async function notifyFrappeReload(changedFiles: string[]) {
 	}
 }
 
-// Get the SPA to build from the environment. The badge kiosk (www/timeclock) is React, built by
-// frappe's esbuild from public/js/timeclock.bundle.ts, so the job timeclock is the only one left here.
+// Get the SPA to build from the environment. The kiosks are React, built by frappe's esbuild from
+// public/js/*.bundle.ts, so the old Vue job tracker (/job_timeclock_vue) is the only one left here.
 const appName = process.env.VITE_APP || "job_timeclock";
 
 interface AppConfig {
@@ -112,7 +112,7 @@ interface AppConfig {
 // Source: public/js/<app>  |  Output: public/dist/{js,css}/<bundle>.bundle.[hash].*
 const appConfigs: Record<string, AppConfig> = {
 	job_timeclock: {
-		bundle: "job_timeclock",
+		bundle: "job_timeclock_vue",
 		entry: "job_timeclock.ts",
 		srcDir: "employee_timeclock/public/js/job_timeclock",
 	},
