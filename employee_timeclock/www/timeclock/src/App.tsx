@@ -4,12 +4,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@carbon/react";
 import { Time } from "@carbon/react/icons";
-import { rememberServerTime, serverNow } from "../../../public/js/kiosk/clock";
-import { KioskHeader } from "../../../public/js/kiosk/KioskHeader";
-import { KioskStatus } from "../../../public/js/kiosk/KioskHeader";
-import { reloadPage } from "../../../public/js/kiosk/navigate";
-import { useBackendCall } from "../../../public/js/kiosk/useBackendCall";
-import { useKeyboardWedge } from "../../../public/js/kiosk/useKeyboardWedge";
+import { rememberServerTime, serverNow } from "../../shared/clock";
+import { KioskHeader } from "../../shared/KioskHeader";
+import { KioskStatus } from "../../shared/KioskHeader";
+import { reloadPage } from "../../shared/navigate";
+import { useBackendCall } from "../../shared/useBackendCall";
+import { useKeyboardWedge } from "../../shared/useKeyboardWedge";
 import { usePunchSync } from "./usePunchSync";
 import { Clock } from "./components/Clock";
 import { ManualPunchModal } from "./components/ManualPunchModal";

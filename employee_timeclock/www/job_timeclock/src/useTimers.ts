@@ -2,9 +2,9 @@
 // For license information, please see license.txt
 
 import { useCallback, useEffect, useMemo } from "react";
-import { rememberServerTime, serverNow } from "../../../public/js/kiosk/clock";
-import { useToasts } from "../../../public/js/kiosk/Toasts";
-import type { BackendResult } from "../../../public/js/kiosk/useBackendCall";
+import { rememberServerTime, serverNow } from "../../shared/clock";
+import { useToasts } from "../../shared/Toasts";
+import type { BackendResult } from "../../shared/useBackendCall";
 import { rememberEmployee, type TimerEvent } from "./offline";
 import { replay } from "./offline";
 import type { Employee, TrackerRequest, TrackerSession } from "./useEmployee";

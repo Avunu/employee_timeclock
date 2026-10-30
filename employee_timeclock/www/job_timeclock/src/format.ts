@@ -1,7 +1,7 @@
 // Copyright (c) 2026, Avunu LLC and contributors
 // For license information, please see license.txt
 
-import { serverMillis } from "../../../public/js/kiosk/clock";
+import { serverMillis } from "../../shared/clock";
 import { useEffect, useState } from "react";
 
 /** Minutes as the tracker shows them: 45m, 2h, 2h 30m. */

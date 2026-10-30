@@ -23,6 +23,7 @@ export function writeStored(key: string, value: unknown): void {
 
 const NO_ORDERS: WorkOrder[] = [];
 const NO_OPERATIONS: Operation[] = [];
+const UNLISTED = { status: "In Process", planned_time_mins: 0, logged_time_mins: 0 } as const;
 
 /** What an employee may see of a work order's operations: machine ones are their group's only. */
 export function visibleTo(operations: Operation[], groups: string[]): Operation[] {
@@ -51,11 +52,12 @@ export function useWork({ employee, session, snapshot, workstations }: WorkOptio
 		{ work_order: selected?.name, workstations: JSON.stringify(workstations) },
 	);
 
-	/** Select a work order by name, if it is still open. */
+	/** Select a work order by name. A timer can outlive its place in the list, if the work order
+	 * has stopped or closed since, and its job cards are still the server's to show. */
 	const selectByName = useCallback(
 		(name: string) => {
 			const found = workOrders.find((workOrder) => workOrder.name === name);
-			if (found) setSelected(found);
+			setSelected(found ?? { ...UNLISTED, name, production_item: name });
 		},
 		[workOrders],
 	);

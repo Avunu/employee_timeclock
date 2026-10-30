@@ -5,7 +5,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setTime, shownTime } from "../test/setTime";
-import { useKeyboardWedge } from "../../../../public/js/kiosk/useKeyboardWedge";
+import { useKeyboardWedge } from "../../../shared/useKeyboardWedge";
 import { ManualPunchModal } from "./ManualPunchModal";
 
 // Mid-afternoon on Friday 23 October 2026, on the tablet's clock.

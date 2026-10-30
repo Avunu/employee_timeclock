@@ -2,9 +2,9 @@
 // For license information, please see license.txt
 
 import { describe, expect, it, vi } from "vitest";
-import { mountKiosk } from "../../../public/js/kiosk/mount";
+import { mountKiosk } from "../../shared/mount";
 
-vi.mock("../../../public/js/kiosk/mount", () => ({ mountKiosk: vi.fn() }));
+vi.mock("../../shared/mount", () => ({ mountKiosk: vi.fn() }));
 
 describe("the tracker's entry points", () => {
 	it.each([

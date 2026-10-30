@@ -7,8 +7,8 @@
 import { defineConfig } from "vitest/config";
 
 const KIOSK_SOURCES = [
-	"employee_timeclock/public/js/kiosk/**/*.{ts,tsx}",
-	"employee_timeclock/public/js/kiosk-sw.js",
+	"employee_timeclock/www/shared/**/*.{ts,tsx}",
+	"employee_timeclock/www/shared/kiosk-sw.js",
 	"employee_timeclock/public/js/timeclock.bundle.ts",
 	"employee_timeclock/www/timeclock/src/**/*.{ts,tsx}",
 	"employee_timeclock/public/js/job-timeclock.bundle.ts",
@@ -21,11 +21,11 @@ export default defineConfig({
 		environment: "jsdom",
 		environmentOptions: { jsdom: { url: "http://localhost:8000/timeclock" } },
 		include: [
-			"employee_timeclock/public/js/kiosk/**/*.test.{ts,tsx}",
+			"employee_timeclock/www/shared/**/*.test.{ts,tsx}",
 			"employee_timeclock/www/timeclock/src/**/*.test.{ts,tsx}",
 			"employee_timeclock/www/job_timeclock/src/**/*.test.{ts,tsx}",
 		],
-		setupFiles: ["employee_timeclock/public/js/kiosk/test/setup.ts"],
+		setupFiles: ["employee_timeclock/www/shared/test/setup.ts"],
 		coverage: {
 			provider: "v8",
 			include: KIOSK_SOURCES,

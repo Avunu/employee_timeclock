@@ -1,11 +1,11 @@
 // Copyright (c) 2026, Avunu LLC and contributors
 // For license information, please see license.txt
 
-import { offlineStore, useQueueSync } from "../../../public/js/kiosk/useQueueSync";
+import { offlineStore, useQueueSync } from "../../shared/useQueueSync";
 import type { ActiveTimer, MachineTimer, OfflineSnapshot, SyncTimerEventsResponse } from "./types";
 import { useCallback, useEffect, useState } from "react";
-import { rememberServerTime } from "../../../public/js/kiosk/clock";
-import { useFrappeCall } from "../../../public/js/kiosk/useBackendCall";
+import { rememberServerTime } from "../../shared/clock";
+import { useFrappeCall } from "../../shared/useBackendCall";
 import { useFrappeGetCall } from "frappe-react-sdk";
 
 /** Where the tracker's backend lives. */

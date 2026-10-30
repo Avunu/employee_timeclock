@@ -1,7 +1,7 @@
 // Copyright (c) 2026, Avunu LLC and contributors
 // For license information, please see license.txt
 
-import { Checkbox, CheckboxGroup, HeaderPanel } from "@carbon/react";
+import { Button, Checkbox, CheckboxGroup, HeaderPanel } from "@carbon/react";
 import type { ActiveTimer, MachineTimer, Operation } from "../types";
 import { JobCard, type JobCardActions } from "./JobCards";
 
@@ -13,6 +13,9 @@ interface SettingsPanelProps {
 	mac: string | undefined;
 	onToggle: (workstation: string, checked: boolean) => void;
 }
+
+/** The old Vue tracker, while the two are tried side by side. */
+export const OLD_TRACKER = "/job_timeclock_vue";
 
 /** This tablet's workstations, and its network address for whoever is setting it up. */
 export function SettingsPanel({ open, available, chosen, ip, mac, onToggle }: SettingsPanelProps) {
@@ -38,6 +41,9 @@ export function SettingsPanel({ open, available, chosen, ip, mac, onToggle }: Se
 				<dt>MAC</dt>
 				<dd>{mac || "—"}</dd>
 			</dl>
+			<Button kind="ghost" href={OLD_TRACKER}>
+				Use old tracker
+			</Button>
 		</HeaderPanel>
 	);
 }

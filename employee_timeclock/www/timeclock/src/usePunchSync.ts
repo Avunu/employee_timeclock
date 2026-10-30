@@ -1,10 +1,10 @@
 // Copyright (c) 2026, Avunu LLC and contributors
 // For license information, please see license.txt
 
-import { offlineStore, useQueueSync } from "../../../public/js/kiosk/useQueueSync";
+import { offlineStore, useQueueSync } from "../../shared/useQueueSync";
 import { useCallback } from "react";
-import { rememberServerTime } from "../../../public/js/kiosk/clock";
-import { useFrappeCall } from "../../../public/js/kiosk/useBackendCall";
+import { rememberServerTime } from "../../shared/clock";
+import { useFrappeCall } from "../../shared/useBackendCall";
 
 /**
  * The punches the tablet couldn't send, kept in IndexedDB until they are synced

@@ -2,7 +2,7 @@
 // For license information, please see license.txt
 
 import { elapsedSince, useTick } from "../format";
-import { Button, ClickableTile } from "@carbon/react";
+import { Button, ClickableTile, HeaderGlobalAction } from "@carbon/react";
 import { StopFilled } from "@carbon/react/icons";
 import type { ActiveTimer as Timer, MachineTimer, WorkOrder } from "../types";
 
@@ -13,6 +13,7 @@ interface SessionStatusProps {
 	expiry: number;
 }
 
+/** For the toolbar: who is signed in, and for how much longer. */
 export function SessionStatus({ name, expiry }: SessionStatusProps) {
 	const now = useTick(expiry > 0);
 	const seconds = Math.max(0, Math.floor((expiry - now) / 1000));
@@ -20,9 +21,9 @@ export function SessionStatus({ name, expiry }: SessionStatusProps) {
 		<div className="jt-session">
 			<strong>{name ?? "Badge not confirmed"}</strong>
 			{expiry > 0 && (
-				<p className="jt-muted">
+				<span>
 					Timeout in {Math.floor(seconds / 60)}m {seconds % 60}s
-				</p>
+				</span>
 			)}
 		</div>
 	);
@@ -34,28 +35,25 @@ interface ActiveTimerProps {
 	onStop: () => void;
 }
 
-/** The employee's running timer, wherever they are in the tracker. */
+/** For the toolbar: the employee's running timer, in sight wherever they are in the tracker.
+ * Tapping it goes to the job. */
 export function ActiveTimer({ timer, onOpen, onStop }: ActiveTimerProps) {
 	const now = useTick();
 	return (
-		<div className="jt-machine">
-			<ClickableTile
-				className={timer.is_corrective ? "jt-card jt-card-rework" : "jt-card jt-card-labor"}
+		<>
+			<button
+				type="button"
+				className={timer.is_corrective ? "jt-running jt-running-rework" : "jt-running"}
 				onClick={onOpen}
 			>
-				<strong>{timer.operation}</strong>{" "}
+				<span className="jt-running-name">{timer.operation}</span>
 				<span className="jt-elapsed">{elapsedSince(timer.from_time, now)}</span>
-				{timer.is_corrective && " REWORK"}
-			</ClickableTile>
-			<Button
-				kind="ghost"
-				size="2xl"
-				hasIconOnly
-				renderIcon={StopFilled}
-				iconDescription={timer.is_corrective ? "Stop Rework" : "Stop Timer"}
-				onClick={onStop}
-			/>
-		</div>
+				{timer.is_corrective && <span>REWORK</span>}
+			</button>
+			<HeaderGlobalAction aria-label={timer.is_corrective ? "Stop Rework" : "Stop Timer"} onClick={onStop}>
+				<StopFilled size={20} />
+			</HeaderGlobalAction>
+		</>
 	);
 }
 

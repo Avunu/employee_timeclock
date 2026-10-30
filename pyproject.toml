@@ -85,8 +85,7 @@ check = "node scripts/vue-tsc.cjs --noEmit -p tsconfig.json"
 root = "."
 include = [
 	"employee_timeclock/public/js/timeclock.bundle.ts",
-	"employee_timeclock/public/js/kiosk/**",
-	"employee_timeclock/public/js/kiosk-sw.js",
+	"employee_timeclock/www/shared/**",
 	"employee_timeclock/www/timeclock/src/**",
 	"employee_timeclock/public/js/job-timeclock.bundle.ts",
 	"employee_timeclock/www/job_timeclock/src/**",

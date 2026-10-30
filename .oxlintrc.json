@@ -61,6 +61,7 @@
 				"employee_timeclock/public/js/employee.js",
 				"employee_timeclock/public/js/job_card.js",
 				"employee_timeclock/public/js/job_card_list.js",
+				"employee_timeclock/public/js/kiosk-sw.js",
 				"employee_timeclock/timeclock/doctype/workday/workday.js",
 				"employee_timeclock/timeclock/doctype/workday/workday_list.js",
 				"employee_timeclock/timeclock/page/workday_management/workday_management.js",

@@ -3,15 +3,15 @@
 
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { goTo } from "../../../public/js/kiosk/navigate";
-import { SessionProvider } from "../../../public/js/kiosk/session";
-import { Frappe } from "../../../public/js/kiosk/test/Frappe";
-import { ToastProvider } from "../../../public/js/kiosk/Toasts";
+import { goTo } from "../../shared/navigate";
+import { SessionProvider } from "../../shared/session";
+import { Frappe } from "../../shared/test/Frappe";
+import { ToastProvider } from "../../shared/Toasts";
 import { App } from "./App";
 import { queuedEvents, recallEmployee, SESSION_KEY } from "./offline";
 import { BADGE, operation, trackerServer, type TrackerServer, workOrder } from "./test/tracker";
 
-vi.mock("../../../public/js/kiosk/navigate", () => ({ goTo: vi.fn(), reloadPage: vi.fn() }));
+vi.mock("../../shared/navigate", () => ({ goTo: vi.fn(), reloadPage: vi.fn() }));
 
 const socket = { on: vi.fn(), off: vi.fn() };
 
@@ -335,12 +335,12 @@ describe("the job tracker", () => {
 				}),
 			);
 
-			fireEvent.click(document.querySelector(".jt-status .jt-card")!);
+			fireEvent.click(document.querySelector(".jt-running")!);
 			await settle();
 
 			expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(2);
 			expect(button("Stop Rework")).toBeTruthy();
-			fireEvent.click(document.querySelector<HTMLElement>(".jt-status button.cds--btn")!);
+			fireEvent.click(screen.getAllByRole("button", { name: "Stop Rework" })[0]!);
 			await settle();
 			expect(screen.getByText("Rework completed for Paint.")).toBeTruthy();
 		});
@@ -463,6 +463,19 @@ describe("the job tracker", () => {
 	});
 
 	describe("pins and settings", () => {
+		it("moves the old tracker's link into Settings once someone is signed in", async () => {
+			trackerServer();
+			await open();
+			await scan(BADGE);
+
+			expect(screen.queryByRole("link", { name: "Use old tracker" })).toBeNull();
+			await tap("Settings");
+
+			expect(screen.getByRole("link", { name: "Use old tracker" }).getAttribute("href")).toBe(
+				"/job_timeclock_vue",
+			);
+		});
+
 		it("keeps both panels closed until they're asked for", async () => {
 			trackerServer();
 			await open();
@@ -938,9 +951,12 @@ describe("the job tracker", () => {
 			expect(screen.getByText("00:00:00")).toBeTruthy();
 		});
 
-		it("goes nowhere for a timer on a work order that has closed", async () => {
+		it("opens a timer's work order even when it has closed, and marks the job", async () => {
 			trackerServer({
 				groups: ["Cutters"],
+				operations: {
+					"WO-9": [operation("Laser", { is_machine_time: true, employee_group: "Cutters" })],
+				},
 				machineTimers: [
 					{ work_order: "WO-9", operation: "Laser", employee_group: "Cutters", is_corrective: false },
 				],
@@ -951,7 +967,57 @@ describe("the job tracker", () => {
 			fireEvent.click(document.querySelector(".jt-machines .jt-card")!);
 			await settle();
 
-			expect(screen.queryByText("Job Cards")).toBeNull();
+			expect(screen.getByText("Job Cards")).toBeTruthy();
+			expect(document.querySelector('[data-operation="Laser"] .jt-card-found')).toBeTruthy();
+			expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+		});
+
+		it("doesn't scroll until the job is on screen", async () => {
+			trackerServer({
+				activeTimer: {
+					work_order: "WO-1",
+					operation: "Gone",
+					from_time: "2026-10-23 13:00:00",
+					is_corrective: false,
+				},
+			});
+			await open();
+			await scan(BADGE);
+
+			fireEvent.click(document.querySelector(".jt-running")!);
+			await settle();
+
+			expect(screen.getByText("Job Cards")).toBeTruthy();
+			expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+		});
+
+		it("opens the running timer's job from the header, whatever is selected or filtered", async () => {
+			window.localStorage.setItem("workstations", JSON.stringify(["Bench"]));
+			trackerServer({
+				operations: {
+					"WO-1": [operation("Weld")],
+					"WO-2": [operation("Paint", { workstation: "Booth" })],
+				},
+				activeTimer: {
+					work_order: "WO-2",
+					operation: "Paint",
+					from_time: "2026-10-23 13:00:00",
+					is_corrective: false,
+				},
+			});
+			await open();
+			await scan(BADGE);
+			await openWorkOrder("WO-1");
+
+			fireEvent.click(document.querySelector(".jt-running")!);
+			await settle();
+
+			expect(document.querySelector('[data-operation="Paint"] .jt-card-found')).toBeTruthy();
+			expect(document.querySelector('[data-operation="Weld"]')).toBeNull();
+
+			await openWorkOrder("WO-1");
+			await openWorkOrder("WO-2");
+			expect(document.querySelector(".jt-card-found")).toBeNull();
 		});
 
 		it("has no job cards offline for a work order it hasn't kept", async () => {

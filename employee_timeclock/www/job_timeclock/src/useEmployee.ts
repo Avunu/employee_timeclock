@@ -3,17 +3,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { jwtDecode } from "jwt-decode";
-import { useToasts } from "../../../public/js/kiosk/Toasts";
+import { useToasts } from "../../shared/Toasts";
 import {
 	failedStatus,
 	getErrorMessage,
 	type BackendResult,
 	useKioskRequest,
-} from "../../../public/js/kiosk/useBackendCall";
+} from "../../shared/useBackendCall";
 import { METHOD, SESSION_KEY, badgeKey, recallEmployee } from "./offline";
 import type { ActiveTimer, AuthenticateEmployeeResponse, UserSessionEmployee } from "./types";
 import { useFrappeGetCall } from "frappe-react-sdk";
-import { useSession } from "../../../public/js/kiosk/session";
+import { useSession } from "../../shared/session";
 
 /** How long a badge sign-in lasts on a tablet with no server to refresh its token: the token's own
  * 30 minutes, from the last thing the employee did. */

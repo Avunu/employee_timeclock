@@ -154,24 +154,53 @@
 	align-self: center;
 }
 
-// The job tracker (www/job_timeclock): the employee and running timer, the work orders beside the
-// selected one's job cards, and any machine timers along the bottom, all under the 3rem header.
+// The job tracker (www/job_timeclock): the work orders beside the selected one's job cards, and any
+// machine timers along the bottom, under the 3rem toolbar that holds the employee and running timer.
+// Fixed to the screen: 100vh is taller than a tablet's visible area, so the page would scroll
+// under the toolbar and hide the machine timers. Only the columns scroll.
 .jt-page {
+	position: fixed;
 	display: flex;
 	flex-direction: column;
-	block-size: 100vh;
+	inset: 0;
 	padding-block-start: 3rem;
 	background: var(--cds-background);
 	color: var(--cds-text-primary);
 }
 
-.jt-status {
+// In the toolbar, on its dark theme.
+.jt-session {
 	display: flex;
-	flex-wrap: wrap;
+	flex-direction: column;
+	justify-content: center;
+	padding-inline: 0.75rem;
+	color: var(--cds-text-primary);
+	font-size: 0.75rem;
+	white-space: nowrap;
+}
+
+.jt-running {
+	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: 1rem;
-	padding: 0.5rem 1rem;
+	gap: 0.5rem;
+	max-inline-size: 20rem;
+	padding-inline: 0.75rem;
+	border: 0;
+	border-inline-start: 0.25rem solid var(--cds-support-success);
+	background: var(--cds-layer);
+	color: var(--cds-text-primary);
+	font: inherit;
+	white-space: nowrap;
+}
+
+.jt-running-rework {
+	border-inline-start-color: var(--cds-support-warning);
+}
+
+.jt-running-name {
+	overflow: hidden;
+	font-weight: 600;
+	text-overflow: ellipsis;
 }
 
 .jt-main {
@@ -244,6 +273,11 @@
 		content: "";
 		inset: 0;
 	}
+}
+
+.jt-card-found {
+	outline: 2px solid var(--cds-focus);
+	outline-offset: -2px;
 }
 
 .jt-card-title {

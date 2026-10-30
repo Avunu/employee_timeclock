@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button, InlineNotification } from "@carbon/react";
-import { KioskHeader } from "../../../../public/js/kiosk/KioskHeader";
+import { KioskHeader } from "../../../shared/KioskHeader";
 
 /** A Web NFC serial number, "04:a1:b2:c3", as its bytes; null for anything else. */
 export function serialBytes(serial: string): number[] | null {

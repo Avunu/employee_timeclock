@@ -17,7 +17,7 @@ installed app opens fast, and the last copy of the page, so it opens offline
 too. It never caches a call to the server: each page keeps what it needs itself.
 
 Icons are drawn by tools/build_kiosk_icons.py into public/images/kiosk/.
-Front-end counterpart: public/js/kiosk/serviceWorker.ts, which registers it.
+Front-end counterpart: www/shared/serviceWorker.ts, which registers it.
 """
 
 import json
@@ -62,8 +62,9 @@ KIOSK_APPS: dict[str, KioskApp] = {
 
 
 def service_worker_source() -> str:
-	"""The one worker every kiosk page runs: public/js/kiosk-sw.js."""
-	return Path(frappe.get_app_path("employee_timeclock", "public", "js", "kiosk-sw.js")).read_text()
+	"""The one worker every kiosk page runs: www/shared/kiosk-sw.js."""
+	# Not all in get_app_path, which turns the hyphen into an underscore outside public/.
+	return (Path(frappe.get_app_path("employee_timeclock")) / "www" / "shared" / "kiosk-sw.js").read_text()
 
 
 def get_manifest(app: str) -> dict[str, Any]:

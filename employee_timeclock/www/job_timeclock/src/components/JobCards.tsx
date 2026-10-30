@@ -41,6 +41,8 @@ interface JobCardProps extends JobCardActions {
 	pinned: boolean;
 	/** Whether this employee can pin at all: an unconfirmed badge can't. */
 	canPin: boolean;
+	/** This is the job just gone to. */
+	found?: boolean;
 	/** Makes the whole card a way to go to this job. */
 	onOpen?: () => void;
 }
@@ -70,6 +72,7 @@ export function JobCard({
 	machineTimers,
 	pinned,
 	canPin,
+	found = false,
 	onOpen,
 	onStart,
 	onStop,
@@ -90,7 +93,7 @@ export function JobCard({
 
 	return (
 		<div data-operation={operation.operation}>
-			<Tile className={`jt-card${state}`}>
+			<Tile className={`jt-card${state}${found ? " jt-card-found" : ""}`}>
 				<div className="jt-card-head">
 					<p className="jt-muted">{productName}</p>
 					{canPin && (
@@ -270,6 +273,7 @@ export function JobCardList({
 						activeTimer={activeTimer}
 						machineTimers={machineTimers}
 						pinned={isPinned(workOrder.name, operation.operation)}
+						found={operation.operation === revealed}
 						canPin={canPin}
 						{...actions}
 					/>

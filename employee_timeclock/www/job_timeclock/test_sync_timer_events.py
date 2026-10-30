@@ -20,10 +20,12 @@ def _clock(at: datetime.datetime) -> str:
 
 
 class TestSyncTimerEvents(JobTimeclockTestCase):
-	@property
-	def base(self) -> datetime.datetime:
-		"""Three hours ago, to a second: every test's events are in the recent past."""
-		return add_to_date(now_datetime(), hours=-3).replace(microsecond=0)
+	base: datetime.datetime
+
+	def setUp(self) -> None:
+		super().setUp()
+		# Three hours ago, to a second: every test's events are in the recent past.
+		self.base = add_to_date(now_datetime(), hours=-3).replace(microsecond=0)
 
 	def _event(self, action: str, at: datetime.datetime, **extra: Any) -> dict[str, Any]:
 		return {

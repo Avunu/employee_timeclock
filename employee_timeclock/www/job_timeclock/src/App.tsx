@@ -5,15 +5,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, HeaderGlobalAction } from "@carbon/react";
 import { Logout, Pin, PinFilled, Settings } from "@carbon/react/icons";
 import { useFrappeEventListener } from "frappe-react-sdk";
-import { KioskHeader } from "../../../public/js/kiosk/KioskHeader";
-import { KioskStatus } from "../../../public/js/kiosk/KioskHeader";
-import { useToasts } from "../../../public/js/kiosk/Toasts";
-import { useFrappeSocket } from "../../../public/js/kiosk/useBackendCall";
-import { useKeyboardWedge } from "../../../public/js/kiosk/useKeyboardWedge";
+import { KioskHeader } from "../../shared/KioskHeader";
+import { KioskStatus } from "../../shared/KioskHeader";
+import { useToasts } from "../../shared/Toasts";
+import { useFrappeSocket } from "../../shared/useBackendCall";
+import { useKeyboardWedge } from "../../shared/useKeyboardWedge";
 import { ActiveTimer } from "./components/Timers";
 import { JobCardList } from "./components/JobCards";
 import { MachineTimerBar } from "./components/Timers";
-import { type PinnedCard, PinnedPanel } from "./components/Panels";
+import { OLD_TRACKER, type PinnedCard, PinnedPanel } from "./components/Panels";
 import { SessionStatus } from "./components/Timers";
 import { SettingsPanel } from "./components/Panels";
 import { WorkOrderList } from "./components/WorkOrders";
@@ -28,9 +28,6 @@ import { useWork, visibleTo } from "./useWork";
 import { useWorkstations } from "./useWork";
 
 const NO_STATIONS: string[] = [];
-
-/** The old Vue tracker, while the two are tried side by side. */
-const OLD_TRACKER = "/job_timeclock_vue";
 
 const WAITING_NOUN = ["timer action", "timer actions"] as const;
 
@@ -163,11 +160,22 @@ export function App() {
 		<>
 			<KioskHeader name="Project Tracker">
 				<KioskStatus online={online} waiting={waiting} noun={WAITING_NOUN} />
-				<Button kind="ghost" href={OLD_TRACKER}>
-					Use old tracker
-				</Button>
-				{employee && (
+				{employee ? (
 					<>
+						<SessionStatus name={employee.name} expiry={expiry} />
+						{activeTimer && (
+							<ActiveTimer
+								timer={activeTimer}
+								onOpen={() => open(activeTimer)}
+								onStop={() =>
+									void timers.stop(
+										activeTimer.work_order,
+										{ operation: activeTimer.operation, is_machine_time: false },
+										activeTimer.is_corrective,
+									)
+								}
+							/>
+						)}
 						<HeaderGlobalAction aria-label="Sign Out" onClick={leave}>
 							<Logout size={20} />
 						</HeaderGlobalAction>
@@ -186,26 +194,14 @@ export function App() {
 							{pins.pins.length > 0 ? <PinFilled size={20} /> : <Pin size={20} />}
 						</HeaderGlobalAction>
 					</>
+				) : (
+					<Button kind="ghost" href={OLD_TRACKER}>
+						Use old tracker
+					</Button>
 				)}
 			</KioskHeader>
 			{employee ? (
 				<div className="jt-page">
-					<div className="jt-status">
-						<SessionStatus name={employee.name} expiry={expiry} />
-						{activeTimer && (
-							<ActiveTimer
-								timer={activeTimer}
-								onOpen={() => open(activeTimer)}
-								onStop={() =>
-									void timers.stop(
-										activeTimer.work_order,
-										{ operation: activeTimer.operation, is_machine_time: false },
-										activeTimer.is_corrective,
-									)
-								}
-							/>
-						)}
-					</div>
 					<main className="jt-main">
 						<WorkOrderList
 							workOrders={workOrders}

@@ -63,7 +63,7 @@ async function loadWorker(cacheNames: string[] = []) {
 	vi.stubGlobal("skipWaiting", skipWaiting);
 	vi.stubGlobal("clients", { claim });
 	vi.resetModules();
-	const worker = "../kiosk-sw.js";
+	const worker = "./kiosk-sw.js";
 	await import(/* @vite-ignore */ worker);
 }
 

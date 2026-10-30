@@ -4,12 +4,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { forgetPunches, queuePunch, queuedPunches, type QueuedPunch, usePunchSync } from "./usePunchSync";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { serverNow } from "../../../public/js/kiosk/clock";
-import { reloadPage } from "../../../public/js/kiosk/navigate";
-import { useSession } from "../../../public/js/kiosk/session";
-import { respond, stubFetch, thrown } from "../../../public/js/kiosk/test/server";
-import { SYNC_INTERVAL_MS } from "../../../public/js/kiosk/useQueueSync";
-import { Frappe } from "../../../public/js/kiosk/test/Frappe";
+import { serverNow } from "../../shared/clock";
+import { reloadPage } from "../../shared/navigate";
+import { useSession } from "../../shared/session";
+import { respond, stubFetch, thrown } from "../../shared/test/server";
+import { SYNC_INTERVAL_MS } from "../../shared/useQueueSync";
+import { Frappe } from "../../shared/test/Frappe";
 
 const stored = (id: string, time: string, extra: Partial<QueuedPunch> = {}): QueuedPunch => ({
 	id,
@@ -64,8 +64,8 @@ describe("the punch queue", () => {
 	});
 });
 
-vi.mock("../../../public/js/kiosk/navigate", () => ({ goTo: vi.fn(), reloadPage: vi.fn() }));
-vi.mock("../../../public/js/kiosk/session", () => ({ useSession: vi.fn() }));
+vi.mock("../../shared/navigate", () => ({ goTo: vi.fn(), reloadPage: vi.fn() }));
+vi.mock("../../shared/session", () => ({ useSession: vi.fn() }));
 
 const SERVER_TIME = "2026-10-27 12:00:00";
 
