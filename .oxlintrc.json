@@ -36,10 +36,7 @@
 		"types/doctypes.d.ts",
 		"components.d.ts",
 		"employee_timeclock/public/js/job_timeclock/components.d.ts",
-		"employee_timeclock/public/js/job_timeclock/types.ts",
-		"employee_timeclock/www/job_timeclock_legacy/index.css",
-		"employee_timeclock/www/job_timeclock_legacy/index.js",
-		"employee_timeclock/www/job_timeclock_legacy/**"
+		"employee_timeclock/www/job_timeclock/src/types.ts"
 	],
 	"overrides": [
 		{

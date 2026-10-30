@@ -15,13 +15,14 @@
 		"employee_timeclock/public/js/FrappeCall.ts",
 		"employee_timeclock/public/js/job_timeclock/**",
 		"employee_timeclock/public/js/types/**",
-		"employee_timeclock/www/job_timeclock_legacy/**",
 		"employee_timeclock/public/js/timeclock.bundle.ts",
+		"employee_timeclock/public/js/kiosk/**",
+		"employee_timeclock/public/js/kiosk-sw.js",
 		"employee_timeclock/www/timeclock/src/**",
+		"employee_timeclock/public/js/job-timeclock.bundle.ts",
+		"employee_timeclock/www/job_timeclock/src/**",
 		"components.d.ts",
 		"employee_timeclock/public/js/job_timeclock/components.d.ts",
-		"employee_timeclock/public/js/job_timeclock/types.ts",
-		"employee_timeclock/www/job_timeclock_legacy/index.css",
-		"employee_timeclock/www/job_timeclock_legacy/index.js"
+		"employee_timeclock/www/job_timeclock/src/types.ts"
 	]
 }

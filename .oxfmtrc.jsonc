@@ -18,11 +18,9 @@
 		"types/doctypes.d.ts",
 		"components.d.ts",
 		"employee_timeclock/public/js/job_timeclock/components.d.ts",
-		"employee_timeclock/public/js/job_timeclock/types.ts",
-		"employee_timeclock/www/job_timeclock_legacy/index.css",
-		"employee_timeclock/www/job_timeclock_legacy/index.js",
-		"employee_timeclock/www/job_timeclock_legacy/index.html",
+		"employee_timeclock/www/job_timeclock/src/types.ts",
 		"employee_timeclock/www/timeclock/index.html",
+		"employee_timeclock/www/job_timeclock/index.html",
 		"employee_timeclock/templates/includes/kiosk_head.html",
 	],
 }

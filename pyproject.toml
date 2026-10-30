@@ -33,20 +33,6 @@ ignore = ["E501", "W191"]
 typing-modules = ["frappe.types.DF"]
 
 [tool.ruff.lint.per-file-ignores]
-# The legacy job timeclock page is replaced by www/job_timeclock and is deleted in a follow-up
-# refactor PR; its findings (unused imports, bare excepts, an undefined `_`) are left until then.
-"employee_timeclock/www/job_timeclock_legacy/*" = [
-	"E402",
-	"E722",
-	"F401",
-	"F811",
-	"F821",
-	"F841",
-	"PERF401",
-	"RUF059",
-	"SIM105",
-	"SIM113",
-]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -62,23 +48,18 @@ integration-branch = "main"
 generated = [
 	"components.d.ts",
 	"employee_timeclock/public/js/job_timeclock/components.d.ts",
-	"employee_timeclock/public/js/job_timeclock/types.ts",
-	"employee_timeclock/www/job_timeclock_legacy/index.css",
-	"employee_timeclock/www/job_timeclock_legacy/index.js",
+	"employee_timeclock/www/job_timeclock/src/types.ts",
 ]
 
 [tool.frappe-nix.js.oxfmt]
 # oxfmt parses Jinja ({{ colocated_js }}, {% include %}, {# #}) as HTML and JS and breaks the page.
 ignore = [
-	"employee_timeclock/www/job_timeclock_legacy/index.html",
 	"employee_timeclock/www/timeclock/index.html",
+	"employee_timeclock/www/job_timeclock/index.html",
 	"employee_timeclock/templates/includes/kiosk_head.html",
 ]
 
 [tool.frappe-nix.js.oxlint]
-# The legacy job timeclock page is replaced by the job_timeclock SPA and is deleted in a follow-up refactor PR.
-ignore = ["employee_timeclock/www/job_timeclock_legacy/**"]
-
 # These SPA modules import stylesheets for Vite to bundle.
 [[tool.frappe-nix.js.oxlint.overrides]]
 files = [
@@ -89,69 +70,27 @@ files = [
 [tool.frappe-nix.js.oxlint.overrides.rules]
 "import/no-unassigned-import" = "off"
 
-[[tool.frappe-nix.untested]]
-target = "employee_timeclock.www.job_timeclock_legacy.authenticate_employee"
-reason = "Legacy job timeclock page, replaced by www/job_timeclock and deleted in a follow-up refactor PR"
-
-[[tool.frappe-nix.untested]]
-target = "employee_timeclock.www.job_timeclock_legacy.log_in_employee"
-reason = "Legacy job timeclock page, replaced by www/job_timeclock and deleted in a follow-up refactor PR"
-
-[[tool.frappe-nix.untested]]
-target = "employee_timeclock.www.job_timeclock_legacy.log_out_employee"
-reason = "Legacy job timeclock page, replaced by www/job_timeclock and deleted in a follow-up refactor PR"
-
-[[tool.frappe-nix.untested]]
-target = "employee_timeclock.www.job_timeclock_legacy.get_work_orders"
-reason = "Legacy job timeclock page, replaced by www/job_timeclock and deleted in a follow-up refactor PR"
-
-[[tool.frappe-nix.untested]]
-target = "employee_timeclock.www.job_timeclock_legacy.get_job_cards"
-reason = "Legacy job timeclock page, replaced by www/job_timeclock and deleted in a follow-up refactor PR"
-
-[[tool.frappe-nix.untested]]
-target = "employee_timeclock.www.job_timeclock_legacy.sort_jobcard_by_workstation"
-reason = "Legacy job timeclock page, replaced by www/job_timeclock and deleted in a follow-up refactor PR"
-
-[[tool.frappe-nix.untested]]
-target = "employee_timeclock.www.job_timeclock_legacy.log_end_time_of_jobcard"
-reason = "Legacy job timeclock page, replaced by www/job_timeclock and deleted in a follow-up refactor PR"
-
-[[tool.frappe-nix.untested]]
-target = "employee_timeclock.www.job_timeclock_legacy.check_all_job_cards"
-reason = "Legacy job timeclock page, replaced by www/job_timeclock and deleted in a follow-up refactor PR"
-
-[[tool.frappe-nix.untested]]
-target = "employee_timeclock.www.job_timeclock_legacy.log_start_time_of_jobcard"
-reason = "Legacy job timeclock page, replaced by www/job_timeclock and deleted in a follow-up refactor PR"
-
-[[tool.frappe-nix.untested]]
-target = "employee_timeclock.www.job_timeclock_legacy.check_for_erp_log_in"
-reason = "Legacy job timeclock page, replaced by www/job_timeclock and deleted in a follow-up refactor PR"
-
-[[tool.frappe-nix.untested]]
-target = "employee_timeclock.www.job_timeclock_legacy.submit_jobcard"
-reason = "Legacy job timeclock page, replaced by www/job_timeclock and deleted in a follow-up refactor PR"
-
-[[tool.frappe-nix.coverage-omit]]
-glob = "*/www/job_timeclock_legacy/*"
-reason = "Legacy job timeclock page, replaced by www/job_timeclock and deleted in a follow-up refactor PR"
-
 [[tool.frappe-nix.typescript.spa]]
 root = "."
 include = [
 	"employee_timeclock/public/js/FrappeCall.ts",
 	"employee_timeclock/public/js/job_timeclock/**",
 	"employee_timeclock/public/js/types/**",
-	"employee_timeclock/www/job_timeclock_legacy/**",
 ]
 tsconfig = "tsconfig.json"
 check = "node scripts/vue-tsc.cjs --noEmit -p tsconfig.json"
 
-# The React badge kiosk (www/timeclock), built by frappe's esbuild, and its service worker.
+# The React kiosks (www/timeclock, www/job_timeclock), built by frappe's esbuild, and their service worker.
 [[tool.frappe-nix.typescript.spa]]
 root = "."
-include = ["employee_timeclock/public/js/timeclock.bundle.ts", "employee_timeclock/www/timeclock/src/**"]
+include = [
+	"employee_timeclock/public/js/timeclock.bundle.ts",
+	"employee_timeclock/public/js/kiosk/**",
+	"employee_timeclock/public/js/kiosk-sw.js",
+	"employee_timeclock/www/timeclock/src/**",
+	"employee_timeclock/public/js/job-timeclock.bundle.ts",
+	"employee_timeclock/www/job_timeclock/src/**",
+]
 tsconfig = "tsconfig.react.json"
 check = "tsc -p tsconfig.react.json"
 
@@ -160,14 +99,12 @@ python-version = "3.14"
 
 [tool.ty.src]
 include = ["employee_timeclock"]
-# The legacy job timeclock page is replaced by www/job_timeclock and is deleted in a follow-up refactor PR.
-exclude = ["employee_timeclock/www/job_timeclock_legacy"]
 
 [tool.ty.terminal]
 error-on-warning = true
 
 [tool.coverage.run]
-omit = ["*/tests/*", "*/test_*.py", "*/patches/*", "*/www/job_timeclock_legacy/*"]
+omit = ["*/tests/*", "*/test_*.py", "*/patches/*"]
 
 [tool.coverage.report]
 show_missing = true
