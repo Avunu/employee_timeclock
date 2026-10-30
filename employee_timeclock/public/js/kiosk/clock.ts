@@ -31,10 +31,15 @@ export function rememberServerTime(serverTime: string, deviceNow: number = Date.
 	window.localStorage.setItem(OFFSET_KEY, String(server - deviceNow));
 }
 
+/** The server's time now, as the milliseconds a Date read from its local time would hold. */
+export function serverMillis(deviceNow: number = Date.now()): number {
+	const offset = Number(window.localStorage.getItem(OFFSET_KEY));
+	return deviceNow + (Number.isFinite(offset) ? offset : 0);
+}
+
 /** The server's time now, as `YYYY-MM-DD HH:MM:SS`, by the tablet's clock and the kept offset. */
 export function serverNow(deviceNow: number = Date.now()): string {
-	const offset = Number(window.localStorage.getItem(OFFSET_KEY));
-	const at = new Date(deviceNow + (Number.isFinite(offset) ? offset : 0));
+	const at = new Date(serverMillis(deviceNow));
 	return (
 		`${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())} ` +
 		`${pad(at.getHours())}:${pad(at.getMinutes())}:${pad(at.getSeconds())}`

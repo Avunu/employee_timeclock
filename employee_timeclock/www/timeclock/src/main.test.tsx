@@ -2,9 +2,9 @@
 // For license information, please see license.txt
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mountKiosk } from "./mount";
+import { mountKiosk } from "../../../public/js/kiosk/mount";
 
-vi.mock("./mount", () => ({ mountKiosk: vi.fn() }));
+vi.mock("../../../public/js/kiosk/mount", () => ({ mountKiosk: vi.fn() }));
 
 /** The component an entry point mounted (a fresh copy of the module graph, so compared by name). */
 async function mounted(load: () => Promise<unknown>): Promise<string> {

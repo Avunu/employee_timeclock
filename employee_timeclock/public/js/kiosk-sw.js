@@ -11,18 +11,18 @@
 //     content-hashed, so a cached copy is never the wrong version; it is served
 //     at once and refreshed behind the scenes.
 //  2. Keeps the last copy of the page itself, so the app still opens when the
-//     tablet is off the network: the kiosk then keeps its punches until it is
-//     back (punchQueue.ts). The page is always fetched fresh when it can be,
+//     tablet is off the network: the page then keeps its work until it is
+//     back. The page is always fetched fresh when it can be,
 //     and only a real page is kept, never a redirect to the login. With no copy
 //     kept yet, a plain "offline" screen stands in for the browser's error page.
 //
-// It never caches a call to the server: punches are queued by the page, which
+// It never caches a call to the server: work is queued by the page, which
 // has the session and CSRF token to send them. Anything else - /api/, the
 // socket - isn't touched at all.
 //
 // Change CACHE's name when this logic changes, so old caches are dropped.
 
-const CACHE = "employee-timeclock-kiosk-v2";
+const CACHE = "employee-timeclock-kiosk-v3";
 
 const OFFLINE_PAGE = `<!doctype html>
 <html lang="en">
@@ -41,7 +41,7 @@ const OFFLINE_PAGE = `<!doctype html>
 <body>
 <main>
 	<h1>You're offline</h1>
-	<p>The timeclock needs a connection to the server. Reconnect, then try again.</p>
+	<p>This app has to be opened once with a connection. Reconnect, then try again.</p>
 	<button type="button" onclick="location.reload()">Try again</button>
 </main>
 </body>

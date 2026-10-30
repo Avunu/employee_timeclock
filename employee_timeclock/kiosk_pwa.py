@@ -3,7 +3,7 @@
 
 """The kiosk pages as installable apps.
 
-Each kiosk page under www/ (today only the badge timeclock) is its own app: its
+Each kiosk page under www/ is its own app: its
 own name, its own icon, its own web app manifest, installed to a tablet's home
 screen on its own. This module is the one place that names them, builds each
 manifest, and serves the two files a page needs that Frappe can't serve from
@@ -13,12 +13,11 @@ www/ (its static pages refuse .js and .json):
     /<page>/sw.js                  its service worker
 
 The service worker caches only the page's built JS, CSS and images, so an
-installed app opens fast and shows a plain "offline" screen instead of the
-browser's error page. It never caches a page or a call to the server: pages
-carry a login token and every punch is live.
+installed app opens fast, and the last copy of the page, so it opens offline
+too. It never caches a call to the server: each page keeps what it needs itself.
 
 Icons are drawn by tools/build_kiosk_icons.py into public/images/kiosk/.
-Front-end counterpart: www/timeclock/src/serviceWorker.ts, which registers it.
+Front-end counterpart: public/js/kiosk/serviceWorker.ts, which registers it.
 """
 
 import json
@@ -54,14 +53,17 @@ KIOSK_APPS: dict[str, KioskApp] = {
 		short_name="Timeclock",
 		description="Scan your badge to clock in and out.",
 	),
+	"job_timeclock": KioskApp(
+		name="Project Tracker",
+		short_name="Tracker",
+		description="Track your time on work orders.",
+	),
 }
 
 
 def service_worker_source() -> str:
-	"""The one worker every kiosk page runs: www/timeclock/src/kiosk-sw.js."""
-	return Path(
-		frappe.get_app_path("employee_timeclock", "www", "timeclock", "src", "kiosk-sw.js")
-	).read_text()
+	"""The one worker every kiosk page runs: public/js/kiosk-sw.js."""
+	return Path(frappe.get_app_path("employee_timeclock", "public", "js", "kiosk-sw.js")).read_text()
 
 
 def get_manifest(app: str) -> dict[str, Any]:

@@ -52,11 +52,11 @@ describe("useKeyboardWedge", () => {
 		expect(onScan).not.toHaveBeenCalled();
 	});
 
-	it("hears a scan while a radio button, which takes no typed text, has focus", () => {
+	it.each(["radio", "checkbox"])("hears a scan while a %s, which takes no typed text, has focus", (type) => {
 		const onScan = vi.fn();
 		renderHook(() => useKeyboardWedge(onScan));
 		const input = document.body.appendChild(document.createElement("input"));
-		input.type = "radio";
+		input.type = type;
 		input.focus();
 
 		scan([..."BADGE6"], input);

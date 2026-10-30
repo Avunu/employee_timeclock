@@ -24,7 +24,7 @@ window.ResizeObserver = class {
 	disconnect() {}
 };
 
-// A fresh, empty IndexedDB (the punch queue) for every test; jsdom has none of its own.
+// A fresh, empty IndexedDB (the offline queues) for every test; jsdom has none of its own.
 beforeEach(() => {
 	globalThis.indexedDB = new IDBFactory();
 });

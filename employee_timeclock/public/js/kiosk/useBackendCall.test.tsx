@@ -6,11 +6,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { KioskCallError } from "./call";
 import { useSession } from "./session";
 import { respond, stubFetch, thrown } from "./test/server";
-import { useToasts } from "./components/Toasts";
-import { getErrorMessage, useBackendCall } from "./useBackendCall";
+import { useToasts } from "./Toasts";
+import { getErrorMessage, useBackendCall, useKioskRequest } from "./useBackendCall";
 
 vi.mock("./session", () => ({ useSession: vi.fn() }));
-vi.mock("./components/Toasts", () => ({ useToasts: vi.fn() }));
+vi.mock("./Toasts", () => ({ useToasts: vi.fn() }));
 
 const FALLBACK = "The punch wasn't recorded.";
 
@@ -86,6 +86,34 @@ describe("useBackendCall", () => {
 		expect(result.current.loading).toBe(false);
 	});
 
+	it("falls back on its own title for an error that isn't the server's", async () => {
+		stubFetch(async () => {
+			throw new Error("broken");
+		});
+		const result = backend();
+
+		let answer;
+		await act(async () => {
+			answer = await result.current.call();
+		});
+
+		expect(answer).toEqual({ ok: false, offline: false });
+		expect(showToast).toHaveBeenCalledOnce();
+	});
+
+	it("leaves a quiet status to the caller, with no toast", async () => {
+		stubFetch(async () => respond(401, thrown("Badge not recognised.")));
+		const { result } = renderHook(() => useKioskRequest());
+
+		let answer;
+		await act(async () => {
+			answer = await result.current("some.method", {}, "It failed.", [401]);
+		});
+
+		expect(answer).toEqual({ ok: false, offline: false, status: 401 });
+		expect(showToast).not.toHaveBeenCalled();
+	});
+
 	it("shows a failure as an error toast, and says it failed", async () => {
 		stubFetch(async () => respond(401, thrown("Badge not recognised.")));
 		const result = backend();
@@ -95,7 +123,7 @@ describe("useBackendCall", () => {
 			answer = await result.current.call();
 		});
 
-		expect(answer).toEqual({ ok: false, offline: false });
+		expect(answer).toEqual({ ok: false, offline: false, status: 401 });
 		expect(showToast).toHaveBeenCalledExactlyOnceWith({ kind: "error", title: "Badge not recognised." });
 		expect(recordActivity).not.toHaveBeenCalled();
 		expect(reportForbidden).not.toHaveBeenCalled();

@@ -3,15 +3,16 @@
 
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { serverNow } from "./clock";
-import { reloadPage } from "./navigate";
+import { serverNow } from "../../../public/js/kiosk/clock";
+import { reloadPage } from "../../../public/js/kiosk/navigate";
 import { type QueuedPunch, queuePunch, queuedPunches } from "./punchQueue";
-import { useSession } from "./session";
-import { respond, stubFetch, thrown } from "./test/server";
-import { SYNC_INTERVAL_MS, usePunchSync } from "./usePunchSync";
+import { useSession } from "../../../public/js/kiosk/session";
+import { respond, stubFetch, thrown } from "../../../public/js/kiosk/test/server";
+import { SYNC_INTERVAL_MS } from "../../../public/js/kiosk/useQueueSync";
+import { usePunchSync } from "./usePunchSync";
 
-vi.mock("./navigate", () => ({ goTo: vi.fn(), reloadPage: vi.fn() }));
-vi.mock("./session", () => ({ useSession: vi.fn() }));
+vi.mock("../../../public/js/kiosk/navigate", () => ({ goTo: vi.fn(), reloadPage: vi.fn() }));
+vi.mock("../../../public/js/kiosk/session", () => ({ useSession: vi.fn() }));
 
 const SERVER_TIME = "2026-10-27 12:00:00";
 

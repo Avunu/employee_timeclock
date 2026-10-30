@@ -3,7 +3,7 @@
 
 import { createContext, type PropsWithChildren, useCallback, useContext, useState } from "react";
 import { ToastNotification } from "@carbon/react";
-import type { ShowToast, ToastState } from "../types";
+import type { ShowToast, ToastState } from "./types";
 
 /** How long a toast stays: long enough to read, short enough that the next person in line
  * doesn't take it for theirs. */

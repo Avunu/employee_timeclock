@@ -26,4 +26,10 @@ describe("KioskStatus", () => {
 
 		expect(screen.getByRole("status").textContent).toBe(`Offline${text}`);
 	});
+
+	it("names what is waiting, when it isn't punches", () => {
+		render(<KioskStatus online waiting={2} noun={["timer action", "timer actions"]} />);
+
+		expect(screen.getByText("2 timer actions waiting")).toBeTruthy();
+	});
 });

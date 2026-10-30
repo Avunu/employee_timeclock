@@ -1,0 +1,5 @@
+{
+	// esbuild reads the tsconfig.json nearest each file: this one compiles the kiosk's TSX for React
+	// (the app's root tsconfig.json is set up for Vue).
+	"extends": "../../../../tsconfig.react.json"
+}

@@ -1,14 +1,14 @@
 // Copyright (c) 2026, Avunu LLC and contributors
 // For license information, please see license.txt
 
-// The kiosk's service worker (./kiosk-sw.js), loaded into a stand-in for a worker's global scope:
+// The kiosk's service worker (../kiosk-sw.js), loaded into a stand-in for a worker's global scope:
 // its listeners are caught as it registers them, then handed fake install/activate/fetch events.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Listener = (event: unknown) => void;
 
-const CACHE = "employee-timeclock-kiosk-v2";
+const CACHE = "employee-timeclock-kiosk-v3";
 
 /** What a cache keys a request by: its URL, or the path a page is kept under. */
 const keyOf = (request: string | { url: string }) => (typeof request === "string" ? request : request.url);
@@ -63,7 +63,7 @@ async function loadWorker(cacheNames: string[] = []) {
 	vi.stubGlobal("skipWaiting", skipWaiting);
 	vi.stubGlobal("clients", { claim });
 	vi.resetModules();
-	const worker = "./kiosk-sw.js";
+	const worker = "../kiosk-sw.js";
 	await import(/* @vite-ignore */ worker);
 }
 
@@ -83,7 +83,7 @@ describe("the kiosk service worker", () => {
 	});
 
 	it("drops its own older caches, and nobody else's, when it activates", async () => {
-		await loadWorker(["employee-timeclock-kiosk-v1", CACHE, "little-cocalico-portal-v1"]);
+		await loadWorker(["employee-timeclock-kiosk-v2", CACHE, "little-cocalico-portal-v1"]);
 		const event = workerEvent();
 
 		dispatch("activate", event);
