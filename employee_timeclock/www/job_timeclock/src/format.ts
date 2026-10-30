@@ -2,6 +2,7 @@
 // For license information, please see license.txt
 
 import { serverMillis } from "../../../public/js/kiosk/clock";
+import { useEffect, useState } from "react";
 
 /** Minutes as the tracker shows them: 45m, 2h, 2h 30m. */
 export function formatMins(mins: number): string {
@@ -20,4 +21,18 @@ export function elapsedSince(serverTime: string, deviceNow: number): string {
 	const started = new Date(serverTime.replace(" ", "T")).getTime();
 	const seconds = Math.max(0, Math.floor((serverMillis(deviceNow) - started) / 1000));
 	return `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor((seconds % 3600) / 60))}:${pad(seconds % 60)}`;
+}
+
+/** The time now, updated every second while `running`, for showing how long a timer has run. */
+export function useTick(running = true): number {
+	const [now, setNow] = useState(() => Date.now());
+
+	useEffect(() => {
+		if (!running) return undefined;
+		setNow(Date.now());
+		const interval = window.setInterval(() => setNow(Date.now()), 1000);
+		return () => window.clearInterval(interval);
+	}, [running]);
+
+	return now;
 }

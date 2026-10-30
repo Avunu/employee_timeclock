@@ -1,16 +1,68 @@
 // Copyright (c) 2026, Avunu LLC and contributors
 // For license information, please see license.txt
 
-import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { forgetPunches, queuePunch, queuedPunches, type QueuedPunch, usePunchSync } from "./usePunchSync";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { serverNow } from "../../../public/js/kiosk/clock";
 import { reloadPage } from "../../../public/js/kiosk/navigate";
-import { type QueuedPunch, queuePunch, queuedPunches } from "./punchQueue";
 import { useSession } from "../../../public/js/kiosk/session";
 import { respond, stubFetch, thrown } from "../../../public/js/kiosk/test/server";
 import { SYNC_INTERVAL_MS } from "../../../public/js/kiosk/useQueueSync";
 import { Frappe } from "../../../public/js/kiosk/test/Frappe";
-import { usePunchSync } from "./usePunchSync";
+
+const stored = (id: string, time: string, extra: Partial<QueuedPunch> = {}): QueuedPunch => ({
+	id,
+	badge: `BADGE-${id}`,
+	time,
+	...extra,
+});
+
+describe("the punch queue", () => {
+	it("is empty to begin with", async () => {
+		await expect(queuedPunches()).resolves.toEqual([]);
+	});
+
+	it("keeps punches, and hands them back oldest first", async () => {
+		await queuePunch(stored("b", "2026-10-27 09:00:00"));
+		await queuePunch(stored("a", "2026-10-27 07:00:00", { log_type: "IN", manual: 1 }));
+
+		await expect(queuedPunches()).resolves.toEqual([
+			stored("a", "2026-10-27 07:00:00", { log_type: "IN", manual: 1 }),
+			stored("b", "2026-10-27 09:00:00"),
+		]);
+	});
+
+	it("forgets the punches it's told to, and keeps the rest", async () => {
+		await queuePunch(stored("a", "2026-10-27 07:00:00"));
+		await queuePunch(stored("b", "2026-10-27 08:00:00"));
+		await queuePunch(stored("c", "2026-10-27 09:00:00"));
+
+		await forgetPunches(["a", "c", "never-queued"]);
+
+		expect((await queuedPunches()).map((kept) => kept.id)).toEqual(["b"]);
+	});
+
+	it("won't keep the same punch twice", async () => {
+		await queuePunch(stored("a", "2026-10-27 07:00:00"));
+
+		await expect(queuePunch(stored("a", "2026-10-27 07:00:00"))).rejects.toThrow();
+		await expect(queuedPunches()).resolves.toHaveLength(1);
+	});
+
+	it("passes on a failure to open the store", async () => {
+		const refused = new DOMException("blocked", "SecurityError");
+		vi.stubGlobal("indexedDB", {
+			open: () => {
+				const request = Object.assign(new EventTarget(), { error: refused });
+				queueMicrotask(() => request.dispatchEvent(new Event("error")));
+				return request;
+			},
+		});
+
+		await expect(queuedPunches()).rejects.toBe(refused);
+	});
+});
 
 vi.mock("../../../public/js/kiosk/navigate", () => ({ goTo: vi.fn(), reloadPage: vi.fn() }));
 vi.mock("../../../public/js/kiosk/session", () => ({ useSession: vi.fn() }));

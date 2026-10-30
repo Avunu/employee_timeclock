@@ -8,7 +8,7 @@ import { SessionProvider } from "../../../public/js/kiosk/session";
 import { Frappe } from "../../../public/js/kiosk/test/Frappe";
 import { ToastProvider } from "../../../public/js/kiosk/Toasts";
 import { App } from "./App";
-import { queuedEvents, recallEmployee, SESSION_KEY } from "./offlineData";
+import { queuedEvents, recallEmployee, SESSION_KEY } from "./offline";
 import { BADGE, operation, trackerServer, type TrackerServer, workOrder } from "./test/tracker";
 
 vi.mock("../../../public/js/kiosk/navigate", () => ({ goTo: vi.fn(), reloadPage: vi.fn() }));

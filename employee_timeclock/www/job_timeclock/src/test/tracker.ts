@@ -4,7 +4,7 @@
 // A stand-in for the tracker's backend, with the state a test can read and change.
 
 import { respond, stubFetch } from "../../../../public/js/kiosk/test/server";
-import { METHOD } from "../api";
+import { METHOD } from "../offline";
 import type { ActiveTimer, MachineTimer, OfflineSnapshot, Operation, WorkOrder } from "../types";
 
 export const SERVER_TIME = "2026-10-23 14:05:00";

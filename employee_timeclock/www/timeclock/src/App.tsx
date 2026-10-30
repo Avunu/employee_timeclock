@@ -6,7 +6,7 @@ import { Button } from "@carbon/react";
 import { Time } from "@carbon/react/icons";
 import { rememberServerTime, serverNow } from "../../../public/js/kiosk/clock";
 import { KioskHeader } from "../../../public/js/kiosk/KioskHeader";
-import { KioskStatus } from "../../../public/js/kiosk/KioskStatus";
+import { KioskStatus } from "../../../public/js/kiosk/KioskHeader";
 import { reloadPage } from "../../../public/js/kiosk/navigate";
 import { useBackendCall } from "../../../public/js/kiosk/useBackendCall";
 import { useKeyboardWedge } from "../../../public/js/kiosk/useKeyboardWedge";

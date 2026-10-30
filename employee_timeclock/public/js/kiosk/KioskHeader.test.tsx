@@ -2,10 +2,39 @@
 // For license information, please see license.txt
 
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { KioskHeader } from "./KioskHeader";
+import { KioskHeader, KioskStatus } from "./KioskHeader";
+import userEvent from "@testing-library/user-event";
 import { reloadPage } from "./navigate";
+
+describe("KioskStatus", () => {
+	it("shows nothing while online with nothing waiting", () => {
+		render(<KioskStatus online waiting={0} />);
+
+		expect(screen.getByRole("status").textContent).toBe("");
+	});
+
+	it("says when the kiosk is offline", () => {
+		render(<KioskStatus online={false} waiting={0} />);
+
+		expect(screen.getByRole("status").textContent).toBe("Offline");
+	});
+
+	it.each([
+		[1, "1 punch waiting"],
+		[3, "3 punches waiting"],
+	])("counts %i punch(es) waiting", (waiting, text) => {
+		render(<KioskStatus online={false} waiting={waiting} />);
+
+		expect(screen.getByRole("status").textContent).toBe(`Offline${text}`);
+	});
+
+	it("names what is waiting, when it isn't punches", () => {
+		render(<KioskStatus online waiting={2} noun={["timer action", "timer actions"]} />);
+
+		expect(screen.getByText("2 timer actions waiting")).toBeTruthy();
+	});
+});
 
 vi.mock("./navigate", () => ({ goTo: vi.fn(), reloadPage: vi.fn() }));
 

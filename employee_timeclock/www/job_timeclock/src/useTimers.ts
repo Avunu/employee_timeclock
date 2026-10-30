@@ -5,8 +5,8 @@ import { useCallback, useEffect, useMemo } from "react";
 import { rememberServerTime, serverNow } from "../../../public/js/kiosk/clock";
 import { useToasts } from "../../../public/js/kiosk/Toasts";
 import type { BackendResult } from "../../../public/js/kiosk/useBackendCall";
-import { rememberEmployee, type TimerEvent } from "./offlineData";
-import { replay } from "./replay";
+import { rememberEmployee, type TimerEvent } from "./offline";
+import { replay } from "./offline";
 import type { Employee, TrackerRequest, TrackerSession } from "./useEmployee";
 import type {
 	ActiveTimer,
@@ -18,7 +18,7 @@ import type {
 	StopMachineTimerResponse,
 	StopTimerResponse,
 } from "./types";
-import { useTrackerData } from "./useTrackerData";
+import { useTrackerData } from "./useEmployee";
 
 interface TimerAnswer {
 	status: string;
@@ -45,7 +45,7 @@ interface TimerOptions {
  * the server's clock. It goes to the server when it can, and otherwise waits on the tablet under
  * that same id, so a call whose answer was lost is still recorded once. While anything is waiting
  * new actions wait behind it, so they can't overtake each other. What the screen shows is the last
- * server state with what is waiting replayed on top (replay.ts).
+ * server state with what is waiting replayed on top (replay, in offline.ts).
  */
 export function useTimers({
 	employee,

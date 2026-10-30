@@ -4,7 +4,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { reloadPage } from "../../../public/js/kiosk/navigate";
-import { queuedPunches } from "./punchQueue";
+import { queuedPunches } from "./usePunchSync";
 import { SessionProvider } from "../../../public/js/kiosk/session";
 import { Frappe } from "../../../public/js/kiosk/test/Frappe";
 import { respond, stubFetch, thrown } from "../../../public/js/kiosk/test/server";

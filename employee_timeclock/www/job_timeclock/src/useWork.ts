@@ -2,9 +2,24 @@
 // For license information, please see license.txt
 
 import { useCallback, useEffect, useState } from "react";
-import type { Employee, TrackerSession } from "./useEmployee";
+import { type Employee, type TrackerSession, useTrackerData } from "./useEmployee";
 import type { GetOperationsResponse, OfflineSnapshot, Operation, WorkOrder } from "./types";
-import { useTrackerData } from "./useTrackerData";
+
+/** A value kept in localStorage as JSON, or `fallback` if there is none, or it can't be read. */
+export function readStored<T>(key: string, fallback: T): T {
+	try {
+		const kept = window.localStorage.getItem(key);
+		// What this page wrote itself.
+		// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+		return kept === null ? fallback : (JSON.parse(kept) as T);
+	} catch {
+		return fallback;
+	}
+}
+
+export function writeStored(key: string, value: unknown): void {
+	window.localStorage.setItem(key, JSON.stringify(value));
+}
 
 const NO_ORDERS: WorkOrder[] = [];
 const NO_OPERATIONS: Operation[] = [];
@@ -61,4 +76,67 @@ export function useWork({ employee, session, snapshot, workstations }: WorkOptio
 		selectByName,
 		refreshOperations,
 	};
+}
+
+const PINS = "pinnedCards";
+const SEPARATOR = "::";
+
+export interface Pin {
+	workOrder: string;
+	operation: string;
+}
+
+const pinKey = (workOrder: string, operation: string): string => `${workOrder}${SEPARATOR}${operation}`;
+
+function readPin(key: string): Pin | null {
+	const at = key.indexOf(SEPARATOR);
+	if (at === -1) return null;
+	return { workOrder: key.slice(0, at), operation: key.slice(at + SEPARATOR.length) };
+}
+
+/** The job cards each employee pinned, kept on the tablet. An unconfirmed badge has none. */
+export function usePins(employeeId: string | null | undefined) {
+	const [all, setAll] = useState(() => readStored<Record<string, string[]>>(PINS, {}));
+	const keys = employeeId ? (all[employeeId] ?? []) : [];
+
+	const toggle = useCallback(
+		(workOrder: string, operation: string) => {
+			if (!employeeId) return;
+			const key = pinKey(workOrder, operation);
+			setAll((pins) => {
+				const mine = pins[employeeId] ?? [];
+				const next = {
+					...pins,
+					[employeeId]: mine.includes(key) ? mine.filter((pin) => pin !== key) : [...mine, key],
+				};
+				writeStored(PINS, next);
+				return next;
+			});
+		},
+		[employeeId],
+	);
+
+	return {
+		pins: keys.map(readPin).filter((pin) => pin !== null),
+		isPinned: (workOrder: string, operation: string) => keys.includes(pinKey(workOrder, operation)),
+		toggle,
+	};
+}
+
+const WORKSTATIONS = "workstations";
+
+/** The workstations this tablet stands at, kept on the tablet. */
+export function useWorkstations() {
+	const [chosen, setChosen] = useState(() => readStored<string[]>(WORKSTATIONS, []));
+
+	const toggle = useCallback((workstation: string, checked: boolean) => {
+		setChosen((stations) => {
+			const others = stations.filter((station) => station !== workstation);
+			const next = checked ? [...others, workstation] : others;
+			writeStored(WORKSTATIONS, next);
+			return next;
+		});
+	}, []);
+
+	return { chosen, toggle };
 }
