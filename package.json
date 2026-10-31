@@ -28,7 +28,7 @@
 		"@tiptap/vue-3": "^3.32.0",
 		"@vueuse/core": "^15.0.0",
 		"canvas": "^3.2.3",
-		"frappe-ui": "^0.1.278",
+		"frappe-ui": "^1.0.2",
 		"getmac": "^6.6.0",
 		"jwt-decode": "^4.0.0",
 		"onscan.js": "^1.5.2",
