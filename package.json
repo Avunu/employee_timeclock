@@ -41,7 +41,7 @@
 		"vue3-spinners": "^1.3.3"
 	},
 	"devDependencies": {
-		"@iconify-json/lucide": "^1.2.146",
+		"@iconify-json/lucide": "^1.2.147",
 		"@redis/client": "^6.3.0",
 		"@tiptap/core": "^3.32.0",
 		"@tiptap/extension-blockquote": "^3.32.0",
@@ -68,12 +68,12 @@
 		"@types/onscan.js": "^1.5.6",
 		"@vitejs/plugin-vue": "^6.0.10",
 		"@vue/tsconfig": "^0.9.1",
-		"autoprefixer": "^10.6.1",
+		"autoprefixer": "^10.6.2",
 		"frappe-types": "^16.5.0",
 		"json-schema-to-typescript": "^16.0.0",
 		"oxfmt": "^0.73.0",
 		"oxlint": "^1.87.0",
-		"postcss": "^8.5.31",
+		"postcss": "^8.5.32",
 		"postcss-load-config": "^6.0.1",
 		"postcss-nesting": "^14.0.3",
 		"stylelint": "^17.16.0",
