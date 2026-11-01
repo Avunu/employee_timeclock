@@ -57,7 +57,7 @@
 		"readme": "feature",
 		"width": 2880,
 		"height": 1800,
-		"sha256": "6688da0a842990e45a8f52643c494829df9aee43b0a4522a40e0e4a184cb92a3"
+		"sha256": "a2a62ef739a643c0d33df4ccf5fd760839054cbb880bb0e4b4c7a6b300103774"
 	},
 	{
 		"name": "workday-management",
@@ -67,6 +67,6 @@
 		"readme": "feature",
 		"width": 2880,
 		"height": 1800,
-		"sha256": "84251b2150f6f78cf67724e442e8c283ae43b5cccab254794c4284a60e4efaad"
+		"sha256": "039cf858978b332bd162b82815680130f3b180afaf55bf72b7c438fb28645241"
 	}
 ]
