@@ -33,7 +33,7 @@ PUNCH_TIME = "2021-03-01 07:45:00"
 
 def _today_at(clock: str) -> datetime.datetime:
 	"""A time today, for punches ``determine_next_log_type`` counts (it looks at today's only)."""
-	return get_datetime(f"{today()} {clock}")
+	return cast(datetime.datetime, get_datetime(f"{today()} {clock}"))
 
 
 class TestTimeclockKiosk(IntegrationTestCase):
@@ -340,7 +340,7 @@ class TestTimeclockKiosk(IntegrationTestCase):
 		self.assertTrue(context.csrf_token)
 
 	def test_page_context_makes_the_page_an_installable_app(self) -> None:
-		context = frappe._dict()
+		context: Any = frappe._dict()
 
 		kiosk_page.get_context(context)
 

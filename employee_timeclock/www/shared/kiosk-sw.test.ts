@@ -118,9 +118,9 @@ describe("the kiosk service worker", () => {
 	it("keeps one copy of the page, whatever its query string", async () => {
 		vi.stubGlobal(
 			"fetch",
-			vi.fn(async () => new Response("the probe")),
+			vi.fn(async () => new Response("the page")),
 		);
-		const event = workerEvent(get("http://localhost:8000/timeclock?probe=nfc", "navigate"));
+		const event = workerEvent(get("http://localhost:8000/timeclock?from=home", "navigate"));
 
 		dispatch("fetch", event);
 		await event.responded;

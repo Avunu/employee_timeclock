@@ -84,7 +84,7 @@ self.addEventListener("fetch", (event) => {
 
 async function loadPage(request) {
 	const cache = await caches.open(CACHE);
-	// One copy of the page, whatever its query string (?probe=nfc).
+	// One copy of the page, whatever its query string.
 	const page = new URL(request.url).pathname;
 	try {
 		const response = await fetch(request);

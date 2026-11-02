@@ -17,7 +17,7 @@ from employee_timeclock.timeclock import api
 from employee_timeclock.timeclock.test_api import _make_employee
 from employee_timeclock.www import timeclock as kiosk
 
-NOON = get_datetime(f"{today()} 12:00:00")
+NOON = cast(datetime.datetime, get_datetime(f"{today()} 12:00:00"))
 
 
 def _queued(clock: str, badge: str, **extra: Any) -> dict[str, Any]:

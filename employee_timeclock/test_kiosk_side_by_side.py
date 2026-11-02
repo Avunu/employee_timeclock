@@ -8,7 +8,7 @@ and a shift can start on one and end on the other.
 
 import datetime
 import re
-from typing import Any
+from typing import Any, cast
 from unittest.mock import patch
 
 import frappe
@@ -23,7 +23,7 @@ from employee_timeclock.www import timeclock as kiosk
 
 
 def _today_at(clock: str) -> datetime.datetime:
-	return get_datetime(f"{today()} {clock}")
+	return cast(datetime.datetime, get_datetime(f"{today()} {clock}"))
 
 
 def _new_kiosk(badge: str, clock: str) -> str:

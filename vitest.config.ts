@@ -1,8 +1,8 @@
 // Copyright (c) 2026, Avunu LLC and contributors
 // For license information, please see license.txt
 
-// The React badge kiosk's tests (`yarn test`), apart from vite.config.ts, which builds the job
-// timeclock SPA. Every line and branch of the kiosk is covered, and the run fails if any is not.
+// The React kiosks' tests (`yarn test`, and part of `yarn typecheck`), apart from vite.config.ts,
+// which builds the old Vue tracker. Every line and branch of the kiosk is covered, and the run fails if any is not.
 
 import { defineConfig } from "vitest/config";
 

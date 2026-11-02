@@ -24,10 +24,4 @@ describe("the timeclock's entry points", () => {
 	])("%s mounts the timeclock app", async (_entry, load) => {
 		expect(await mounted(load)).toBe("App");
 	});
-
-	it("mounts the NFC probe at ?probe=nfc", async () => {
-		window.history.replaceState(null, "", "/timeclock?probe=nfc");
-
-		expect(await mounted(() => import("./main"))).toBe("NfcProbe");
-	});
 });

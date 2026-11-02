@@ -36,7 +36,8 @@
 		"types/doctypes.d.ts",
 		"components.d.ts",
 		"employee_timeclock/public/js/job_timeclock/components.d.ts",
-		"employee_timeclock/www/job_timeclock/src/types.ts"
+		"employee_timeclock/www/job_timeclock/src/types.ts",
+		".venv/**"
 	],
 	"overrides": [
 		{
@@ -57,11 +58,16 @@
 			}
 		},
 		{
+			"files": ["vite.config.ts"],
+			"rules": {
+				"import/no-unassigned-import": "off"
+			}
+		},
+		{
 			"files": [
 				"employee_timeclock/public/js/employee.js",
 				"employee_timeclock/public/js/job_card.js",
 				"employee_timeclock/public/js/job_card_list.js",
-				"employee_timeclock/public/js/kiosk-sw.js",
 				"employee_timeclock/timeclock/doctype/workday/workday.js",
 				"employee_timeclock/timeclock/doctype/workday/workday_list.js",
 				"employee_timeclock/timeclock/page/workday_management/workday_management.js",

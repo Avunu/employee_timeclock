@@ -44,7 +44,6 @@ schema = 1
 profile = "github:Avunu/frappe-standards-profile/main"
 frappe-major = 16
 siblings = ["erpnext", "hrms"]
-integration-branch = "main"
 generated = [
 	"components.d.ts",
 	"employee_timeclock/public/js/job_timeclock/components.d.ts",
@@ -60,6 +59,8 @@ ignore = [
 ]
 
 [tool.frappe-nix.js.oxlint]
+# The dev shell's Python environment, a symlink that .gitignore doesn't stop oxlint following.
+ignore = [".venv/**"]
 # These SPA modules import stylesheets for Vite to bundle.
 [[tool.frappe-nix.js.oxlint.overrides]]
 files = [
@@ -91,7 +92,9 @@ include = [
 	"employee_timeclock/www/job_timeclock/src/**",
 ]
 tsconfig = "tsconfig.react.json"
-check = "tsc -p tsconfig.react.json"
+# The kiosks' tests go here for `yarn check` and CI to run them: frappe-nix's own unit test script
+# is for node --test.
+check = "tsc -p tsconfig.react.json && vitest run --coverage"
 
 [tool.ty.environment]
 python-version = "3.14"

@@ -13,12 +13,12 @@
 		"format": "oxfmt",
 		"format:check": "oxfmt --check",
 		"lint": "oxlint",
-		"lint:css": "stylelint \"employee_timeclock/public/**/*.scss\"",
-		"typecheck": "tsc --build tsconfig.solution.json && node scripts/vue-tsc.cjs --noEmit -p tsconfig.json && tsc -p tsconfig.react.json",
 		"test": "vitest run --coverage",
+		"lint:css": "stylelint \"employee_timeclock/public/**/*.scss\"",
+		"typecheck": "tsc --build tsconfig.solution.json && node scripts/vue-tsc.cjs --noEmit -p tsconfig.json && tsc -p tsconfig.react.json && vitest run --coverage",
 		"lint:py": "uv run --frozen --project tools ruff check . && uv run --frozen --project tools ruff format --check .",
 		"typecheck:py": "uv run --frozen --project tools ty check --python \"${FRAPPE_BENCH_ROOT:-.frappe-nix/bench}/env\"",
-		"check": "yarn -s format:check && yarn -s lint && yarn -s lint:css && yarn -s typecheck && yarn -s test"
+		"check": "yarn -s format:check && yarn -s lint && yarn -s lint:css && yarn -s typecheck"
 	},
 	"dependencies": {
 		"@carbon/react": "^1.116.0",
@@ -93,6 +93,7 @@
 		"tailwindcss": "^3.4",
 		"tsx": "^4.23.15",
 		"typescript": "^7.0.2",
+		"typescript5": "npm:typescript@^5.9.3",
 		"typescript6": "npm:typescript@^6.0.3",
 		"unplugin-icons": "^24.0.0",
 		"unplugin-vue-components": "^32.1.0",
