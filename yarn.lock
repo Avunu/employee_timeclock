@@ -340,10 +340,10 @@
   dependencies:
     "@tanstack/vue-virtual" "^3.0.0-beta.60"
 
-"@iconify-json/lucide@^1.2.146":
-  version "1.2.146"
-  resolved "https://registry.yarnpkg.com/@iconify-json/lucide/-/lucide-1.2.146.tgz#ee269ba5d659a1c135c40570c09a11d0f8bfb9ab"
-  integrity sha512-T7qetsZJ682CCVT2X8C5uYEF6G/mtSoPl8F87wvu1LbfeVt4RxdP03NtaAs4RrrAXbWHBLjKrb8cmMtDucoI5g==
+"@iconify-json/lucide@^1.2.149":
+  version "1.2.149"
+  resolved "https://registry.yarnpkg.com/@iconify-json/lucide/-/lucide-1.2.149.tgz#192cf06fa2bb2ebdebb79a1eec7f521b29dd1f87"
+  integrity sha512-5NG9YdbtRS03hG1A+EIE6nLhhdAYsf0mKu1ZRi6kLMlCG8DxmDsRM6DAhwlNMLiSiQKFbHpKTJ2VddZdwUkUyw==
   dependencies:
     "@iconify/types" "*"
 
@@ -706,10 +706,10 @@
   resolved "https://registry.yarnpkg.com/@popperjs/core/-/core-2.11.8.tgz#6b79032e760a0899cd4204710beede972a3a185f"
   integrity sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==
 
-"@redis/client@^6.3.0":
-  version "6.3.0"
-  resolved "https://registry.yarnpkg.com/@redis/client/-/client-6.3.0.tgz#b8501b8d39eb1d4d9d2d1c6bd75cf441bea259b2"
-  integrity sha512-fHrjwGCBvAANGi+TuRuwKi83sIOzgHr8eh+Uf48w3fSX7Hhrz174NrWqfJhAC2vnN0d/tfaZpdr6+o6JC3QHwg==
+"@redis/client@^6.3.1":
+  version "6.3.1"
+  resolved "https://registry.yarnpkg.com/@redis/client/-/client-6.3.1.tgz#2c77b3835ddfecb7024b0518d363f0fba07fadb7"
+  integrity sha512-masbfVKULdoAofwddepZxRhWa4w6zvBHn6TRn90TRPrRkVIlGCur3pFqwWaCbMxtYI9twepkz63e/T/tEH8GjA==
 
 "@rolldown/binding-android-arm-eabi@1.2.14":
   version "1.2.14"
@@ -886,10 +886,10 @@
   dependencies:
     "@tanstack/virtual-core" "3.13.23"
 
-"@tiptap/core@^3.11.0", "@tiptap/core@^3.20.3", "@tiptap/core@^3.32.0":
-  version "3.32.0"
-  resolved "https://registry.yarnpkg.com/@tiptap/core/-/core-3.32.0.tgz#b9d1172869fc23637445723878d7d8570d1a20c2"
-  integrity sha512-Ghh2h02GKSqzytQGcLV4espYOG4EHxjj0MsrUB2Vnr47xmlZYRf6r7k2J09H+JpBdaGrWwrTkyBEi5i3c3yy2Q==
+"@tiptap/core@^3.11.0", "@tiptap/core@^3.20.3", "@tiptap/core@^3.32.2":
+  version "3.32.2"
+  resolved "https://registry.yarnpkg.com/@tiptap/core/-/core-3.32.2.tgz#d25bf32076bf2a0d47c95874117c7f3477099608"
+  integrity sha512-EitM8KY3agYfnp/bqhfxcaReVq4CUqVzMqoSIl7xSfYABTGYoTDtVXUdYSGutcCBFjc86BbXjrOlDlqkgC8BsQ==
 
 "@tiptap/extension-blockquote@^3.20.3", "@tiptap/extension-blockquote@^3.32.0":
   version "3.32.0"
@@ -901,10 +901,10 @@
   resolved "https://registry.yarnpkg.com/@tiptap/extension-bold/-/extension-bold-3.32.0.tgz#b87dd06d13cbd50a8787876509a07ea27656f46b"
   integrity sha512-SQYewnYDoIBN+8oH53IDcD8p+Pz+Jnyq3hrxjy/FAo5ctc+96d3ZLdqc9gzLVSqFFo/SUINv2FVGoq9PvU7yqw==
 
-"@tiptap/extension-bubble-menu@3.32.0":
-  version "3.32.0"
-  resolved "https://registry.yarnpkg.com/@tiptap/extension-bubble-menu/-/extension-bubble-menu-3.32.0.tgz#abcf7123f309d39f65634ca3d249cbec8190020f"
-  integrity sha512-X3ll8i9Z8QNvt7+tcqlwopJG+68ugO13Av0Ox4Ico+jXcTnFdDuKQJBSI9sLuMR5vTQOeTHhKYXhjF88aahMSA==
+"@tiptap/extension-bubble-menu@3.32.2":
+  version "3.32.2"
+  resolved "https://registry.yarnpkg.com/@tiptap/extension-bubble-menu/-/extension-bubble-menu-3.32.2.tgz#9f304ab8a3a19bc5719033bafee51a272b533b60"
+  integrity sha512-mwxWtLHiwhtzXpvdjoegH10eIA8CJr5INGAzUSfzRp4v13zH3rDbsoafljwEi+V5JfcSY/bbXf1akOtsny4yXw==
   dependencies:
     "@floating-ui/dom" "^1.0.0"
 
@@ -950,10 +950,10 @@
   resolved "https://registry.yarnpkg.com/@tiptap/extension-dropcursor/-/extension-dropcursor-3.20.3.tgz#f06bd983526be34823f0cfbb320a263a3465229d"
   integrity sha512-KupPvqQpZe+ezjJ0h6spN6D6mfYr5+r36B8DCS9+OmgjIWnwvXWCdvkLpdeJ/N1nCfBewBbsdnZLJ7aitpaYWQ==
 
-"@tiptap/extension-floating-menu@3.32.0":
-  version "3.32.0"
-  resolved "https://registry.yarnpkg.com/@tiptap/extension-floating-menu/-/extension-floating-menu-3.32.0.tgz#3ded3db6981c88f2af59ab8acdaec6cc0336fa1a"
-  integrity sha512-AzKCWceL+4Q1pTc8Whw1kPqN/aYGPQ70/jXPsblWl501t/pXi6Kz0Pi/NggKkuu73VGjykh68YYf/dcOJ/mPZQ==
+"@tiptap/extension-floating-menu@3.32.2":
+  version "3.32.2"
+  resolved "https://registry.yarnpkg.com/@tiptap/extension-floating-menu/-/extension-floating-menu-3.32.2.tgz#2ee140f49a4ad2e0d61a22ea0d49694277dba94c"
+  integrity sha512-JPyJQvJlGDxn2v7Mr8Yft2BmcXaHiapVsXBMYiOJh5BeWbnwUYFWNH9h5PU/xTOz2zVEV79Kh4HmpgXZS3FCbg==
 
 "@tiptap/extension-gapcursor@^3.20.3":
   version "3.20.3"
@@ -1141,13 +1141,13 @@
   resolved "https://registry.yarnpkg.com/@tiptap/suggestion/-/suggestion-3.32.0.tgz#52fdfda24bd71ca36f0b587cd4eb8c57d86fee3a"
   integrity sha512-5PbouU06zaZ7n4uyYzeNN/jBFVmGsHZ6c56MvN7M33echERAhu1L1X71Up0U6GK/pJfyugX7WbluBehJDPQeSQ==
 
-"@tiptap/vue-3@^3.11.0", "@tiptap/vue-3@^3.32.0":
-  version "3.32.0"
-  resolved "https://registry.yarnpkg.com/@tiptap/vue-3/-/vue-3-3.32.0.tgz#817d25321e84af7c049132e477ede93ed2bc5a43"
-  integrity sha512-FpYquLlZpfFzgWcQuOrXuUXDNn8YYomD3dLx92b61XxVMlwKkOH3p1XS/wlNNRBLaA7oSB5VRzy5E7EXtfgqpg==
+"@tiptap/vue-3@^3.11.0", "@tiptap/vue-3@^3.32.2":
+  version "3.32.2"
+  resolved "https://registry.yarnpkg.com/@tiptap/vue-3/-/vue-3-3.32.2.tgz#8f3ce1afd63f6edafb9f60c4f72be73536eaa4ad"
+  integrity sha512-d3v4FgfaCRO8Ku8K+ArXAjhqqMBAAWjh/tUqMLZaLYfTJIC3s5Y/6BCTun7Ds4e8I40Jf8cMqCx3xPLq7nsoEQ==
   optionalDependencies:
-    "@tiptap/extension-bubble-menu" "3.32.0"
-    "@tiptap/extension-floating-menu" "3.32.0"
+    "@tiptap/extension-bubble-menu" "3.32.2"
+    "@tiptap/extension-floating-menu" "3.32.2"
 
 "@types/argparse@1.0.38":
   version "1.0.38"
@@ -3270,10 +3270,10 @@ pkg-types@^2.1.0, pkg-types@^2.3.0:
     exsolve "^1.0.7"
     pathe "^2.0.3"
 
-plotly.js-dist-min@^4.1.2:
-  version "4.1.2"
-  resolved "https://registry.yarnpkg.com/plotly.js-dist-min/-/plotly.js-dist-min-4.1.2.tgz#6ce58e12a5430c14594e22ebdabbb3d037967acb"
-  integrity sha512-VSmS9KVNun16S8qFYYp9LlL/XBby4ueeGqB+K9AqRCVsup8dSpGULap4UyR1f2mz4pV3qjWp1sR5chwLgIKPoQ==
+plotly.js-dist-min@^4.2.0:
+  version "4.2.0"
+  resolved "https://registry.yarnpkg.com/plotly.js-dist-min/-/plotly.js-dist-min-4.2.0.tgz#d2e57c6b60ee62675fcacbcb7ff9a97f7b849f97"
+  integrity sha512-nxwhTxrRtQAWcZLBplb7xi73o0P2z/zjNuh1RKO4ssmPK7Kh30bQcObnAJhekBogI2rqUMbM0JJZC0TrG5Tq5Q==
 
 postcss-import@^15.1.0:
   version "15.1.0"
