@@ -60,6 +60,12 @@
 			}
 		},
 		{
+			"files": ["vite.config.ts"],
+			"rules": {
+				"import/no-unassigned-import": "off"
+			}
+		},
+		{
 			"files": [
 				"employee_timeclock/public/js/employee.js",
 				"employee_timeclock/public/js/job_card.js",

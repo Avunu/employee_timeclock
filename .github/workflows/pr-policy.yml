@@ -15,10 +15,10 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    uses: Avunu/frappe-nix/.github/workflows/app-pr-policy.yml@237174925cb78b6079d288e4f406ea40f1100265 # v1.4.0
+    uses: Avunu/frappe-nix/.github/workflows/app-pr-policy.yml@f25d11aea55df79ac23c1bf2caf0d4c451e8ac42 # v2.2.0
     with:
       app: employee_timeclock
-      integration-branch: main
+      integration-branch: develop
       runs-on: '["self-hosted","nixos"]'
     secrets:
       FETCH_TOKEN: ${{ secrets.FRAPPE_NIX_FETCH_TOKEN }}
