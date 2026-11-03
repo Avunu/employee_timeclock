@@ -111,8 +111,20 @@ class TestKioskSideBySide(IntegrationTestCase):
 		)
 
 	def test_both_pages_serve_the_kiosk_user(self) -> None:
-		new_kiosk = _loaded(get_html_for_route("timeclock"))
-		web_form = _loaded(get_html_for_route("employee-timeclock/new"))
+		# The bundles resolve through sites/assets/assets.json, which only a build writes; the
+		# test bench has none, so stand in the entries a build registers.
+		assets = {
+			name: f"/assets/employee_timeclock/dist/{kind}/{name.split('.')[0]}.bundle.TEST1234.{kind}"
+			for name, kind in (
+				("kiosk.bundle.css", "css"),
+				("timeclock.bundle.ts", "js"),
+				("employee_timeclock.bundle.css", "css"),
+				("employee_timelog.bundle.js", "js"),
+			)
+		}
+		with patch("frappe.utils.get_assets_json", return_value=assets):
+			new_kiosk = _loaded(get_html_for_route("timeclock"))
+			web_form = _loaded(get_html_for_route("employee-timeclock/new"))
 
 		self.assertIn("/timeclock/manifest.webmanifest", new_kiosk)
 		self.assertIn("timeclock.bundle", new_kiosk)

@@ -18,7 +18,7 @@ def get_context(context):
 	csrf_token = get_csrf_token()
 	# A fresh token is written to the session, and a GET request isn't committed on its own:
 	# without this the kiosk's first punch can fail the CSRF check.
-	frappe.db.commit()  # nosemgrep: frappe-semgrep-rules.rules.frappe-manual-commit
+	frappe.db.commit()  # nosemgrep: frappe-manual-commit
 	context.csrf_token = csrf_token
 	context.boot = {
 		# The page times the session out from this and reloads when it runs out, which lands

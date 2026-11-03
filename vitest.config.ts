@@ -26,6 +26,9 @@ export default defineConfig({
 			"employee_timeclock/www/job_timeclock/src/**/*.test.{ts,tsx}",
 		],
 		setupFiles: ["employee_timeclock/www/shared/test/setup.ts"],
+		// The forgotten-punch tests take about a second here and went past the default 5s on the
+		// shared CI runner, under coverage and beside the other gates.
+		testTimeout: 15_000,
 		coverage: {
 			provider: "v8",
 			include: KIOSK_SOURCES,
