@@ -58,7 +58,6 @@ schema = 1
 profile = "github:Avunu/frappe-standards-profile/main"
 frappe-major = 16
 siblings = ["erpnext", "hrms"]
-integration-branch = "main"
 generated = [
 	"components.d.ts",
 	"employee_timeclock/public/js/job_timeclock/components.d.ts",

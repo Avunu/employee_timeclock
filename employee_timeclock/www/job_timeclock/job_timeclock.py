@@ -3,7 +3,7 @@
 
 import contextlib
 from datetime import datetime, timedelta
-from typing import Any, Literal, cast
+from typing import Any, cast
 
 import frappe
 import getmac
@@ -27,6 +27,7 @@ from employee_timeclock.timeclock.custom.job_card import TimeclockJobCard
 from employee_timeclock.timeclock.custom.job_card_time_log import (
 	JobCardTimeLog,
 )
+from employee_timeclock.timeclock.shifts import last_log_type
 from employee_timeclock.www.job_timeclock.models import (
 	ActiveTimer,
 	AuthenticateEmployeeResponse,
@@ -236,7 +237,8 @@ def authenticate_employee(rfid: str) -> AuthenticateEmployeeResponse:
 		Dict containing:
 			- status: "success" or "error"
 			- message: Error message if authentication failed, the same whatever the reason
-			- last_checkin: The last check-in type ("IN" or "OUT") if successful
+			- last_checkin: "IN" while the employee has an IN open from the last maximum shift
+				length, "OUT" when they punched in that time but are not on shift, else None
 			- token: JWT authentication token if successful
 
 	Raises:
@@ -251,22 +253,11 @@ def authenticate_employee(rfid: str) -> AuthenticateEmployeeResponse:
 	# If valid, generate a JWT
 	token = refresh_token(str(employee_id))
 
-	# get the last employee checkin to see if the employee is clocked in or out
-	EmployeeCheckins = DocType("Employee Checkin")
-	last_checkin: list[str] = (
-		frappe.qb.from_(EmployeeCheckins)
-		.select(EmployeeCheckins.log_type)
-		.where(EmployeeCheckins.employee == employee_id)
-		.orderby(EmployeeCheckins.modified, order=frappe.qb.desc)
-		.limit(1)
-		.run(pluck="log_type")
-	)
-
-	# check to see if there is any Job Card Time Log that was started but not ended
-
+	# whether the employee is on shift, by the same rule as the badge kiosk: an IN open from the
+	# last maximum shift length
 	return AuthenticateEmployeeResponse(
 		status="success",
-		last_checkin=cast(Literal["IN", "OUT"], last_checkin[0]) if last_checkin else None,
+		last_checkin=last_log_type(str(employee_id)),
 		token=token,
 	).model_dump()
 
@@ -1003,7 +994,7 @@ def get_user_session_employee() -> UserSessionEmployee:
 			- user_id: The current user's ID or "Guest" if not logged in
 			- employee_id: The linked Employee ID, if any
 			- employee_name: The employee's display name, if any
-			- last_checkin: The last check-in type ("IN" or "OUT"), if any
+			- last_checkin: "IN" while the employee is on shift, as for authenticate_employee
 	"""
 	user_id: str = frappe.session.user or "Guest"
 	if user_id != "Guest":
@@ -1012,16 +1003,7 @@ def get_user_session_employee() -> UserSessionEmployee:
 		last_checkin: str | None = None
 		if employee_id:
 			employee_name = frappe.get_value("Employee", employee_id, "employee_name")
-			EmployeeCheckins = DocType("Employee Checkin")
-			checkin_result: list[str] = (
-				frappe.qb.from_(EmployeeCheckins)
-				.select(EmployeeCheckins.log_type)
-				.where(EmployeeCheckins.employee == employee_id)
-				.orderby(EmployeeCheckins.modified, order=frappe.qb.desc)
-				.limit(1)
-				.run(pluck="log_type")
-			)
-			last_checkin = cast(Literal["IN", "OUT"], checkin_result[0]) if checkin_result else None
+			last_checkin = last_log_type(str(employee_id))
 		return UserSessionEmployee(
 			user_id=user_id,
 			employee_id=employee_id,

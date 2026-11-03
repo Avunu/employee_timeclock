@@ -15,7 +15,7 @@ from unittest.mock import patch
 import frappe
 import jwt
 from frappe.tests import IntegrationTestCase
-from frappe.utils import now_datetime, random_string, today
+from frappe.utils import now_datetime, random_string
 from frappe.utils.password import get_encryption_key
 from frappe.utils.redis_wrapper import RedisWrapper
 
@@ -92,18 +92,23 @@ class TestTimeclockKiosk(IntegrationTestCase):
 			{"doctype": "Employee Checkin", "employee": self.employee, "time": time, "log_type": log_type}
 		).db_insert()
 
-	def test_authenticate_employee_ignores_a_punch_left_open_on_an_earlier_day(self) -> None:
-		"""A forgotten clock-out yesterday does not make today's first scan an OUT."""
-		midnight = now_datetime().replace(hour=0, minute=0, second=0, microsecond=0)
-		self._write_punch(midnight - datetime.timedelta(hours=16), "IN")
+	def test_authenticate_employee_ignores_an_in_older_than_the_maximum_shift(self) -> None:
+		"""A forgotten clock-out more than the maximum shift length ago does not make the next scan an OUT."""
+		self._write_punch(now_datetime() - datetime.timedelta(hours=17), "IN")
 
 		self.assertIsNone(kiosk.authenticate_employee(self.rfid)["last_checkin"])
 
-	def test_authenticate_employee_reports_todays_latest_punch_by_time(self) -> None:
-		"""Today's last punch by time decides, not the punch saved last (a punch fixed later in the day)."""
-		midnight = now_datetime().replace(hour=0, minute=0, second=0, microsecond=0)
-		self._write_punch(midnight + datetime.timedelta(minutes=2), "OUT")
-		self._write_punch(midnight + datetime.timedelta(minutes=1), "IN")
+	def test_authenticate_employee_keeps_a_night_shift_open_across_midnight(self) -> None:
+		"""Regression: only today's punches were read, so a night worker's scan after midnight was an IN."""
+		self._write_punch(now_datetime() - datetime.timedelta(hours=8), "IN")
+
+		self.assertEqual(kiosk.authenticate_employee(self.rfid)["last_checkin"], "IN")
+
+	def test_authenticate_employee_reports_the_latest_punch_by_time(self) -> None:
+		"""The last punch by time decides, not the punch saved last (a punch fixed later in the day)."""
+		now = now_datetime().replace(second=0, microsecond=0)
+		self._write_punch(now - datetime.timedelta(minutes=2), "OUT")
+		self._write_punch(now - datetime.timedelta(minutes=3), "IN")
 
 		self.assertEqual(kiosk.authenticate_employee(self.rfid)["last_checkin"], "OUT")
 
@@ -143,7 +148,8 @@ class TestTimeclockKiosk(IntegrationTestCase):
 		self.assertFalse(frappe.db.exists("Workday", {"employee": self.employee, "date": PUNCH_TIME[:10]}))
 
 	def test_last_checkin_is_reported_after_a_punch(self) -> None:
-		kiosk.log_in_employee(kiosk.refresh_token(self.employee), f"{today()} 00:01:00")
+		punch_time = now_datetime().replace(microsecond=0) - datetime.timedelta(minutes=1)
+		kiosk.log_in_employee(kiosk.refresh_token(self.employee), str(punch_time))
 
 		self.assertEqual(kiosk.authenticate_employee(self.rfid)["last_checkin"], "IN")
 

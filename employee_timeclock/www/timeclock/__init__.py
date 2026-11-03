@@ -8,7 +8,6 @@ import frappe
 import jwt
 from frappe import _
 from frappe.rate_limiter import rate_limit
-from frappe.utils import today
 
 from employee_timeclock.auth import get_token_secret
 from employee_timeclock.kiosk import (
@@ -19,6 +18,7 @@ from employee_timeclock.kiosk import (
 	resolve_badge,
 )
 from employee_timeclock.timeclock.custom.employee_checkin import EmployeeCheckin, insert_punch
+from employee_timeclock.timeclock.shifts import last_log_type
 
 
 def refresh_token(employee_id: str) -> str:
@@ -57,7 +57,7 @@ def authenticate_employee(rfid: str) -> dict[str, Any]:
 	Authenticate an employee by their badge, at a Timeclock Kiosk.
 
 	Resolves the badge (an issued badge token or a registered RFID tag) and generates a JWT for the
-	employee. Also retrieves the employee's last punch today, to determine if the employee is clocked in or out.
+	employee. Also says whether the employee is on shift, to determine if the next punch is an IN or an OUT.
 
 	Args:
 		rfid: The scanned badge: an issued badge token or an RFID tag
@@ -66,7 +66,8 @@ def authenticate_employee(rfid: str) -> dict[str, Any]:
 		Dict containing:
 			- status: "success" or "error"
 			- message: Error message if authentication failed, the same whatever the reason
-			- last_checkin: The log type ("IN" or "OUT") of the employee's last punch today, or None
+			- last_checkin: "IN" while the employee has an IN open from the last maximum shift length
+				(Timeclock Settings), "OUT" when they punched in that time but are not on shift, else None
 			- token: JWT authentication token if successful
 
 	Raises:
@@ -81,21 +82,12 @@ def authenticate_employee(rfid: str) -> dict[str, Any]:
 	# If valid, generate a JWT
 	token: str = refresh_token(str(employee_id))
 
-	# the employee's last punch today says whether they are clocked in or out, as on the clock-in
-	# form: a punch left open on an earlier day (a forgotten clock-out) does not make today's first
-	# scan an OUT
-	last_checkin: list[str] = frappe.get_list(
-		"Employee Checkin",
-		filters={"employee": employee_id, "time": [">=", today()]},
-		order_by="time desc",
-		limit=1,
-		ignore_permissions=True,
-		pluck="log_type",
-	)
-
+	# an IN still open from the last maximum shift length means the employee is on shift, so a night
+	# shift's scan after midnight is its OUT; an IN older than that (a forgotten clock-out) does not
+	# make the next scan an OUT
 	return {
 		"status": "success",
-		"last_checkin": last_checkin[0] if last_checkin else None,
+		"last_checkin": last_log_type(str(employee_id)),
 		"token": token,
 	}
 

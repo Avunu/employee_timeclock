@@ -1,0 +1,61 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-23 12:00:00.000000",
+ "description": "How the timeclock pairs punches into shifts.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "max_shift_hours"
+ ],
+ "fields": [
+  {
+   "default": "16",
+   "description": "An OUT closes the employee's open IN only when it comes within this many hours of it, and the kiosks treat an IN older than this as forgotten. A shift's hours count on the date of its IN, so a night shift that crosses midnight stays on one Workday.",
+   "fieldname": "max_shift_hours",
+   "fieldtype": "Float",
+   "in_list_view": 0,
+   "label": "Maximum Shift Length (Hours)",
+   "non_negative": 1,
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-10-23 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Timeclock",
+ "name": "Timeclock Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "HR User"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

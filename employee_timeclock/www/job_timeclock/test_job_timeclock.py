@@ -440,6 +440,33 @@ class TestProjectTracker(JobTimeclockTestCase):
 		self.assertEqual(result["status"], "success")
 		self.assertEqual(result["last_checkin"], "IN")
 
+	def test_last_checkin_follows_a_night_shift_across_midnight(self) -> None:
+		"""Regression: the last punch was picked by when it was saved, from any date; now an IN counts
+		while it is open, from the last maximum shift length, as at the badge kiosk."""
+		from employee_timeclock.www.job_timeclock.job_timeclock import (
+			authenticate_employee,
+			get_user_session_employee,
+		)
+
+		employee = cast(Employee, self._test_employee).name
+		# the signed-in user's own Employee, for get_user_session_employee
+		frappe.db.set_value("Employee", employee, "user_id", "Administrator")
+		self.addCleanup(frappe.db.set_value, "Employee", employee, "user_id", None)
+		for hours_ago, expected in ((8, "IN"), (17, None)):
+			with self.subTest(hours_ago=hours_ago):
+				frappe.db.delete("Employee Checkin", {"employee": employee})
+				frappe.get_doc(
+					{
+						"doctype": "Employee Checkin",
+						"employee": employee,
+						"time": now_datetime() - datetime.timedelta(hours=hours_ago),
+						"log_type": "IN",
+					}
+				).db_insert()
+				cast(RedisWrapper, frappe.cache).delete_keys("rl:*")
+				self.assertEqual(authenticate_employee(self._test_device_id.id)["last_checkin"], expected)
+				self.assertEqual(get_user_session_employee()["last_checkin"], expected)
+
 	def test_log_in_employee(self) -> None:
 		"""
 		Test logging in an employee.

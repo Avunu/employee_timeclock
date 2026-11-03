@@ -101,11 +101,11 @@ class TestWorkdayManagement(IntegrationTestCase):
 	def test_issues_are_reported_in_priority_order(self) -> None:
 		self._punch("08:00:00", "OUT")
 		report.rebuild_workdays([{"employee": self.employee, "date": DATE}])
-		# a second Workday for the same day, and an odd punch count
+		# a second Workday for the same day, an OUT with no IN, and a punch with no log type
 		frappe.get_doc(
 			{"doctype": "Workday", "employee": self.employee, "date": DATE, "total_hours": 1}
 		).db_insert()
-		frappe.db.set_value("Employee Checkin", {"employee": self.employee}, "log_type", "OUT")
+		self._punch("09:00:00", "")
 
 		workday = next(r for r in self._rows() if r["row_type"] == "workday")
 
@@ -159,14 +159,18 @@ class TestWorkdayManagement(IntegrationTestCase):
 		keep = self._punch("08:00:00", "IN")
 		drop = self._punch("09:00:00", "OUT")
 		late = self._punch("10:00:00", "IN")
+		self._punch("12:00:00", "OUT")
 
 		report.delete_checkins(frappe.as_json([drop]))
 
 		checkins = self._checkins()
-		self.assertEqual([c["name"] for c in checkins], [keep, late])
-		# the remaining punches alternate again: the 10:00 punch is now the day's first OUT
-		self.assertEqual([c["log_type"] for c in checkins], ["IN", "OUT"])
+		self.assertEqual([c["name"] for c in checkins[:2]], [keep, late])
+		# punches keep their log types: the 8:00 IN has lost its OUT and is a missed punch, and the
+		# 10:00 to 12:00 shift still counts
+		self.assertEqual([c["log_type"] for c in checkins], ["IN", "IN", "OUT"])
 		self.assertEqual(self._workday()["total_hours"], 2.0)
+		workday = next(r for r in self._rows() if r["row_type"] == "workday")
+		self.assertEqual(workday["status"], report.MISSING_PUNCH)
 
 	def test_editing_requires_write_access_to_workdays(self) -> None:
 		frappe.set_user("Guest")
@@ -231,21 +235,66 @@ class TestWorkdayManagement(IntegrationTestCase):
 		out = self._punch("12:00:00", "OUT")
 		self._punch("13:00:00", "IN")
 
-		# reaching the next punch, or running past midnight, would reorder the day's punches
+		# reaching the next punch would reorder the punches, and no shift is longer than the maximum
 		with self.assertRaisesRegex(frappe.ValidationError, "after the next punch at 1:00 PM"):
 			report.set_punch_hours(out, 5)
-		with self.assertRaisesRegex(frappe.ValidationError, "after midnight"):
-			report.set_punch_hours(out, 16)
+		with self.assertRaisesRegex(frappe.ValidationError, "longer than the maximum shift of 16 hours"):
+			report.set_punch_hours(out, 16.5)
 		self.assertEqual(self._checkins()[1]["time"], datetime.datetime(2021, 3, 1, 12))
 
-	def test_set_punch_hours_on_the_last_out_stops_at_midnight(self) -> None:
+	def test_set_punch_hours_runs_a_night_shift_past_midnight(self) -> None:
+		"""Regression: the OUT stopped at midnight, so a night shift's hours couldn't be set."""
 		self._punch("20:00:00", "IN")
 		out = self._punch("22:00:00", "OUT")
 
-		with self.assertRaisesRegex(frappe.ValidationError, "after midnight"):
+		report.set_punch_hours(out, 10)
+
+		self.assertEqual(self._checkins()[1]["time"], datetime.datetime(2021, 3, 2, 6))
+		workday = self._workday()
+		self.assertEqual((workday["check_out_1"], workday["total_hours"]), ("6:00 AM", 10.0))
+		self.assertEqual(len(frappe.get_all("Workday", filters={"employee": self.employee})), 1)
+
+	def test_set_punch_hours_needs_the_in_of_the_shift(self) -> None:
+		out = self._punch("12:00:00", "OUT")
+
+		with self.assertRaisesRegex(frappe.ValidationError, "no IN to count the hours from"):
 			report.set_punch_hours(out, 4)
-		report.set_punch_hours(out, 3.75)
-		self.assertEqual(self._checkins()[1]["time"], datetime.datetime(2021, 3, 1, 23, 45))
+
+	def test_a_night_shift_is_listed_under_the_day_it_started(self) -> None:
+		self._punch("22:00:00", "IN")
+		out = self._punch("22:00:00", "OUT")
+		frappe.db.set_value("Employee Checkin", out, "time", "2021-03-02 06:00:00")
+		report.rebuild_workdays([{"employee": self.employee, "date": DATE}])
+
+		rows = self._rows(to_date="2021-03-02")
+
+		workday, check_in, check_out = (r for r in rows if r["row_type"] in ("workday", "checkin"))
+		self.assertEqual((workday["date"], workday["status"], workday["hours"]), (DATE, report.OK, 8.0))
+		self.assertEqual((check_in["label"], check_in["time"]), ("IN1", "10:00 PM"))
+		self.assertEqual(
+			(check_out["label"], check_out["time"], check_out["hours"]), ("OUT1", "6:00 AM (+1)", 8.0)
+		)
+		# the next day has no shift of its own
+		self.assertFalse([r for r in rows if r["row_type"] == "workday" and r["date"] == "2021-03-02"])
+
+	def test_update_checkin_moves_a_night_shifts_out_after_its_in(self) -> None:
+		self._punch("22:00:00", "IN")
+		out = self._punch("23:00:00", "OUT")
+
+		report.update_checkin(out, "05:30")
+
+		self.assertEqual(self._checkins()[1]["time"], datetime.datetime(2021, 3, 2, 5, 30))
+		self.assertEqual(self._workday()["total_hours"], 7.5)
+
+	def test_add_checkin_on_the_next_date_closes_a_night_shift(self) -> None:
+		report.add_checkin(self.employee, DATE, "22:00")
+		report.add_checkin(self.employee, "2021-03-02", "06:00")
+
+		self.assertEqual([c["log_type"] for c in self._checkins()], ["IN", "OUT"])
+		workdays = frappe.get_all(
+			"Workday", filters={"employee": self.employee}, fields=["date", "total_hours"]
+		)
+		self.assertEqual([(str(w.date), w.total_hours) for w in workdays], [(DATE, 8.0)])
 
 	def test_set_punch_hours_requires_write_access_to_workdays(self) -> None:
 		self._punch("08:00:00", "IN")
