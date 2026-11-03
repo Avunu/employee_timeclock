@@ -1,9 +1,0 @@
-{
-	"files.watcherExclude": {
-		"**/.git/objects/**": true,
-		"**/.git/subtree-cache/**": true,
-		"**/.devenv/**": true,
-		"**/.venv/**": true,
-		"**/node_modules/*/**": true
-	}
-}

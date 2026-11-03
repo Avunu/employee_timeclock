@@ -5,8 +5,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerServiceWorker } from "./serviceWorker";
 
 /** Give the browser a service worker container whose register() does `register`. */
-function stubServiceWorker(register: () => Promise<unknown>) {
-	const container = { register: vi.fn(register) };
+function stubServiceWorker(register: () => Promise<unknown>, controller: object | null = {}) {
+	const postMessage = vi.fn();
+	const container = {
+		register: vi.fn(register),
+		controller,
+		ready: Promise.resolve({ active: { postMessage } }),
+		postMessage,
+	};
 	Object.defineProperty(navigator, "serviceWorker", { value: container, configurable: true });
 	return container;
 }
@@ -37,6 +43,37 @@ describe("registerServiceWorker", () => {
 		loaded();
 
 		expect(container.register).toHaveBeenCalledWith("/timeclock/sw.js", { scope: "/timeclock" });
+	});
+
+	it("hands a new worker what the first visit loaded, so it can keep it", async () => {
+		vi.spyOn(performance, "getEntriesByType").mockReturnValue([
+			{ name: "http://localhost:8000/assets/employee_timeclock/dist/js/timeclock.bundle.js" },
+			{ name: "http://localhost:8000/api/method/frappe.ping" },
+			{ name: "https://fonts.example/font.woff2" },
+		] as PerformanceEntry[]);
+		const container = stubServiceWorker(async () => ({}), null);
+
+		registerServiceWorker();
+		loaded();
+
+		await vi.waitFor(() =>
+			// toHaveBeenCalledWith: earlier tests' load listeners are still on the window.
+			expect(container.postMessage).toHaveBeenCalledWith({
+				type: "keep",
+				urls: ["/timeclock", "http://localhost:8000/assets/employee_timeclock/dist/js/timeclock.bundle.js"],
+			}),
+		);
+	});
+
+	it("tells a worker that already runs the page nothing: it saw the page load", async () => {
+		const container = stubServiceWorker(async () => ({}));
+
+		registerServiceWorker();
+		loaded();
+		await vi.waitFor(() => expect(container.register).toHaveBeenCalled());
+		await Promise.resolve();
+
+		expect(container.postMessage).not.toHaveBeenCalled();
 	});
 
 	it("only warns when the worker can't be registered", async () => {

@@ -165,8 +165,8 @@ describe("TimeSpinner", () => {
 	it("reaches any time by tapping", () => {
 		render(<Spinner start={at(14, 0)} />);
 
-		setTime("07:30");
-		expect(shownTime()).toBe(at(7, 30));
+		setTime("07:55");
+		expect(shownTime()).toBe(at(7, 55));
 		setTime("21:05");
 
 		expect(shownTime()).toBe(at(21, 5));

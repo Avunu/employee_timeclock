@@ -55,6 +55,22 @@ export function offlineStore(database: string, stores: string[]): OfflineStore {
 /** How often a kiosk sends what it has queued, and keeps its clock in step with the server's. */
 export const SYNC_INTERVAL_MS = 60 * 1000;
 
+/** A sync reloads the page for a stale session at most this often. Some refusals a reload can't
+ * cure (badge events sent from a login that isn't a kiosk's), and would reload it forever. */
+export const RELOAD_GAP_MS = 10 * 60 * 1000;
+
+const RELOADED_AT = "employee-timeclock-sync-reload";
+
+function reloadForSession(): void {
+	try {
+		if (Date.now() - Number(window.sessionStorage.getItem(RELOADED_AT)) < RELOAD_GAP_MS) return;
+		window.sessionStorage.setItem(RELOADED_AT, String(Date.now()));
+	} catch {
+		// Without storage there is no telling; reload, as a stale session is the likelier cause.
+	}
+	reloadPage();
+}
+
 interface QueueSyncOptions<T> {
 	/** What is waiting to be sent, oldest first. */
 	pending: () => Promise<T[]>;
@@ -79,7 +95,7 @@ export interface QueueSync {
  * tablet's clock in step (clock.ts) and the session alive. `pending` and `send` must be stable.
  *
  * A 400 or 403 means the page's session or CSRF token is stale (the page was opened offline, from
- * the service worker's copy), so the page reloads for fresh ones.
+ * the service worker's copy), so the page reloads for fresh ones, once in RELOAD_GAP_MS.
  */
 export function useQueueSync<T>({ pending, send }: QueueSyncOptions<T>): QueueSync {
 	const [online, setOnline] = useState(() => navigator.onLine);
@@ -98,7 +114,7 @@ export function useQueueSync<T>({ pending, send }: QueueSyncOptions<T>): QueueSy
 			setOnline(true);
 		} catch (error) {
 			const status = failedStatus(error);
-			if (status === 400 || status === 403) reloadPage();
+			if (status === 400 || status === 403) reloadForSession();
 			else if (status === 0) setOnline(false);
 			// Anything else (the rate limit, a server error) is tried again at the next sync.
 		} finally {

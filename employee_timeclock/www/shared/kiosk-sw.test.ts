@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Listener = (event: unknown) => void;
 
-const CACHE = "employee-timeclock-kiosk-v3";
+const CACHE = "employee-timeclock-kiosk-v4";
 
 /** What a cache keys a request by: its URL, or the path a page is kept under. */
 const keyOf = (request: string | { url: string }) => (typeof request === "string" ? request : request.url);
@@ -62,6 +62,7 @@ async function loadWorker(cacheNames: string[] = []) {
 	vi.stubGlobal("caches", caches);
 	vi.stubGlobal("skipWaiting", skipWaiting);
 	vi.stubGlobal("clients", { claim });
+	vi.stubGlobal("registration", { scope: "http://localhost:8000/timeclock" });
 	vi.resetModules();
 	const worker = "./kiosk-sw.js";
 	await import(/* @vite-ignore */ worker);
@@ -83,7 +84,7 @@ describe("the kiosk service worker", () => {
 	});
 
 	it("drops its own older caches, and nobody else's, when it activates", async () => {
-		await loadWorker(["employee-timeclock-kiosk-v2", CACHE, "little-cocalico-portal-v1"]);
+		await loadWorker(["employee-timeclock-kiosk-v3", CACHE, "little-cocalico-portal-v1"]);
 		const event = workerEvent();
 
 		dispatch("activate", event);
@@ -158,6 +159,66 @@ describe("the kiosk service worker", () => {
 		dispatch("fetch", event);
 
 		expect(await (await event.responded!).text()).toBe("kept timeclock");
+	});
+
+	it("opens the kept page when the server answers with an error, as during a deploy", async () => {
+		await (await caches.open(CACHE)).put("/timeclock", new Response("kept timeclock"));
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => new Response("Bad Gateway", { status: 502 })),
+		);
+		const event = workerEvent(get("http://localhost:8000/timeclock", "navigate"));
+
+		dispatch("fetch", event);
+
+		expect(await (await event.responded!).text()).toBe("kept timeclock");
+	});
+
+	it("keeps what a first visit loaded before the worker ran, and nothing else", async () => {
+		const fetched: string[] = [];
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async (url: string) => {
+				fetched.push(url);
+				if (url.endsWith("offline.js")) throw new TypeError("Failed to fetch");
+				return new Response(url.endsWith("broken.css") ? "oops" : `body of ${url}`, {
+					status: url.endsWith("broken.css") ? 500 : 200,
+				});
+			}),
+		);
+		const event = workerEvent();
+		Object.assign(event, {
+			data: {
+				type: "keep",
+				urls: [
+					"/timeclock/",
+					"http://localhost:8000/assets/kiosk.bundle.js",
+					"http://localhost:8000/assets/broken.css",
+					"http://localhost:8000/assets/offline.js",
+					"http://localhost:8000/api/method/frappe.ping",
+					"https://elsewhere.example/assets/x.js",
+					"/job_timeclock",
+				],
+			},
+		});
+
+		dispatch("message", event);
+		await Promise.all(event.waited);
+
+		expect(fetched).toHaveLength(4);
+		expect([...caches.stores.get(CACHE)!.keys()].sort()).toEqual([
+			"/timeclock/",
+			"http://localhost:8000/assets/kiosk.bundle.js",
+		]);
+	});
+
+	it("ignores any other message", () => {
+		const event = workerEvent();
+		Object.assign(event, { data: { type: "hello" } });
+
+		dispatch("message", event);
+
+		expect(event.waited).toEqual([]);
 	});
 
 	it("shows the offline screen when offline with no page kept yet", async () => {

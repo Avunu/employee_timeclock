@@ -87,14 +87,16 @@ export function usePunchSync(): PunchSync {
 		[call],
 	);
 
-	const { online, waiting, kept } = useQueueSync({ pending: queuedPunches, send });
+	const { online, waiting, sync, kept } = useQueueSync({ pending: queuedPunches, send });
 
+	// Sent at once if it can be, so a punch made behind others doesn't wait for the next sync.
 	const keep = useCallback(
 		async (punch: QueuedPunch) => {
 			await queuePunch(punch);
 			await kept();
+			if (navigator.onLine) await sync();
 		},
-		[kept],
+		[kept, sync],
 	);
 
 	return { online, waiting, keep };

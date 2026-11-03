@@ -62,6 +62,7 @@ export function useTimers({
 	const showToast = useToasts();
 	const who = employee?.key ?? "";
 	const badge = employee?.badge;
+	const employeeId = employee?.id;
 
 	const active = useTrackerData<GetActiveTimerResponse>(
 		session,
@@ -112,12 +113,12 @@ export function useTimers({
 			touch();
 			const answer = live && waiting === 0 ? await call() : ({ ok: false, offline: true } as const);
 			if (answer.ok) {
-				if (answer.data.status === "success") {
-					if (answer.data.server_time) rememberServerTime(answer.data.server_time);
-					succeeded();
-				} else {
+				if (answer.data.status !== "success") {
 					showToast({ kind: "error", title: failure });
+					return false;
 				}
+				if (answer.data.server_time) rememberServerTime(answer.data.server_time);
+				succeeded();
 				return true;
 			}
 			if (answer.offline) await keep(event);
@@ -133,9 +134,9 @@ export function useTimers({
 			time: serverNow(),
 			order: Date.now(),
 			who,
-			...(badge !== undefined && { badge }),
+			...(badge === undefined ? employeeId && { employee: employeeId } : { badge }),
 		}),
-		[who, badge],
+		[who, badge, employeeId],
 	);
 
 	const showActive = useCallback(

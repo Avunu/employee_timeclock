@@ -194,6 +194,14 @@ class TestSyncPunches(IntegrationTestCase):
 		self.assertIn("RuntimeError", " ".join(self._rejection_logs()))
 		self.assertEqual(self._checkins(), [])
 
+	def test_a_clash_with_another_save_fails_the_sync_so_the_kiosk_keeps_its_punches(self) -> None:
+		"""Not refused for good: nothing is answered, so nothing leaves the queue."""
+		for error in kiosk.RETRY_SYNC_ERRORS:
+			with self.subTest(error=error.__name__):
+				with patch.object(kiosk, "record_punch", side_effect=error()), self.assertRaises(error):
+					_sync([_queued("07:00:00", self.rfid)])
+				self.assertEqual(self._rejection_logs(), [])
+
 	def test_a_failed_punch_leaves_nothing_half_written(self) -> None:
 		"""The Workday sync failing after the insert undoes that punch's insert too."""
 		with patch.object(api, "update_workday_from_checkin", side_effect=RuntimeError("sync failed")):

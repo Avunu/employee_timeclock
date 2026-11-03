@@ -4,6 +4,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { rememberServerTime } from "../../../shared/clock";
 import { setTime, shownTime } from "../test/setTime";
 import { useKeyboardWedge } from "../../../shared/useKeyboardWedge";
 import { ManualPunchModal } from "./ManualPunchModal";
@@ -43,6 +44,16 @@ describe("ManualPunchModal", () => {
 		expect(screen.getByText("Enter the time and choose clock in or out, then scan your badge.")).toBeTruthy();
 	});
 
+	it("goes by the server's clock, not a tablet's that is two hours ahead", () => {
+		rememberServerTime("2026-10-23 12:00:00");
+		open();
+
+		expect(shownTime()).toBe(12 * 60);
+		setTime("13:00");
+		fireEvent.click(screen.getByLabelText("Clock in"));
+		expect(screen.getByText("That time hasn't happened yet.")).toBeTruthy();
+	});
+
 	it("arms the time now once IN or OUT is chosen", () => {
 		open();
 
@@ -54,20 +65,20 @@ describe("ManualPunchModal", () => {
 	it("arms a punch once it has a past time and IN or OUT, and asks for the badge", () => {
 		open();
 
-		enter("07:30", "Clock in");
+		enter("08:00", "Clock in");
 
 		expect(armed()).toEqual({
-			time: "2026-10-23 07:30:00",
+			time: "2026-10-23 08:00:00",
 			log_type: "IN",
-			label: expect.stringMatching(/7:30.*AM.*Fri.*Oct.*23/),
+			label: expect.stringMatching(/8:00.*AM.*Fri.*Oct.*23/),
 		});
-		expect(screen.getByText(/Scan your badge to clock in at 7:30/)).toBeTruthy();
+		expect(screen.getByText(/Scan your badge to clock in at 8:00/)).toBeTruthy();
 	});
 
 	it("has no button to press: the badge scan records the punch", () => {
 		open();
 
-		enter("07:30", "Clock in");
+		enter("08:00", "Clock in");
 
 		expect(screen.queryByRole("button", { name: /scan your badge/i })).toBeNull();
 	});
@@ -79,18 +90,18 @@ describe("ManualPunchModal", () => {
 		expect(armed()?.time).toBe("2026-10-23 00:05:00");
 		enter("12:05", "Clock out");
 		expect(armed()?.time).toBe("2026-10-23 12:05:00");
-		enter("13:45", "Clock in");
-		expect([armed()?.time, armed()?.log_type]).toEqual(["2026-10-23 13:45:00", "IN"]);
+		enter("13:55", "Clock in");
+		expect([armed()?.time, armed()?.log_type]).toEqual(["2026-10-23 13:55:00", "IN"]);
 	});
 
 	it("follows a change to the punch, and disarms when it's in the future", () => {
 		open();
 
-		enter("07:30", "Clock in");
+		enter("08:00", "Clock in");
 		fireEvent.click(screen.getByLabelText("Clock out"));
 		expect(armed()?.log_type).toBe("OUT");
 		fireEvent.click(screen.getByRole("button", { name: "Minute up" }));
-		expect(armed()?.time).toBe("2026-10-23 07:31:00");
+		expect(armed()?.time).toBe("2026-10-23 08:01:00");
 		fireEvent.click(screen.getByRole("button", { name: "AM or PM up" }));
 
 		expect(armed()).toBeNull();
@@ -108,7 +119,7 @@ describe("ManualPunchModal", () => {
 	it("waits for IN or OUT", () => {
 		open();
 
-		setTime("07:30");
+		setTime("08:00");
 
 		expect(armed()).toBeNull();
 	});
@@ -133,9 +144,9 @@ describe("ManualPunchModal", () => {
 		};
 
 		act(() => date._flatpickr.clear());
-		enter("07:30", "Clock in");
+		enter("08:00", "Clock in");
 
-		expect(armed()?.time).toBe("2026-10-23 07:30:00");
+		expect(armed()?.time).toBe("2026-10-23 08:00:00");
 	});
 
 	it("hears a real scan after a date is picked, with In/Out chosen first", () => {

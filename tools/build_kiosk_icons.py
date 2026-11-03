@@ -69,7 +69,8 @@ def tile(glyph: str, color: str, *, rounded: bool, glyph_px: int) -> str:
 
 
 def render(svg_path: Path, png_path: Path, size: int) -> None:
-	subprocess.run(
+	# A fixed argument list, with no shell, and paths this script builds itself: a dev tool, not app code.
+	subprocess.run(  # nosemgrep: frappe-subprocess-exec
 		[
 			"inkscape",
 			str(svg_path),

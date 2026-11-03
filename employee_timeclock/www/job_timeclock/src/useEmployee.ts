@@ -10,7 +10,7 @@ import {
 	type BackendResult,
 	useKioskRequest,
 } from "../../shared/useBackendCall";
-import { METHOD, SESSION_KEY, badgeKey, recallEmployee } from "./offline";
+import { METHOD, badgeKey, cookieUser, recallEmployee, sessionKey } from "./offline";
 import type { ActiveTimer, AuthenticateEmployeeResponse, UserSessionEmployee } from "./types";
 import { useFrappeGetCall } from "frappe-react-sdk";
 import { useSession } from "../../shared/session";
@@ -20,7 +20,7 @@ import { useSession } from "../../shared/session";
 export const OFFLINE_SESSION_MS = 30 * 60 * 1000;
 
 export interface Employee {
-	/** Whose work this is on this tablet: their badge's hash, or SESSION_KEY. */
+	/** Whose work this is on this tablet: their badge's hash, or their sessionKey. */
 	key: string;
 	/** Their Employee, unless an unseen badge was scanned offline. */
 	id: string | null;
@@ -74,10 +74,14 @@ export function useEmployee() {
 	const [expiry, setExpiry] = useState(0);
 	const token = useRef<string | null>(null);
 	const ownLogin = useRef(false);
+	// Who is shown now, for an answer that arrives after they've gone. Cleared at once on signing
+	// out, ahead of the render.
+	const shown = useRef<string | null>(null);
 
 	const canCall = useCallback(() => token.current !== null || ownLogin.current, []);
 
 	const signOut = useCallback(() => {
+		shown.current = null;
 		token.current = null;
 		ownLogin.current = false;
 		setEmployee(null);
@@ -139,22 +143,21 @@ export function useEmployee() {
 		if (badge !== undefined) setExpiry(Date.now() + OFFLINE_SESSION_MS);
 	}, []);
 
-	const scan = useCallback(
-		async (badge: string) => {
-			signOut();
-			const key = await badgeKey(badge);
-			if (!navigator.onLine) {
-				await signInOffline(key, badge);
-				return;
-			}
+	useEffect(() => {
+		shown.current = employee?.key ?? null;
+	}, [employee]);
+
+	/** Exchange a badge for a token. False if the server couldn't be reached. */
+	const authenticate = useCallback(
+		async (key: string, badge: string, unless?: () => boolean): Promise<boolean> => {
 			const answer = await kioskRequest<AuthenticateEmployeeResponse>(
 				`${METHOD}.authenticate_employee`,
 				{ rfid: badge },
 				"That badge couldn't be read. Please scan again.",
 			);
-			if (!answer.ok) {
-				if (answer.offline) await signInOffline(key, badge);
-			} else if (answer.data.token) {
+			if (!answer.ok) return !answer.offline;
+			if (unless?.()) return true;
+			if (answer.data.token) {
 				const claims = takeToken(answer.data.token);
 				setEmployee({
 					key,
@@ -164,11 +167,42 @@ export function useEmployee() {
 					groups: [],
 				});
 			} else {
+				signOut();
 				showToast({ kind: "error", title: answer.data.message ?? "Badge not recognised." });
 			}
+			return true;
 		},
-		[kioskRequest, showToast, signInOffline, signOut, takeToken],
+		[kioskRequest, showToast, signOut, takeToken],
 	);
+
+	const scan = useCallback(
+		async (badge: string) => {
+			// Badges are for kiosk tablets: the server only takes them from a Timeclock Kiosk user.
+			if (ownLogin.current) return;
+			signOut();
+			const key = await badgeKey(badge);
+			if (!navigator.onLine || !(await authenticate(key, badge))) await signInOffline(key, badge);
+		},
+		[authenticate, signInOffline, signOut],
+	);
+
+	/**
+	 * Check a badge taken on trust offline, once the server can be reached. Its token brings the
+	 * server's own timers in place of what the tablet last knew, which is out of date as soon as
+	 * the events made offline have been sent. True once it has a token.
+	 */
+	const confirming = useRef(false);
+	const confirm = useCallback(async (): Promise<boolean> => {
+		if (token.current !== null || employee?.badge === undefined || confirming.current) return false;
+		confirming.current = true;
+		try {
+			const { key, badge } = employee;
+			await authenticate(key, badge, () => shown.current !== key);
+			return token.current !== null;
+		} finally {
+			confirming.current = false;
+		}
+	}, [employee, authenticate]);
 
 	/** Keep an offline sign-in alive: each thing the employee does restarts its time. */
 	const touch = useCallback(() => {
@@ -186,12 +220,15 @@ export function useEmployee() {
 				"The tracker couldn't check who is signed in.",
 			);
 			if (answer.ok && answer.data.user_id !== "Guest" && answer.data.employee_id) {
-				const { employee_id: id, employee_name: name } = answer.data;
+				const { user_id: user, employee_id: id, employee_name: name } = answer.data;
 				ownLogin.current = true;
-				setEmployee({ key: SESSION_KEY, id, name: name ?? "", groups: [] });
-			} else if (!answer.ok && answer.offline && (await recallEmployee(SESSION_KEY))) {
-				ownLogin.current = true;
-				await signInOffline(SESSION_KEY);
+				setEmployee({ key: sessionKey(user), id, name: name ?? "", groups: [] });
+			} else if (!answer.ok && answer.offline) {
+				const user = cookieUser();
+				if (user && (await recallEmployee(sessionKey(user)))) {
+					ownLogin.current = true;
+					await signInOffline(sessionKey(user));
+				}
 			}
 		})();
 	}, [kioskRequest, signInOffline]);
@@ -202,7 +239,7 @@ export function useEmployee() {
 		return () => window.clearTimeout(timeout);
 	}, [expiry, signOut]);
 
-	return { employee, expiry, session, request, scan, signOut, canCall, touch };
+	return { employee, expiry, session, request, scan, confirm, signOut, canCall, touch };
 }
 
 interface TrackerAnswer {

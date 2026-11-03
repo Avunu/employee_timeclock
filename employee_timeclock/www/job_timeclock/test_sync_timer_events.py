@@ -5,6 +5,7 @@
 
 import datetime
 from typing import Any, cast
+from unittest.mock import patch
 
 import frappe
 from frappe.utils import get_datetime, now_datetime, random_string
@@ -12,7 +13,7 @@ from frappe.utils import get_datetime, now_datetime, random_string
 from employee_timeclock.tests.utils import KIOSK_USER
 from employee_timeclock.www.job_timeclock import job_timeclock
 from employee_timeclock.www.job_timeclock.test_job_timeclock import JobTimeclockTestCase
-from employee_timeclock.www.timeclock import OFFLINE_PUNCH_MAX_AGE, TIME_FORMAT
+from employee_timeclock.www.timeclock import OFFLINE_PUNCH_MAX_AGE, RETRY_SYNC_ERRORS, TIME_FORMAT
 
 
 def _name(doc: Any) -> str:
@@ -174,6 +175,18 @@ class TestSyncTimerEvents(JobTimeclockTestCase):
 
 		self.assertEqual(len(self._logs()), 1)
 
+	def test_a_clash_with_another_save_fails_the_sync_so_the_tablet_keeps_its_events(self) -> None:
+		"""Two tablets reconnecting together can save one Job Card at once. That isn't a refusal:
+		nothing is answered, so nothing leaves the queue, and it is all sent again."""
+		for error in RETRY_SYNC_ERRORS:
+			with self.subTest(error=error.__name__):
+				with (
+					patch.object(job_timeclock, "_record_start", side_effect=error()),
+					self.assertRaises(error),
+				):
+					self._sync(self._event("start", self.base))
+				self.assertEqual(self._logs(), [])
+
 	def test_a_late_stop_leaves_a_newer_timer_running(self) -> None:
 		"""Started here at 0:00, stopped at 0:10; meanwhile another tablet started at 0:20."""
 		newer = self._event("start", self.base + datetime.timedelta(minutes=20))
@@ -221,6 +234,34 @@ class TestSyncTimerEvents(JobTimeclockTestCase):
 
 	def test_an_event_with_no_badge_needs_a_signed_in_employee(self) -> None:
 		self.assertEqual(self._sync(self._event("start", self.base, badge=None)), ["rejected"])
+
+	def _as_own_login(self, *events: dict[str, Any]) -> list[str]:
+		"""Sync as the test Employee's own user, with no badge on the events."""
+		employee = _name(self._test_employee)
+		frappe.db.set_value("Employee", employee, "user_id", "Administrator")
+		self.addCleanup(frappe.db.set_value, "Employee", employee, "user_id", None)
+		answer = job_timeclock.sync_timer_events(list(events))
+		by_id = {result["id"]: result["status"] for result in answer["results"]}
+		return [by_id[event["id"]] for event in events]
+
+	def test_an_own_login_event_is_recorded_for_the_employee_it_names(self) -> None:
+		start = self._event("start", self.base, badge=None, employee=_name(self._test_employee))
+
+		self.assertEqual(self._as_own_login(start), ["recorded"])
+		self.assertEqual([log.employee for log in self._logs()], [_name(self._test_employee)])
+
+	def test_an_own_login_event_sent_from_someone_elses_login_is_refused(self) -> None:
+		"""Made offline under one employee's login, synced once another has signed in."""
+		start = self._event("start", self.base, badge=None, employee="HR-EMP-SOMEONE-ELSE")
+
+		self.assertEqual(self._as_own_login(start), ["rejected"])
+		self.assertEqual(self._logs(), [])
+		logs = frappe.get_all(
+			"Error Log",
+			filters={"method": "Timeclock: an offline timer event was not recorded"},
+			pluck="error",
+		)
+		self.assertTrue(any("HR-EMP-SOMEONE-ELSE" in log for log in logs))
 
 	def test_batch_limits(self) -> None:
 		frappe.set_user(KIOSK_USER)

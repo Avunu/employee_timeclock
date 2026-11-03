@@ -196,12 +196,12 @@ describe("App", () => {
 		expect(callsTo(fetch, PUNCH)).toEqual([]); // still entering it
 		fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
-		enterForgottenPunch("07:30", "Clock out");
-		expect(screen.getByText(/Scan your badge to clock out at 7:30/)).toBeTruthy();
+		enterForgottenPunch("08:00", "Clock out");
+		expect(screen.getByText(/Scan your badge to clock out at 8:00/)).toBeTruthy();
 		await scan("RFID1234");
 
 		expect(callsTo(fetch, PUNCH)).toEqual([
-			{ badge: "RFID1234", punch_id: expect.any(String), time: "2026-10-23 07:30:00", log_type: "OUT" },
+			{ badge: "RFID1234", punch_id: expect.any(String), time: "2026-10-23 08:00:00", log_type: "OUT" },
 		]);
 		expect(screen.queryByText(/Scan your badge to/)).toBeNull();
 		expect(result()?.textContent).toContain("Clocked out");
@@ -209,24 +209,24 @@ describe("App", () => {
 
 	it("keeps a forgotten punch waiting when the server refuses it", async () => {
 		await openApp(server());
-		enterForgottenPunch("07:30", "Clock in");
+		enterForgottenPunch("08:00", "Clock in");
 
 		await scan("UNKNOWN1");
 
 		expect(screen.getByText("Badge not recognised.")).toBeTruthy();
-		expect(screen.getByText(/Scan your badge to clock in at 7:30/)).toBeTruthy();
+		expect(screen.getByText(/Scan your badge to clock in at 8:00/)).toBeTruthy();
 	});
 
 	it("records a forgotten punch scanned while IN/OUT still has focus", async () => {
 		const fetch = server();
 		await openApp(fetch);
-		enterForgottenPunch("07:30", "Clock in");
+		enterForgottenPunch("08:00", "Clock in");
 		screen.getByLabelText("Clock in").focus();
 
 		await scan("RFID1234");
 
 		expect(callsTo(fetch, PUNCH)).toEqual([
-			{ badge: "RFID1234", punch_id: expect.any(String), time: "2026-10-23 07:30:00", log_type: "IN" },
+			{ badge: "RFID1234", punch_id: expect.any(String), time: "2026-10-23 08:00:00", log_type: "IN" },
 		]);
 	});
 
@@ -264,17 +264,37 @@ describe("App", () => {
 			expect(result()?.textContent).toContain("Punch saved");
 		});
 
+		it("sends a scan behind the punches still waiting, so it can't be paired before them", async () => {
+			const reachable = { value: true };
+			const fetch = server(reachable);
+			await openApp(fetch);
+			reachable.value = false;
+			await scanOffline("RFID1234");
+			reachable.value = true; // back, before the next sync
+
+			await scan("RFID1234");
+
+			expect(callsTo(fetch, PUNCH)).toHaveLength(1); // only the one that never arrived
+			await waitFor(() =>
+				expect(callsTo(fetch, SYNC).at(-1)?.["punches"]).toEqual([
+					expect.objectContaining({ badge: "RFID1234" }),
+					expect.objectContaining({ badge: "RFID1234" }),
+				]),
+			);
+			await waitFor(() => expect(screen.queryByText(/waiting/)).toBeNull());
+		});
+
 		it("keeps a forgotten punch with its time and IN/OUT, and closes the form", async () => {
 			const reachable = { value: true };
 			await openApp(server(reachable));
 			setOnline(false);
 			reachable.value = false;
-			enterForgottenPunch("07:30", "Clock in");
+			enterForgottenPunch("08:00", "Clock in");
 
 			await scanOffline("RFID1234");
 
 			expect(await queuedPunches()).toEqual([
-				{ id: expect.any(String), badge: "RFID1234", time: "2026-10-23 07:30:00", log_type: "IN", manual: 1 },
+				{ id: expect.any(String), badge: "RFID1234", time: "2026-10-23 08:00:00", log_type: "IN", manual: 1 },
 			]);
 			expect(screen.queryByText(/Scan your badge to/)).toBeNull();
 		});

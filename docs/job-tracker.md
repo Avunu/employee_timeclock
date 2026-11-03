@@ -14,7 +14,7 @@ The job time tracker at `/job_timeclock` puts ERPNext's manufacturing Job Cards 
 
 - The work order must be submitted and have its Job Cards. ERPNext creates a work order's Job Cards from its operations; the tracker starts a timer only on an operation that has one.
 - At a kiosk, the browser is signed in as a **Timeclock Kiosk** user and employees scan a badge (see [Set up a kiosk](configuration.md#set-up-a-kiosk)).
-- From your own login, your user must be the **User ID** of your Employee. You are signed in to the tracker as that employee, without a badge.
+- From your own login, your user must be the **User ID** of your Employee. You are signed in to the tracker as that employee, without a badge, and badge scans are ignored.
 
 ## Sign in
 
@@ -60,10 +60,11 @@ Click the pin on an operation to add it to your **Pinned Jobs**, and open **Pinn
 
 Installed as an app, the tracker keeps working without a connection. It must have been opened online once on that device. Work orders and job cards show as last seen, without your own totals. Timer actions wait on the device, the toolbar shows how many are waiting, and they are sent when it reconnects, with the times they happened.
 
-- A badge this device has seen shows your name and running timer. One it hasn't shows **Badge not confirmed**; the server checks it when the actions are sent.
+- A badge this device has seen shows your name and running timer. One it hasn't shows **Badge not confirmed**; the server checks it when the device reconnects.
 - Offline sign-ins end after 30 minutes with nothing done.
 - Devices can't see each other's offline timers until they reconnect.
-- An action the server refuses, such as a bad badge or one over a week old, is dropped from the device and written to the Error Log for HR. The employee isn't told.
+- An action the server refuses, such as a bad badge, one over a week old, or one made under your own login but sent after someone else signed in on that device, is dropped from the device and written to the Error Log for HR. The employee isn't told.
+- When the server is busy saving the same job card for another device, nothing is dropped: the device sends its actions again at the next sync.
 
 ## What lands in ERPNext
 

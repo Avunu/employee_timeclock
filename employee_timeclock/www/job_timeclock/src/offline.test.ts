@@ -2,7 +2,15 @@
 // For license information, please see license.txt
 
 import { describe, expect, it } from "vitest";
-import { badgeKey, forgetEvents, queueEvent, queuedEvents, replay, type TimerEvent } from "./offline";
+import {
+	badgeKey,
+	cookieUser,
+	forgetEvents,
+	queueEvent,
+	queuedEvents,
+	replay,
+	type TimerEvent,
+} from "./offline";
 import type { ActiveTimer, MachineTimer } from "./types";
 
 const queued = (id: string, time: string, order: number): TimerEvent => ({
@@ -11,6 +19,26 @@ const queued = (id: string, time: string, order: number): TimerEvent => ({
 	time,
 	order,
 	who: "someone",
+});
+
+describe("cookieUser", () => {
+	const setCookie = (value: string) => {
+		document.cookie = `user_id=${value}`;
+	};
+
+	it("reads who is signed in from frappe's cookie, which outlasts the connection", () => {
+		setCookie(encodeURIComponent("sam@example.com"));
+		expect(cookieUser()).toBe("sam@example.com");
+	});
+
+	it("is nobody for Guest, an empty cookie, or none at all", () => {
+		setCookie("Guest");
+		expect(cookieUser()).toBeNull();
+		setCookie("");
+		expect(cookieUser()).toBeNull();
+		document.cookie = "user_id=; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+		expect(cookieUser()).toBeNull();
+	});
 });
 
 describe("the offline queue", () => {

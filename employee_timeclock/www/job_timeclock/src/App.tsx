@@ -44,7 +44,7 @@ function scrollToCard(attribute: "workOrder" | "operation", value: string): void
 
 export function App() {
 	const showToast = useToasts();
-	const { employee, expiry, session, request, scan, signOut, canCall, touch } = useEmployee();
+	const { employee, expiry, session, request, scan, confirm, signOut, canCall, touch } = useEmployee();
 	const { online, waiting, events, keep } = useTimerSync();
 	const { snapshot, refreshSnapshot } = useSnapshot();
 	const stations = useWorkstations();
@@ -85,12 +85,18 @@ export function App() {
 	useKeyboardWedge((badge) => void scan(badge));
 
 	// Machine timers belong to whole groups, so other tablets' changes arrive by realtime event. The
-	// server decides what this employee sees, so whatever changed, ask it again.
+	// server decides what this employee sees, so whatever changed, ask it again. Not for the
+	// snapshot, which is the costliest call: every tablet hears each event, and the rate limit is
+	// per address, so it waits for its own refresh.
 	const refreshAll = useCallback(() => {
 		refresh();
 		onStopped();
 	}, [refresh, onStopped]);
-	useFrappeEventListener("machine_timer_update", refreshAll);
+	const machineChanged = useCallback(() => {
+		refresh();
+		refreshOperations();
+	}, [refresh, refreshOperations]);
+	useFrappeEventListener("machine_timer_update", machineChanged);
 	// Events sent while the socket was down are gone.
 	const socket = useFrappeSocket();
 	useEffect(() => {
@@ -106,6 +112,16 @@ export function App() {
 		if (waiting === 0 && wasWaiting.current > 0) refreshAll();
 		wasWaiting.current = waiting;
 	}, [waiting, refreshAll]);
+
+	// A badge taken on trust offline is checked once what it did has been sent, and the screen then
+	// shows the server's timers.
+	useEffect(() => {
+		if (online && waiting === 0) {
+			void confirm().then((confirmed) => {
+				if (confirmed) refreshAll();
+			});
+		}
+	}, [online, waiting, confirm, refreshAll]);
 
 	const operations = useMemo(() => visibleTo(work.operations, groups), [work.operations, groups]);
 

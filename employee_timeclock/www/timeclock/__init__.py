@@ -33,6 +33,17 @@ OFFLINE_PUNCH_MAX_AHEAD = datetime.timedelta(minutes=5)
 """How far from the server's clock a queued punch's time may be: a tablet offline for over a week,
 or a time ahead of the server by more than clock drift explains, is refused rather than guessed at."""
 
+RETRY_SYNC_ERRORS: tuple[type[Exception], ...] = (
+	frappe.TimestampMismatchError,
+	frappe.QueryDeadlockError,
+	frappe.QueryTimeoutError,
+	frappe.DocumentLockedError,
+)
+"""Errors that come from another request saving the same records at the same moment, as tablets do
+when they reconnect together. A sync that meets one fails as a whole, so the tablet keeps its queue
+and sends it again, instead of the item being refused for good. A deadlock has already rolled the
+transaction back, so a savepoint couldn't save the rest of the batch anyway."""
+
 
 class KioskPunchResult(KioskPunch):
 	"""What ``punch`` returns: the punch, and the server's clock for the kiosk to keep in step with."""
@@ -145,6 +156,8 @@ def _sync_one(queued: dict[str, Any], now: datetime.datetime) -> SyncResult:
 			)
 			frappe.db.release_savepoint("kiosk_sync")
 			return SyncResult(id=punch_id, status="recorded")
+		except RETRY_SYNC_ERRORS:
+			raise
 		except Exception as error:
 			frappe.db.rollback(save_point="kiosk_sync")
 			reason = str(error) or type(error).__name__
@@ -191,6 +204,8 @@ def sync_punches(punches: list[dict[str, Any]]) -> SyncAnswer:
 		frappe.PermissionError: The user is not a Timeclock Kiosk user.
 		frappe.RateLimitExceededError: Too many calls from this client.
 		frappe.ValidationError: More punches than one call takes, or a punch without an id.
+		RETRY_SYNC_ERRORS: Another request saved the same records at the same moment. Nothing is
+			recorded, and the kiosk sends the batch again.
 	"""
 	require_kiosk_role()
 	if len(punches) > SYNC_BATCH_LIMIT:

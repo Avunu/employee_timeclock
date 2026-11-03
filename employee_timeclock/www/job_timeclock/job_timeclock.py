@@ -54,6 +54,7 @@ from employee_timeclock.www.job_timeclock.models import (
 from employee_timeclock.www.timeclock import (
 	OFFLINE_PUNCH_MAX_AGE,
 	OFFLINE_PUNCH_MAX_AHEAD,
+	RETRY_SYNC_ERRORS,
 	SYNC_BATCH_LIMIT,
 	TIME_FORMAT,
 	parse_kiosk_time,
@@ -1391,10 +1392,21 @@ def get_offline_snapshot() -> OfflineSnapshot:
 	).model_dump()
 
 
-def _event_employee(event: dict[str, Any]) -> str | None:
-	"""Whose event it is: its badge's employee, or the signed-in employee when it has no badge."""
+def _event_employee(event: dict[str, Any]) -> tuple[str | None, str]:
+	"""Whose event it is, or why that can't be told: its badge's employee, or the signed-in
+	employee when it has no badge. An event made under one employee's own login names them, so one
+	sent later from someone else's login is refused rather than recorded as theirs."""
 	badge = event.get("badge")
-	return resolve_badge(str(badge)) if badge else get_employee_for_user()
+	if badge:
+		employee = resolve_badge(str(badge))
+		return employee, "" if employee else "its badge is not recognised"
+	employee = get_employee_for_user()
+	if not employee:
+		return None, "the signed-in user is not an employee"
+	made_by = event.get("employee")
+	if made_by and made_by != employee:
+		return None, f"it was made under {made_by}'s login and sent from {employee}'s"
+	return employee, ""
 
 
 def _refusal(event: dict[str, Any], now: datetime) -> tuple[str, str | None, datetime | None]:
@@ -1406,9 +1418,9 @@ def _refusal(event: dict[str, Any], now: datetime) -> tuple[str, str | None, dat
 		return "its time is ahead of the server's clock", None, None
 	if at < now - OFFLINE_PUNCH_MAX_AGE:
 		return "it is more than a week old", None, None
-	employee = _event_employee(event)
+	employee, reason = _event_employee(event)
 	if not employee:
-		return "its badge is not recognised", None, None
+		return reason, None, None
 	return "", employee, at
 
 
@@ -1453,6 +1465,8 @@ def _sync_event(event: dict[str, Any], now: datetime) -> TimerEventResult:
 			if not reason:
 				frappe.db.release_savepoint("timer_sync")
 				return TimerEventResult(id=event_id, status="recorded")
+		except RETRY_SYNC_ERRORS:
+			raise
 		except Exception as error:
 			reason = str(error) or type(error).__name__
 		frappe.db.rollback(save_point="timer_sync")
@@ -1506,9 +1520,10 @@ def _end_at_next_log(start_id: str) -> None:
 def sync_timer_events(events: list[dict[str, Any]]) -> SyncTimerEventsResponse:
 	"""Record the timer events a tablet queued while it was offline, oldest first.
 
-	Each event is ``{id, action, badge?, work_order?, operation?, time, is_corrective?}``, where
-	``action`` is ``start``, ``stop`` or ``stop_machine`` and ``time`` is the tablet's clock, kept
-	in step with the server's. An event with no badge is the signed-in employee's.
+	Each event is ``{id, action, badge?, employee?, work_order?, operation?, time, is_corrective?}``,
+	where ``action`` is ``start``, ``stop`` or ``stop_machine`` and ``time`` is the tablet's clock,
+	kept in step with the server's. An event with no badge is the signed-in employee's, and must be
+	the ``employee`` it names, if it names one.
 
 	An event is older than whatever other tablets recorded while this one was offline, so it only
 	closes logs that had started by its time, and a start nothing stopped ends where the next log
@@ -1517,6 +1532,8 @@ def sync_timer_events(events: list[dict[str, Any]]) -> SyncTimerEventsResponse:
 
 	Raises:
 		frappe.PermissionError: A badge was sent from a session that isn't a Timeclock Kiosk user.
+		RETRY_SYNC_ERRORS: Another request saved the same records at the same moment. Nothing is
+			recorded, and the tablet sends the batch again.
 		frappe.RateLimitExceededError: Too many calls from this client.
 		frappe.ValidationError: More events than one call takes, or an event without an id.
 	"""

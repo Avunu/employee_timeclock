@@ -18,7 +18,7 @@ def get_context(context):
 	csrf_token = get_csrf_token()
 	# A fresh token is written to the session, and a GET request isn't committed on its own:
 	# without this the tablet's first call can fail the CSRF check.
-	frappe.db.commit()
+	frappe.db.commit()  # nosemgrep: frappe-semgrep-rules.rules.frappe-manual-commit
 	context.csrf_token = csrf_token
 	context.sitename = frappe.local.site
 	context.boot = {

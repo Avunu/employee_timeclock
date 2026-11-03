@@ -15,6 +15,10 @@
 //     back. The page is always fetched fresh when it can be,
 //     and only a real page is kept, never a redirect to the login. With no copy
 //     kept yet, a plain "offline" screen stands in for the browser's error page.
+//     A server error (a deploy, a restart) gets the kept copy too.
+//
+// The first visit loads before the worker runs, so the page sends it what it
+// loaded, to keep (serviceWorker.ts).
 //
 // It never caches a call to the server: work is queued by the page, which
 // has the session and CSRF token to send them. Anything else - /api/, the
@@ -22,7 +26,7 @@
 //
 // Change CACHE's name when this logic changes, so old caches are dropped.
 
-const CACHE = "employee-timeclock-kiosk-v3";
+const CACHE = "employee-timeclock-kiosk-v4";
 
 const OFFLINE_PAGE = `<!doctype html>
 <html lang="en">
@@ -82,6 +86,32 @@ self.addEventListener("fetch", (event) => {
 	}
 });
 
+self.addEventListener("message", (event) => {
+	if (event.data?.type === "keep") event.waitUntil(keep(event.data.urls));
+});
+
+/** Keep the page and the built files it loaded before this worker was running. */
+async function keep(urls) {
+	const cache = await caches.open(CACHE);
+	const scope = new URL(self.registration.scope).pathname.replace(/\/+$/, "");
+	await Promise.all(
+		urls.map(async (url) => {
+			const target = new URL(url, self.location.origin);
+			const isPage = target.pathname.replace(/\/+$/, "") === scope;
+			if (target.origin !== self.location.origin) return;
+			if (!isPage && !target.pathname.startsWith("/assets/")) return;
+			try {
+				const response = await fetch(target.href);
+				if (response.ok && !response.redirected) {
+					await cache.put(isPage ? target.pathname : target.href, response);
+				}
+			} catch {
+				// Offline already: the next visit keeps them instead.
+			}
+		}),
+	);
+}
+
 async function loadPage(request) {
 	const cache = await caches.open(CACHE);
 	// One copy of the page, whatever its query string.
@@ -89,7 +119,10 @@ async function loadPage(request) {
 	try {
 		const response = await fetch(request);
 		if (response.ok && !response.redirected) await cache.put(page, response.clone());
-		return response;
+		// A server that answers but can't serve the page is no better than none: the kept page
+		// carries on, and keeps trying to sync, until it's back.
+		if (response.status < 500) return response;
+		return (await cache.match(page)) ?? response;
 	} catch {
 		const kept = await cache.match(page);
 		return (

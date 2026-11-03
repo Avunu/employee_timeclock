@@ -8,7 +8,7 @@ import { SessionProvider } from "../../shared/session";
 import { Frappe } from "../../shared/test/Frappe";
 import { ToastProvider } from "../../shared/Toasts";
 import { App } from "./App";
-import { queuedEvents, recallEmployee, SESSION_KEY } from "./offline";
+import { queuedEvents, recallEmployee, sessionKey } from "./offline";
 import { BADGE, operation, trackerServer, type TrackerServer, workOrder } from "./test/tracker";
 
 vi.mock("../../shared/navigate", () => ({ goTo: vi.fn(), reloadPage: vi.fn() }));
@@ -167,7 +167,41 @@ describe("the job tracker", () => {
 
 			expect(screen.getByText("Sam Okafor")).toBeTruthy();
 			expect(screen.queryByText(/Timeout in/)).toBeNull();
-			expect((await settled(recallEmployee(SESSION_KEY)))?.employee_name).toBe("Sam Okafor");
+			expect((await settled(recallEmployee(sessionKey("sam@example.com"))))?.employee_name).toBe(
+				"Sam Okafor",
+			);
+		});
+
+		it("ignores badge scans on an employee's own login: badges are for kiosk tablets", async () => {
+			const server = trackerServer({
+				sessionEmployee: { employee_id: "HR-EMP-2", employee_name: "Sam Okafor" },
+			});
+			await open();
+
+			await scan(BADGE);
+
+			expect(server.calls["authenticate_employee"]).toBeUndefined();
+			expect(screen.getByText("Sam Okafor")).toBeTruthy();
+		});
+
+		it("shows a rework that won't start or stop as failed, and not as done", async () => {
+			const server = trackerServer({
+				activeTimer: {
+					work_order: "WO-1",
+					operation: "Weld",
+					from_time: "2026-10-23 13:00:00",
+					is_corrective: true,
+				},
+			});
+			await open();
+			await scan(BADGE);
+			await openWorkOrder("WO-1");
+			server.timerError = "No.";
+
+			await tap("Stop Rework");
+
+			expect(screen.getByText("Weld failed to stop.")).toBeTruthy();
+			expect(screen.queryByText(/Rework completed/)).toBeNull();
 		});
 
 		it("signs out by the button", async () => {
@@ -443,6 +477,8 @@ describe("the job tracker", () => {
 			await settle();
 
 			expect(server.calls["get_operations"]).toHaveLength(1);
+			// Every tablet hears it, so not the costliest call: that has its own refresh.
+			expect(server.calls["get_offline_snapshot"]).toBeUndefined();
 			expect(button("Stop Machine Timer")).toBeTruthy();
 		});
 
@@ -780,7 +816,8 @@ describe("the job tracker", () => {
 			expect(screen.getByText("Scan your badge to start tracking time.")).toBeTruthy();
 		});
 
-		it("keeps an employee's own login working offline", async () => {
+		/** Open the page online once as Sam's own login, then go offline signed in as `user`. */
+		async function reopenOfflineAs(user: string): Promise<void> {
 			const first = trackerServer({
 				sessionEmployee: { employee_id: "HR-EMP-2", employee_name: "Sam Okafor" },
 			});
@@ -789,15 +826,81 @@ describe("the job tracker", () => {
 			unmount();
 			first.reachable = false;
 			setOnline(false);
-
+			document.cookie = `user_id=${encodeURIComponent(user)}`;
 			await open();
+		}
+
+		afterEach(() => {
+			document.cookie = "user_id=; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+		});
+
+		it("keeps an employee's own login working offline, and names them on what it queues", async () => {
+			await reopenOfflineAs("sam@example.com");
+
 			expect(screen.getByText("Sam Okafor")).toBeTruthy();
 			await openWorkOrder("WO-1");
 			await tap("Start Timer");
 
 			const [event] = await settled(queuedEvents());
 			expect(event?.badge).toBeUndefined();
+			expect(event?.employee).toBe("HR-EMP-2");
 			expect(screen.queryByText(/Timeout in/)).toBeNull();
+		});
+
+		it("never comes up offline as an employee whose login has since been replaced", async () => {
+			await reopenOfflineAs("kiosk@example.com");
+
+			expect(screen.queryByText("Sam Okafor")).toBeNull();
+			expect(screen.getByText("Scan your badge to start tracking time.")).toBeTruthy();
+		});
+
+		it("confirms a badge taken on trust once back, and shows the server's timers", async () => {
+			const server = trackerServer();
+			await open();
+			await goOffline(server);
+			await scan(BADGE);
+			await openWorkOrder("WO-1");
+			await tap("Start Timer");
+			server.calls = {};
+			server.activeTimer = {
+				work_order: "WO-1",
+				operation: "Weld",
+				from_time: "2026-10-23 14:00:00",
+				is_corrective: false,
+			};
+
+			await comeBack(server);
+
+			expect(server.calls["authenticate_employee"]).toHaveLength(1);
+			expect(screen.queryByText("Badge not confirmed")).toBeNull();
+			expect(screen.getByText("Maria Lopez")).toBeTruthy();
+			expect(button("Stop Timer")).toBeTruthy();
+		});
+
+		it("leaves a badge checked on reconnecting signed out, if they signed out meanwhile", async () => {
+			const server = trackerServer();
+			await open();
+			await goOffline(server);
+			await scan(BADGE);
+			server.whileCalling = { authenticate_employee: () => fireEvent.click(button("Sign Out")) };
+
+			await comeBack(server);
+
+			expect(server.calls["authenticate_employee"]).toHaveLength(1);
+			expect(screen.queryByText("Maria Lopez")).toBeNull();
+			expect(screen.getByText("Scan your badge to start tracking time.")).toBeTruthy();
+		});
+
+		it("signs out a badge the server doesn't know, once back", async () => {
+			const server = trackerServer();
+			await open();
+			await goOffline(server);
+			await scan("NEWBADGE");
+
+			await comeBack(server);
+
+			expect(screen.getByText("Badge not recognised.")).toBeTruthy();
+			expect(screen.getByText("Scan your badge to start tracking time.")).toBeTruthy();
 		});
 
 		it("works without a snapshot, showing an empty list", async () => {

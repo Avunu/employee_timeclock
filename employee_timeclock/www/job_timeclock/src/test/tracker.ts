@@ -61,6 +61,8 @@ export interface TrackerServer {
 	deadFor: string[];
 	/** Method name to the args of each call. */
 	calls: Record<string, Record<string, unknown>[]>;
+	/** Run while a call to the method is in flight, before it is answered. */
+	whileCalling: Record<string, () => void>;
 }
 
 export function trackerServer(overrides: Partial<TrackerServer> = {}): TrackerServer {
@@ -79,6 +81,7 @@ export function trackerServer(overrides: Partial<TrackerServer> = {}): TrackerSe
 		sparse: false,
 		deadFor: [],
 		calls: {},
+		whileCalling: {},
 		...overrides,
 	};
 
@@ -86,6 +89,7 @@ export function trackerServer(overrides: Partial<TrackerServer> = {}): TrackerSe
 		if (!server.reachable) throw new TypeError("Failed to fetch");
 		const method = path.replace(`${METHOD}.`, "");
 		(server.calls[method] ??= []).push(args);
+		server.whileCalling[method]?.();
 		const status = server.statusFor[method];
 		if (status) return respond(status, {});
 		if (server.deadFor.includes(method)) return respond(200, { message: { status: "error" } });
@@ -110,7 +114,11 @@ export function trackerServer(overrides: Partial<TrackerServer> = {}): TrackerSe
 
 		switch (method) {
 			case "get_user_session_employee":
-				return answer(server.sessionEmployee ?? { user_id: "kiosk@example.com" });
+				return answer(
+					server.sessionEmployee
+						? { user_id: "sam@example.com", ...server.sessionEmployee }
+						: { user_id: "kiosk@example.com" },
+				);
 			case "authenticate_employee":
 				return answer(
 					server.badges.includes(String(args["rfid"]))

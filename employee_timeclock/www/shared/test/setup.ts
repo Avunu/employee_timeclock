@@ -37,4 +37,5 @@ afterEach(() => {
 	delete window.csrf_token;
 	delete window.kiosk_boot;
 	window.localStorage.clear();
+	window.sessionStorage.clear();
 });

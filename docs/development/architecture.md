@@ -23,7 +23,7 @@ Paths are relative to the `employee_timeclock` package.
 
 ## Badges and kiosk sessions
 
-`kiosk.py` holds the access rules. A kiosk is a browser signed in as a user with the **Timeclock Kiosk** role (a fixture), and `require_kiosk_role` (`frappe.only_for`) guards every badge endpoint. `require_kiosk_page` gates the `/timeclock`, `/employee-timeclock` and `/job_timeclock_legacy` pages with it; `/job_timeclock` uses `require_login_page` alone, which sends Guest to `/login` and back, because an employee can also open it from their own login.
+`kiosk.py` holds the access rules. A kiosk is a browser signed in as a user with the **Timeclock Kiosk** role (a fixture), and `require_kiosk_role` (`frappe.only_for`) guards every badge endpoint. `require_kiosk_page` gates the `/timeclock` and `/employee-timeclock` pages with it; `/job_timeclock` and `/job_timeclock_vue` use `require_login_page` alone, which sends Guest to `/login` and back, because an employee can also open it from their own login.
 
 A badge is resolved by `resolve_badge`: the SHA-256 of the scan is looked up in the Employee's `timeclock_badge_hash`, then the scan is looked up as an Attendance Device ID row, and either must belong to an Active Employee. A plain digest is enough because the token is 144 random bits (`secrets.token_urlsafe(18)`), and an unsalted digest can be found through an index, so verification compares digests in the database. Every failure returns `None` and is logged without the scanned value, so the caller cannot tell an unknown badge from a revoked one or an inactive employee.
 
@@ -75,7 +75,7 @@ Every punch is an Employee Checkin whose device ID says where it came from: `Emp
 
 The tracker reads through `useFrappeGetCall` (`useTrackerData` in `src/useEmployee.ts`), so SWR refetches when the page comes back into view. Reads go by POST with a fixed cache key, because the badge token changes with each answer and shouldn't be in a URL.
 
-Offline, the tracker works from a snapshot of the work (`get_offline_snapshot`) and queues timer events in IndexedDB (`src/offline.ts`). `replay` shows them on top of the last server state, and `useTimerSync` sends them to `sync_timer_events`. Each event has its own id (`kiosk_start_id` and `kiosk_stop_id` on Job Card Time Log), so it is recorded once. A synced event only closes logs that had started by its time, and a start nothing stopped ends where the next log begins. Rejected events go to the Error Log.
+Offline, the tracker works from a snapshot of the work (`get_offline_snapshot`) and queues timer events in IndexedDB (`src/offline.ts`). `replay` shows them on top of the last server state, and `useTimerSync` sends them to `sync_timer_events`. Each event has its own id (`kiosk_start_id` and `kiosk_stop_id` on Job Card Time Log), so it is recorded once. A synced event only closes logs that had started by its time, and a start nothing stopped ends where the next log begins. Rejected events go to the Error Log. An event made under an employee's own login names that employee, and is rejected if another login sends it; the login is remembered offline per user, from Frappe's `user_id` cookie. A save that clashes with another request (`RETRY_SYNC_ERRORS`) fails the whole call, so the tablet keeps its queue and sends it again. The badge kiosk's `sync_punches` works the same way. Once a tablet reconnects, an offline badge sign-in is confirmed with `authenticate_employee` in the background.
 
 `TimeclockJobCard` (`custom/job_card.py`) adjusts ERPNext's Job Card for this:
 

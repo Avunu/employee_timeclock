@@ -55,10 +55,13 @@ export function App() {
 			const time = armed ? armed.time : serverNow();
 			const choice = armed ? { log_type: armed.log_type } : {};
 			try {
-				// Offline, there's no point waiting for the network to fail first.
-				const recorded = navigator.onLine
-					? await punch({ badge, punch_id: id, ...(armed && { time, ...choice }) })
-					: ({ ok: false, offline: true } as const);
+				// Offline, there's no point waiting for the network to fail first. With punches still
+				// waiting, this one waits behind them: sent first, it would be paired before them, as an
+				// IN where it should be an OUT.
+				const recorded =
+					navigator.onLine && waiting === 0
+						? await punch({ badge, punch_id: id, ...(armed && { time, ...choice }) })
+						: ({ ok: false, offline: true } as const);
 				if (recorded.ok) {
 					rememberServerTime(recorded.data.server_time);
 					setResult(recorded.data);
@@ -71,7 +74,7 @@ export function App() {
 				pendingScans.current.delete(badge);
 			}
 		},
-		[armed, manualOpen, punch, keep, closeManual],
+		[armed, manualOpen, waiting, punch, keep, closeManual],
 	);
 
 	useKeyboardWedge((badge) => void recordScan(badge));

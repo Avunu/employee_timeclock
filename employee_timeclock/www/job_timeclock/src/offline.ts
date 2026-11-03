@@ -23,6 +23,9 @@ export interface TimerEvent {
 	action: "start" | "stop" | "stop_machine";
 	/** The badge it was made under; none for an employee signed in with their own login. */
 	badge?: string;
+	/** Without a badge, the Employee whose login made it: the server refuses it if another
+	 * employee's login sends it. */
+	employee?: string;
 	work_order?: string;
 	operation?: string;
 	/** On the server's clock (clock.ts): `YYYY-MM-DD HH:MM:SS`. */
@@ -36,7 +39,7 @@ export interface TimerEvent {
 	machine_group?: string;
 }
 
-/** An employee this tablet has seen, keyed by the hash of their badge or SESSION_KEY. */
+/** An employee this tablet has seen, keyed by the hash of their badge or their sessionKey. */
 export interface EmployeeRecord {
 	id: string;
 	employee_id: string;
@@ -45,8 +48,17 @@ export interface EmployeeRecord {
 	active_timer: ActiveTimer | null;
 }
 
-/** The record of the employee signed in with their own login. */
-export const SESSION_KEY = "session";
+/** The record of the employee signed in with their own login, kept per user, so a tablet that
+ * someone else signs in on never comes up offline as them. */
+export const sessionKey = (user: string): string => `session:${user}`;
+
+/** Who the page is signed in as, from the cookie frappe sets at login, which is still there
+ * offline; null for Guest. */
+export function cookieUser(): string | null {
+	const cookie = document.cookie.split("; ").find((part) => part.startsWith("user_id="));
+	const user = cookie ? decodeURIComponent(cookie.slice("user_id=".length)) : "";
+	return user && user !== "Guest" ? user : null;
+}
 
 const EVENTS = "events";
 const SNAPSHOT = "snapshot";

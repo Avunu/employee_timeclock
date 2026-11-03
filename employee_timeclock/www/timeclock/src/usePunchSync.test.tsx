@@ -175,6 +175,18 @@ describe("usePunchSync", () => {
 		await waitFor(() => expect(reloadPage).toHaveBeenCalledOnce());
 	});
 
+	it("doesn't reload again for a refusal the last reload didn't cure", async () => {
+		const fetch = stubFetch(async () => respond(403, thrown("Not permitted")));
+		const first = await synced(fetch);
+		await waitFor(() => expect(reloadPage).toHaveBeenCalledOnce());
+		first.unmount();
+
+		await synced(fetch);
+		await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+
+		expect(reloadPage).toHaveBeenCalledOnce();
+	});
+
 	it("tries again later on any other refusal, like the rate limit", async () => {
 		await queuePunch(punch("1"));
 		const fetch = stubFetch(async () => respond(429, thrown("Too many requests")));
@@ -240,11 +252,22 @@ describe("usePunchSync", () => {
 	it("keeps a punch the kiosk couldn't send, and counts it", async () => {
 		const fetch = server();
 		const { result } = await synced(fetch);
+		setOnline(false);
 
 		await act(() => result.current.keep(punch("1")));
 
 		expect(result.current).toMatchObject({ online: false, waiting: 1 });
 		expect(await queuedPunches()).toEqual([punch("1")]);
+	});
+
+	it("sends a punch kept behind others at once, when the browser is online", async () => {
+		const fetch = server();
+		const { result } = await synced(fetch);
+
+		await act(() => result.current.keep(punch("1")));
+
+		expect(sentBatches(fetch).at(-1)).toEqual([punch("1")]);
+		expect(result.current).toMatchObject({ online: true, waiting: 0 });
 	});
 
 	it("stops syncing when the page goes", async () => {

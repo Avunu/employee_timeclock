@@ -12,6 +12,7 @@ import {
 } from "@carbon/react";
 import type { LogType, ManualPunch } from "../types";
 import { TimeSpinner } from "./TimeSpinner";
+import { serverMillis } from "../../../shared/clock";
 
 /** A forgotten punch nobody finishes is dropped after this long, so the next person's scan is
  * an ordinary punch again. */
@@ -26,8 +27,12 @@ function enteredAt(day: Date, minutes: number): Date {
 	return at;
 }
 
+/** Now on the server's clock (clock.ts), which the punch is recorded by: a tablet's own clock may
+ * be wrong, or in another time zone. */
+const serverDate = (): Date => new Date(serverMillis());
+
 function minutesNow(): number {
-	const now = new Date();
+	const now = serverDate();
 	return now.getHours() * 60 + now.getMinutes();
 }
 
@@ -49,7 +54,7 @@ function releaseDate(): void {
 }
 
 function startOfToday(): Date {
-	const today = new Date();
+	const today = serverDate();
 	today.setHours(0, 0, 0, 0);
 	return today;
 }
@@ -78,7 +83,7 @@ export function ManualPunchModal({ onArm, onClose }: ManualPunchModalProps) {
 	}, [day, time, logType, onClose]);
 
 	const at = enteredAt(day, time);
-	const inFuture = at.getTime() > Date.now();
+	const inFuture = at.getTime() > serverMillis();
 	// The punch a scan records, once the form holds one.
 	const entered = !inFuture && logType ? toManualPunch(at, logType) : null;
 
@@ -110,7 +115,7 @@ export function ManualPunchModal({ onArm, onClose }: ManualPunchModalProps) {
 						datePickerType="single"
 						dateFormat="m/d/Y"
 						allowInput={false}
-						maxDate={new Date().toLocaleDateString("en-US")}
+						maxDate={serverDate().toLocaleDateString("en-US")}
 						value={day}
 						onClose={releaseDate}
 						onChange={([picked]) => {
