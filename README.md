@@ -88,7 +88,7 @@ _Timeclock Settings_ holds the **Maximum Shift Length (Hours)**, 16 by default a
 - Every punch is an **Employee Checkin**. Punches pair into shifts in `employee_timeclock/timeclock/shifts.py`, which every kiosk, the Workday sync and the hours reports use.
 - The clock-in form posts the scanned badge to `submit_checkin`; the badge kiosk and the job tracker exchange a badge for a 30-minute JWT signed with the site's `encryption_key`.
 - `doc_events` keep Workdays and Employee Checkins in step both ways, and `TimeclockJobCard` (an `extend_doctype_class` on Job Card) adapts Job Cards to the tracker's timers and machine time.
-- The kiosk apps are Vue 3 and frappe-ui, built with Vite by `yarn build`, which `bench build` runs.
+- The kiosk apps are React and Carbon on `frappe-react-sdk`, built with esbuild by `bench build`, with their source in `www/`.
 
 The design is described in [docs/development/architecture.md](docs/development/architecture.md).
 
@@ -98,7 +98,7 @@ The design is described in [docs/development/architecture.md](docs/development/a
 - Overtime in the payroll reports is hours over 40 in a Sunday-to-Saturday week; the 40 cannot be configured.
 - Saving a Workday rewrites only the punches of its own date, and a punch recorded less than a minute after a Workday save is not copied into it; the Workday Management report shows such days as Out of Sync, and _Rebuild Workdays_ fixes them.
 - The kiosk pages are in English only and have no dark theme.
-- The old job time tracker at `/job_timeclock_legacy` still ships; it is replaced by `/job_timeclock` and will be removed.
+- The old Vue job tracker still ships at `/job_timeclock_vue` while the new one is tried out, and will be removed.
 
 The full list, and the messages the app shows with their fixes, are in [docs/troubleshooting.md](docs/troubleshooting.md).
 
