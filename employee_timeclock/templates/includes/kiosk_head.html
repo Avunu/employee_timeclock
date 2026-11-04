@@ -1,0 +1,12 @@
+{# The <head> tags that make a kiosk page an installable app. `pwa` comes from
+   employee_timeclock.kiosk_pwa.get_head_context, via the page's get_context. #}
+<meta name="theme-color" content="{{ pwa.theme_color }}" />
+<link rel="manifest" href="{{ pwa.manifest_url }}" />
+<link rel="icon" type="image/png" sizes="192x192" href="{{ pwa.icon_url }}" />
+<link rel="apple-touch-icon" href="{{ pwa.apple_touch_icon_url }}" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="{{ pwa.short_name }}" />
+{# Opaque, not translucent: the toolbar is fixed at the top of the page and
+   would otherwise slide under the status bar. #}
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
