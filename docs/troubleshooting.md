@@ -3,7 +3,7 @@ title: Limitations and troubleshooting
 description: The known limits of Employee Timeclock, and the messages it shows, with their cause and the fix.
 nav_title: Troubleshooting
 order: 8
-updated: 2026-10-26
+updated: 2026-11-02
 ---
 
 ## Limitations
@@ -22,7 +22,7 @@ updated: 2026-10-26
 - **Timers outlive the session.** Signing out of the job time tracker, or letting the 30-minute badge session run out, does not stop a running timer.
 - **Pins and workstations stay in the browser.** The tracker keeps them in the browser's local storage, so they do not follow an employee to another kiosk, and clearing the browser's data loses them.
 - **Language and theme.** The kiosk pages are in English only and have no dark theme. The job time tracker's page is titled "Project Tracker".
-- **The old tracker.** The old job time tracker at `/job_timeclock_legacy` still ships. `/job_timeclock` replaces it, and it will be removed.
+- **The old tracker.** The old Vue tracker at `/job_timeclock_vue` still ships while the new one is tried out, and it will be removed.
 
 ## Troubleshooting
 
