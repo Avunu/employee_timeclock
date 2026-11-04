@@ -6,6 +6,7 @@
 				<button class="text-4xl font-bold tracking-tight text-gray-900" @click="refresh_page">
 					{{ header }}
 				</button>
+				<a href="/job_timeclock" class="text-lg text-gray-700 underline">Use new tracker</a>
 
 				<!-- Clock out -->
 				<!--<button class="bg-teal-300 hover:bg-teal-400 text-white font-normal lg:text-3xl py-4 px-8 rounded ring-2 ring-offset-1 ring-gray-100" -->
