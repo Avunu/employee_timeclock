@@ -96,8 +96,9 @@ async function notifyFrappeReload(changedFiles: string[]) {
 	}
 }
 
-// Get the SPA to build from the environment (defaults to the 'timeclock' kiosk)
-const appName = process.env.VITE_APP || "timeclock";
+// Get the SPA to build from the environment. The kiosks are React, built by frappe's esbuild from
+// public/js/*.bundle.ts, so the old Vue job tracker (/job_timeclock_vue) is the only one left here.
+const appName = process.env.VITE_APP || "job_timeclock";
 
 interface AppConfig {
 	/** The bundle name: the build writes `<bundle>.bundle.[hash].js|css`, which the `www` page loads by
@@ -110,13 +111,8 @@ interface AppConfig {
 // Map of app configurations
 // Source: public/js/<app>  |  Output: public/dist/{js,css}/<bundle>.bundle.[hash].*
 const appConfigs: Record<string, AppConfig> = {
-	timeclock: {
-		bundle: "timeclock_kiosk",
-		entry: "timeclock.ts",
-		srcDir: "employee_timeclock/public/js/timeclock",
-	},
 	job_timeclock: {
-		bundle: "job_timeclock",
+		bundle: "job_timeclock_vue",
 		entry: "job_timeclock.ts",
 		srcDir: "employee_timeclock/public/js/job_timeclock",
 	},

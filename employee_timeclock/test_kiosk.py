@@ -28,11 +28,10 @@ from employee_timeclock.auth import get_token_secret
 from employee_timeclock.tests.utils import KIOSK_USER, ensure_user, make_kiosk_user
 from employee_timeclock.timeclock import api
 from employee_timeclock.timeclock.test_api import _make_employee
-from employee_timeclock.www import job_timeclock_legacy as legacy
 from employee_timeclock.www import timeclock as rfid_kiosk
 from employee_timeclock.www.job_timeclock import index as job_timeclock_page
 from employee_timeclock.www.job_timeclock import job_timeclock
-from employee_timeclock.www.job_timeclock_legacy import index as legacy_page
+from employee_timeclock.www.job_timeclock_vue import index as job_timeclock_vue_page
 from employee_timeclock.www.timeclock import index as rfid_kiosk_page
 
 HR_USER = "timeclock-hr@example.com"
@@ -393,7 +392,7 @@ class TestKiosk(IntegrationTestCase):
 		from employee_timeclock.timeclock.web_form.employee_timelog import employee_timelog
 
 		frappe.set_user("Guest")
-		for page in (rfid_kiosk_page, job_timeclock_page, employee_timelog):
+		for page in (rfid_kiosk_page, job_timeclock_page, job_timeclock_vue_page, employee_timelog):
 			with self.subTest(page=page.__name__), self.assertRaises(frappe.Redirect):
 				page.get_context(frappe._dict())
 		self.assertTrue(frappe.local.flags.redirect_location.startswith("/login?redirect-to="))
@@ -413,54 +412,3 @@ class TestKiosk(IntegrationTestCase):
 		rfid_kiosk_page.get_context(context)
 
 		self.assertTrue(context.csrf_token)
-
-	# --- the legacy job timeclock ---
-
-	def test_legacy_job_timeclock_refuses_non_kiosk_users(self) -> None:
-		"""Its endpoints take a bare Employee ID, so only a kiosk may call them."""
-		token = legacy.refresh_token(self.employee)
-		calls = {
-			"authenticate_employee": lambda: legacy.authenticate_employee(self.rfid),
-			"log_in_employee": lambda: legacy.log_in_employee(token, PUNCH),
-			"log_out_employee": lambda: legacy.log_out_employee(token, PUNCH),
-			"get_work_orders": lambda: legacy.get_work_orders(token),
-			"get_job_cards": lambda: legacy.get_job_cards(token, "WO-DOES-NOT-EXIST"),
-			"sort_jobcard_by_workstation": lambda: legacy.sort_jobcard_by_workstation([], ""),
-			"log_end_time_of_jobcard": lambda: legacy.log_end_time_of_jobcard(self.employee, PUNCH, "JC-X"),
-			"check_all_job_cards": lambda: legacy.check_all_job_cards(self.employee, PUNCH),
-			"log_start_time_of_jobcard": lambda: legacy.log_start_time_of_jobcard(
-				self.employee, PUNCH, "JC-X"
-			),
-			"check_for_erp_log_in": legacy.check_for_erp_log_in,
-			"submit_jobcard": lambda: legacy.submit_jobcard({"name": "JC-X"}, PUNCH, self.employee),
-		}
-		whitelisted = {
-			getattr(fn, "__name__", "")
-			for fn in frappe.whitelisted
-			if getattr(fn, "__module__", "") == legacy.__name__
-		}
-		self.assertEqual(set(calls), whitelisted)
-		for user in ("Guest", PLAIN_USER, HR_USER):
-			frappe.set_user(user)
-			for name, call in calls.items():
-				with self.subTest(user=user, method=name), self.assertRaises(frappe.PermissionError):
-					call()
-		frappe.set_user("Administrator")
-		self.assertEqual(self._checkins(), [])
-
-	def test_legacy_job_timeclock_page_is_a_kiosk_page(self) -> None:
-		frappe.set_user("Guest")
-		with self.assertRaises(frappe.Redirect):
-			legacy_page.get_context(frappe._dict())
-		frappe.set_user(PLAIN_USER)
-		with self.assertRaises(frappe.PermissionError):
-			legacy_page.get_context(frappe._dict())
-		frappe.set_user(KIOSK_USER)
-		context = frappe._dict()
-		legacy_page.get_context(context)
-		self.assertTrue(context.csrf_token)
-
-	def test_legacy_job_timeclock_badge_scan(self) -> None:
-		frappe.set_user(KIOSK_USER)
-		self.assertEqual(legacy.authenticate_employee(self.rfid)["status"], "success")
-		self.assertEqual(legacy.authenticate_employee(self.employee)["status"], "error")

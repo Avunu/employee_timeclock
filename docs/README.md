@@ -3,7 +3,7 @@ title: Employee Timeclock
 description: Badge-scan timeclock kiosks, daily Workday records and job-card time tracking for ERPNext and HRMS.
 nav_title: Overview
 order: 0
-updated: 2026-10-26
+updated: 2026-11-02
 ---
 
 Paper time cards and shared logins make payroll slow and hard to trust. Employee Timeclock puts a kiosk on a tablet or PC by the door: employees scan a badge to clock in and out, and each punch lands in HRMS as an Employee Checkin. Each employee's punches for a day are gathered into one **Workday** record that HR reviews and corrects. On the shop floor, the same badge starts and stops timers on ERPNext Job Cards, so labour time reaches the work order without anyone typing it in again.
