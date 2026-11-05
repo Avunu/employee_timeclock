@@ -1,64 +1,81 @@
----
-title: Employee Timeclock
-description: Badge-scan timeclock kiosks, daily Workday records and job-card time tracking for ERPNext and HRMS.
-nav_title: Overview
-order: 0
-updated: 2026-11-02
----
+# Employee Timeclock
 
-Paper time cards and shared logins make payroll slow and hard to trust. Employee Timeclock puts a kiosk on a tablet or PC by the door: employees scan a badge to clock in and out, and each punch lands in HRMS as an Employee Checkin. Each employee's punches for a day are gathered into one **Workday** record that HR reviews and corrects. On the shop floor, the same badge starts and stops timers on ERPNext Job Cards, so labour time reaches the work order without anyone typing it in again.
+Badge-scan timeclock kiosks and job-card time tracking for ERPNext and HRMS
 
-It is for ERPNext sites that pay hourly staff and, optionally, track manufacturing labour. It runs on Frappe v16 with ERPNext and HRMS, and is free software under the [MIT licence](../license.txt).
+Badge-scan timeclock kiosks for ERPNext and HRMS. Employees clock in and out by scanning a badge, and on the shop floor the same badge starts and stops timers on Job Cards. Each employee's punches for a day are kept in one Workday record, in sync with their Employee Checkins.
 
-## What you get
+## The kiosks
 
-### Badges that HR issues
+| Page                                                   | Who signs in                             | How an employee identifies                                          |
+| ------------------------------------------------------ | ---------------------------------------- | ------------------------------------------------------------------- |
+| `/employee-timeclock` (Employee Clock-in/out web form) | a kiosk user                             | scans their badge                                                   |
+| `/timeclock` (badge kiosk)                             | a kiosk user                             | scans their badge                                                   |
+| `/job_timeclock` (job time tracker)                    | a kiosk user, or the employee's own user | scans their badge at a kiosk; a signed-in employee is already known |
 
-HR issues each employee a random badge token from the Employee form and prints it on the badge as a barcode or QR code. Only a hash of the token is stored, and RFID tags registered on the Employee work too. An employee is never identified by their Employee ID. See [Issue and revoke badges](badges.md).
+None of the pages or their API methods accept Guest. An employee is never identified by their
+Employee ID, which is guessable. A badge is either:
 
-![Issuing a timeclock badge from the Employee form: the new token, shown once for printing on the badge](screenshots/issue-badge-light.webp)
+- a **badge token** HR issues from the Employee form. It is random, it is shown once for printing
+  on the badge (as a barcode or QR code), and only its SHA-256 hash is stored; or
+- an **RFID tag** registered in the Employee's _Attendance Device IDs_ table.
 
-### Kiosks to clock in and out
+Badge scans are rate limited per client IP, and an unrecognised badge is refused with the same
+message whatever the reason, so a kiosk never reveals whether an employee exists.
 
-Two kiosk pages record punches: the badge kiosk at `/timeclock` and the Employee Clock-in/out form at `/employee-timeclock`, which can also take a time entered by hand. Both run signed in as a kiosk user and decide by themselves whether a scan is an IN or an OUT, night shifts included, except for a time entered by hand, where the employee chooses. See [Clock in and out](clock-in.md).
+## Installation
 
-![The badge kiosk after a scan: Maria Lopez has punched in](screenshots/badge-kiosk-light.webp)
+The app needs ERPNext and HRMS on the site. From the bench directory:
 
-### Workdays that HR reviews
+```bash
+bench get-app https://github.com/Avunu/employee_timeclock --branch main
+bench --site <site> install-app employee_timeclock
+```
 
-One Workday per employee per day holds the shifts that started that day and their total hours, and stays in step with the Employee Checkins. The Workday Management report flags missing punches and days out of step, and lets HR edit, add and delete punches in place. See [Review and correct Workdays](workdays.md).
+## Setting up a kiosk
 
-![The Workday Management report for one day: each employee's punches and hours, with a forgotten clock-out flagged as a missing punch](screenshots/workday-management-light.webp)
+1. **Create the kiosk user.** In _User_, add a user for the kiosk device (one per device makes it
+   easy to revoke one), as a _Website User_, with only the **Timeclock Kiosk** role. The app
+   installs that role. Give it a strong password.
+2. **Issue badges.** For each employee who will clock in, open the Employee and choose
+   _Timeclock → Issue Badge_ (HR Manager or System Manager only). Print the token shown on the
+   employee's badge as a barcode or QR code that the kiosk's scanner reads. Issuing again replaces
+   the badge; _Timeclock → Revoke Badge_ disables it for a lost badge or a leaver. Employees who
+   already badge in with an RFID tag in _Attendance Device IDs_ keep working without a new badge.
+3. **Sign the kiosk in.** On the kiosk device, open the kiosk page, sign in as the kiosk user and
+   leave the browser on that page.
 
-### Time tracked on Job Cards
+Only Active employees can clock in.
 
-The job time tracker at `/job_timeclock` lists open work orders and their operations. An employee starts and stops a timer, or a rework timer, and the time is written to the operation's Job Card as a time log. Operations can be timed against a machine instead of a person. See [Track time on job cards](job-tracker.md).
+## Shifts, night shifts and missed punches
 
-![The job time tracker: open work orders, the workbench order's operations with logged time, and a welding timer running](screenshots/job-tracker-light.webp)
+Every punch is an Employee Checkin with a log type, IN or OUT. The kiosks, the Workdays and the
+hours reports all pair them the same way:
 
-### Payroll reports
+- Punches are taken in time order. An OUT closes the employee's open IN when it comes no more than
+  the **maximum shift length** after it. That pair is one shift.
+- A shift's hours count on the date of its IN. A shift from 10 PM Saturday to 6 AM Sunday is eight
+  hours on Saturday: on Saturday's Workday, in Saturday's row of the Work Day Hours Report and in
+  that week's total for overtime, though Sunday starts a new payroll week.
+- A punch that pairs with nothing is a **missed punch** and counts no hours: an IN followed by
+  another IN, or by an OUT more than the maximum shift length later, and an OUT with no open IN.
+  One missed punch never shifts the pairs after it. The reports flag it, and the Workday
+  Management report shows the day as _Missing Punch_ until HR adds or fixes the punch.
+- At a kiosk, a scan is an OUT while the employee has an IN open from the last maximum shift length,
+  and an IN otherwise. A night worker's scan after midnight closes their shift; an IN left open
+  longer ago (a forgotten clock-out) does not turn the next morning's scan into an OUT.
 
-Four reports turn punches and Workdays into hours: regular and overtime hours per employee, hours per day, and a list of punches. See [Payroll reports](payroll-reports.md).
+The maximum shift length is set in _Timeclock Settings_ (HR Manager or System Manager), 16 hours by
+default and at most 48.
 
-## Where to start
+On the Workday form, each row is one shift: its IN is on the Workday's date, and an OUT earlier than
+its IN is the next morning's. A row longer than the maximum shift length is refused. In the
+Workday Management report a night shift's OUT reads, for example, _6:00 AM (+1)_; editing its time
+keeps it after its IN, and setting its hours can run past midnight. To add a night shift's missing
+OUT, use _Add Punch_ with the next day's date.
 
-| You are                                 | Read                                                                                                                           |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| An employee clocking in                 | [Clock in and out](clock-in.md)                                                                                                |
-| An employee timing work on job cards    | [Track time on job cards](job-tracker.md)                                                                                      |
-| HR, reviewing hours and running payroll | [Review and correct Workdays](workdays.md), [Payroll reports](payroll-reports.md) and [Issue and revoke badges](badges.md)     |
-| The administrator setting it up         | [Install and upgrade](install.md), [Configuration](configuration.md) and [Limitations and troubleshooting](troubleshooting.md) |
-| A developer changing the app            | [Development](development/README.md) and [How it works](development/architecture.md)                                           |
-
-## Requirements
-
-- A bench with Frappe v16. The app declares `frappe >=16.0.0,<17.0.0`.
-- ERPNext and HRMS v16 on the same site (`>=16.0.0,<17.0.0` each). Install ERPNext, then HRMS, then Employee Timeclock: the app's `required_apps` are `erpnext` and `hrms`.
-- Node 24 or newer and yarn on the machine that builds the app. `bench build` runs the app's `yarn build`, which builds the two kiosk pages.
-- A badge scanner, or an RFID reader, that types what it reads into the page like a keyboard and ends with Enter, for each kiosk.
-
-> [!NOTE]
-> These pages describe the code in the repository. Where a statement depends on Frappe's, ERPNext's or HRMS's own behaviour, it was checked against Frappe 16.52, ERPNext 16.51 and HRMS 16.51.
+Workdays built before this pairing keep a night shift split over two calendar dates until they are
+rebuilt: the Workday Management report shows those days as _Out of Sync_, and _Rebuild Workdays_
+fixes them.
 
 ## Source and changes
 
