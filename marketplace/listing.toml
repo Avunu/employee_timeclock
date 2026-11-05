@@ -6,7 +6,7 @@ type = "application"
 category = "Applications"
 categories = ["Human Resources", "Productivity"]
 website = "https://avunu.net/open-source/employee_timeclock/"
-documentation = "https://github.com/Avunu/employee_timeclock#readme"
+documentation = "https://docs.avunu.net/employee-timeclock/"
 apps_screen = true
 
 [apps_screen_entry]

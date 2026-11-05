@@ -146,6 +146,62 @@ def update_workday_from_checkin(checkin: EmployeeCheckin, method: str | None = N
 # frappe.set_value(doctype, name, fieldname, value)
 
 
+def record_punch(
+	employee: str,
+	time: str,
+	log_type: str | None = None,
+	manual_override: int | bool = 0,
+	kiosk_punch_id: str | None = None,
+) -> Literal["IN", "OUT"]:
+	"""Record an employee's punch at ``time``, as every kiosk does, and return its log type.
+
+	The punch is OUT while the employee has an IN open at ``time`` and IN otherwise, unless the time
+	was entered by hand, when ``log_type`` is used. A punch already recorded in the same minute, or
+	under the same ``kiosk_punch_id``, is kept instead of a second one.
+
+	Args:
+		employee: The Employee the punch is for, already resolved from their badge.
+		time: The punch time, ``YYYY-MM-DD HH:MM:SS``; seconds are dropped.
+		log_type: ``IN`` or ``OUT``; used only with ``manual_override``.
+		manual_override: Whether the time was entered by hand.
+		kiosk_punch_id: The new kiosk's own id for the punch, so a punch it sends twice (a retry, or
+			one queued offline) is recorded once.
+
+	Raises:
+		frappe.ValidationError: A hand-entered punch has no IN/OUT.
+	"""
+	if kiosk_punch_id:
+		sent_before = frappe.db.get_value("Employee Checkin", {"kiosk_punch_id": kiosk_punch_id}, "log_type")
+		if sent_before:
+			return cast(Literal["IN", "OUT"], sent_before)
+	punched_at = datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S").replace(second=0)
+	checkin_time = punched_at.strftime("%Y-%m-%d %H:%M:%S")
+	if cint(manual_override):
+		if log_type not in ("IN", "OUT"):
+			frappe.throw(_("Choose Clock In or Clock Out."))
+		next_log_type = cast(Literal["IN", "OUT"], log_type)
+	else:
+		next_log_type = determine_next_log_type(employee, punched_at)
+
+	# a second scan inside the same minute keeps the punch already recorded
+	existing = cast(
+		str | None,
+		frappe.db.get_value("Employee Checkin", {"employee": employee, "time": checkin_time}, "name"),
+	)
+	if existing:
+		return cast(Literal["IN", "OUT"], frappe.db.get_value("Employee Checkin", existing, "log_type"))
+	checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
+	checkin.employee = employee
+	checkin.time = checkin_time
+	checkin.log_type = next_log_type
+	checkin.manual_override = cint(manual_override)
+	checkin.device_id = DEVICE_ID
+	checkin.kiosk_punch_id = kiosk_punch_id
+	checkin.insert(ignore_permissions=True)
+	update_workday_from_checkin(checkin)
+	return next_log_type
+
+
 @frappe.whitelist(methods=["POST"])
 @rate_limit(limit=KIOSK_SCAN_LIMIT, seconds=KIOSK_SCAN_WINDOW)
 def submit_checkin(
@@ -175,33 +231,7 @@ def submit_checkin(
 	"""
 	require_kiosk_role()
 	employee = verify_badge(badge)
-	punched_at = datetime.datetime.strptime(time, "%Y-%m-%d %H:%M:%S").replace(second=0)
-	checkin_time = punched_at.strftime("%Y-%m-%d %H:%M:%S")
-	if cint(manual_override):
-		if log_type not in ("IN", "OUT"):
-			frappe.throw(_("Choose Clock In or Clock Out."))
-		next_log_type = cast(Literal["IN", "OUT"], log_type)
-	else:
-		next_log_type = determine_next_log_type(employee, punched_at)
-
-	# a second scan inside the same minute keeps the punch already recorded
-	existing = cast(
-		str | None,
-		frappe.db.get_value("Employee Checkin", {"employee": employee, "time": checkin_time}, "name"),
-	)
-	if existing:
-		recorded = cast(Literal["IN", "OUT"], frappe.db.get_value("Employee Checkin", existing, "log_type"))
-	else:
-		checkin = cast(EmployeeCheckin, frappe.new_doc("Employee Checkin"))
-		checkin.employee = employee
-		checkin.time = checkin_time
-		checkin.log_type = next_log_type
-		checkin.manual_override = cint(manual_override)
-		checkin.device_id = DEVICE_ID
-		checkin.insert(ignore_permissions=True)
-		update_workday_from_checkin(checkin)
-		recorded = next_log_type
-
+	recorded = record_punch(employee, time, log_type=log_type, manual_override=manual_override)
 	employee_name, weekly_hours = get_weekly_hours(employee)
 	return KioskPunch(log_type=recorded, employee_name=str(employee_name), weekly_hours=float(weekly_hours))
 

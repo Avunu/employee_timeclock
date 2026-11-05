@@ -65,8 +65,7 @@ hours reports all pair them the same way:
   longer ago (a forgotten clock-out) does not turn the next morning's scan into an OUT.
 
 The maximum shift length is set in _Timeclock Settings_ (HR Manager or System Manager), 16 hours by
-default and less than 24, since a Workday row and the Workday Management report read an OUT as
-the first such time of day after its IN.
+default and at most 48.
 
 On the Workday form, each row is one shift: its IN is on the Workday's date, and an OUT earlier than
 its IN is the next morning's. A row longer than the maximum shift length is refused. In the
@@ -78,10 +77,6 @@ Workdays built before this pairing keep a night shift split over two calendar da
 rebuilt: the Workday Management report shows those days as _Out of Sync_, and _Rebuild Workdays_
 fixes them.
 
-## Development
+## Source and changes
 
-The build commands, the source layout and the rename shim are described in [Development](development.md).
-
-## License
-
-[MIT](https://github.com/Avunu/employee_timeclock/blob/main/license.txt), Copyright (c) 2022–present Avunu LLC.
+The source is at [github.com/Avunu/employee_timeclock](https://github.com/Avunu/employee_timeclock). Each release is listed on the [releases page](https://github.com/Avunu/employee_timeclock/releases), and the [changelog](../CHANGELOG.md) lists what changed in each.
