@@ -81,6 +81,13 @@ The `version-16` branch still holds 16.0.0, from before the app was renamed from
 2. **Issue badges** from each Employee (_Timeclock → Issue Badge_, HR Manager or System Manager).
 3. **Sign the kiosk in** on the device and leave the browser on the kiosk page.
 
+**Night shifts.** _Timeclock Settings_ (HR Manager or System Manager) holds the **Maximum Shift Length**, 16 hours by default. An OUT closes the employee's open IN only within that many hours of it, and the kiosks treat an IN older than that as a forgotten clock-out. Raise it if anyone works longer shifts (to less than 24 hours), lower it to flag forgotten clock-outs sooner.
+
+For job time tracking:
+
+- Employees who use the tracker from their own desk login need their user set in the Employee's _User ID_.
+- To time an operation against a machine, tick _Is Machine Time_ on the Operation and set its _Machine Employee Group_ to the Employee Group of the people who run it.
+- On a kiosk, the tracker's settings panel (the gear) picks the workstations at that kiosk. The choice is kept in the browser, and _My Station_ then shows only their operations.
 _Timeclock Settings_ holds the **Maximum Shift Length (Hours)**, 16 by default and at most 48. Operations are timed against a machine with _Is Machine Time_ and a _Machine Employee Group_. Every setting, role and change the app makes is in [docs/configuration.md](docs/configuration.md).
 
 ## How It Works
