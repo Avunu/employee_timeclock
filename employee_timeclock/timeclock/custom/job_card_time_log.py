@@ -13,3 +13,5 @@ class JobCardTimeLog(BaseJobCardTimeLog):
 	# Custom fields from job_card_time_log.json
 
 	machine_operator: DF.Link
+	kiosk_start_id: DF.Data | None
+	kiosk_stop_id: DF.Data | None
