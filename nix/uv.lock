@@ -572,6 +572,13 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
+bench-dev = [
+    { name = "faker" },
+    { name = "freezegun" },
+    { name = "hypothesis" },
+    { name = "pyngrok" },
+    { name = "watchdog" },
+]
 dev = [
     { name = "coverage" },
     { name = "pydantic" },
@@ -588,6 +595,13 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
+bench-dev = [
+    { name = "faker", specifier = "~=18.10.1" },
+    { name = "freezegun", specifier = "~=1.5.5" },
+    { name = "hypothesis", specifier = "~=6.77.0" },
+    { name = "pyngrok", specifier = "~=7.5.0" },
+    { name = "watchdog", specifier = "~=6.0.0" },
+]
 dev = [
     { name = "coverage", specifier = ">=7.10" },
     { name = "pydantic", specifier = ">=2.12.5" },
@@ -959,7 +973,7 @@ wheels = [
 [[package]]
 name = "frappe-runtime"
 version = "0.1.0"
-source = { git = "https://github.com/Avunu/frappe-nix?subdirectory=runtime#f25d11aea55df79ac23c1bf2caf0d4c451e8ac42" }
+source = { git = "https://github.com/Avunu/frappe-nix?subdirectory=runtime#46cd132bd75e4dd67c6c2cbf6cdfaa235c5b3bd7" }
 dependencies = [
     { name = "a2wsgi" },
     { name = "httpx" },
