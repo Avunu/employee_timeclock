@@ -40,7 +40,6 @@ declare global {
 		"Appointment Booking Slots": FrappeDocTypeFields.AppointmentBookingSlots;
 		"Appointment Letter": FrappeDocTypeFields.AppointmentLetter;
 		"Appointment Letter Template": FrappeDocTypeFields.AppointmentLetterTemplate;
-		"Appointment Letter content": FrappeDocTypeFields.AppointmentLettercontent;
 		"Appraisal": FrappeDocTypeFields.Appraisal;
 		"Appraisal Cycle": FrappeDocTypeFields.AppraisalCycle;
 		"Appraisal Goal": FrappeDocTypeFields.AppraisalGoal;
@@ -68,6 +67,7 @@ declare global {
 		"Asset Repair": FrappeDocTypeFields.AssetRepair;
 		"Asset Repair Consumed Item": FrappeDocTypeFields.AssetRepairConsumedItem;
 		"Asset Repair Purchase Invoice": FrappeDocTypeFields.AssetRepairPurchaseInvoice;
+		"Asset Request": FrappeDocTypeFields.AssetRequest;
 		"Asset Shift Allocation": FrappeDocTypeFields.AssetShiftAllocation;
 		"Asset Shift Factor": FrappeDocTypeFields.AssetShiftFactor;
 		"Asset Value Adjustment": FrappeDocTypeFields.AssetValueAdjustment;
@@ -98,6 +98,7 @@ declare global {
 		"Bank Account Type": FrappeDocTypeFields.BankAccountType;
 		"Bank Clearance": FrappeDocTypeFields.BankClearance;
 		"Bank Clearance Detail": FrappeDocTypeFields.BankClearanceDetail;
+		"Bank Details Change Request": FrappeDocTypeFields.BankDetailsChangeRequest;
 		"Bank Guarantee": FrappeDocTypeFields.BankGuarantee;
 		"Bank Reconciliation Tool": FrappeDocTypeFields.BankReconciliationTool;
 		"Bank Statement Import": FrappeDocTypeFields.BankStatementImport;
@@ -162,9 +163,6 @@ declare global {
 		"Customer Item": FrappeDocTypeFields.CustomerItem;
 		"Customer Number At Supplier": FrappeDocTypeFields.CustomerNumberAtSupplier;
 		"Customs Tariff Number": FrappeDocTypeFields.CustomsTariffNumber;
-		"Daily Work Summary": FrappeDocTypeFields.DailyWorkSummary;
-		"Daily Work Summary Group": FrappeDocTypeFields.DailyWorkSummaryGroup;
-		"Daily Work Summary Group User": FrappeDocTypeFields.DailyWorkSummaryGroupUser;
 		"Delivery Note": FrappeDocTypeFields.DeliveryNote;
 		"Delivery Note Item": FrappeDocTypeFields.DeliveryNoteItem;
 		"Delivery Schedule Item": FrappeDocTypeFields.DeliveryScheduleItem;
@@ -200,6 +198,8 @@ declare global {
 		"Employee Boarding Activity": FrappeDocTypeFields.EmployeeBoardingActivity;
 		"Employee Checkin": FrappeDocTypeFields.EmployeeCheckin;
 		"Employee Cost Center": FrappeDocTypeFields.EmployeeCostCenter;
+		"Employee Document": FrappeDocTypeFields.EmployeeDocument;
+		"Employee Document Type": FrappeDocTypeFields.EmployeeDocumentType;
 		"Employee Education": FrappeDocTypeFields.EmployeeEducation;
 		"Employee External Work History": FrappeDocTypeFields.EmployeeExternalWorkHistory;
 		"Employee Feedback Criteria": FrappeDocTypeFields.EmployeeFeedbackCriteria;
@@ -215,6 +215,7 @@ declare global {
 		"Employee Onboarding Template": FrappeDocTypeFields.EmployeeOnboardingTemplate;
 		"Employee Other Income": FrappeDocTypeFields.EmployeeOtherIncome;
 		"Employee Performance Feedback": FrappeDocTypeFields.EmployeePerformanceFeedback;
+		"Employee Profile Section": FrappeDocTypeFields.EmployeeProfileSection;
 		"Employee Promotion": FrappeDocTypeFields.EmployeePromotion;
 		"Employee Property History": FrappeDocTypeFields.EmployeePropertyHistory;
 		"Employee Referral": FrappeDocTypeFields.EmployeeReferral;
@@ -263,7 +264,6 @@ declare global {
 		"Holiday": FrappeDocTypeFields.Holiday;
 		"Holiday List": FrappeDocTypeFields.HolidayList;
 		"Holiday List Assignment": FrappeDocTypeFields.HolidayListAssignment;
-		"Identification Document Type": FrappeDocTypeFields.IdentificationDocumentType;
 		"Import Supplier Invoice": FrappeDocTypeFields.ImportSupplierInvoice;
 		"Income Tax Slab": FrappeDocTypeFields.IncomeTaxSlab;
 		"Income Tax Slab Other Charges": FrappeDocTypeFields.IncomeTaxSlabOtherCharges;
@@ -315,6 +315,7 @@ declare global {
 		"Job Card Secondary Item": FrappeDocTypeFields.JobCardSecondaryItem;
 		"Job Card Time Log": FrappeDocTypeFields.JobCardTimeLog;
 		"Job Offer": FrappeDocTypeFields.JobOffer;
+		"Job Offer Component": FrappeDocTypeFields.JobOfferComponent;
 		"Job Offer Term": FrappeDocTypeFields.JobOfferTerm;
 		"Job Offer Term Template": FrappeDocTypeFields.JobOfferTermTemplate;
 		"Job Opening": FrappeDocTypeFields.JobOpening;
@@ -1314,22 +1315,40 @@ declare global {
 		 * `hrms/hrms/hr/doctype/appointment_letter/appointment_letter.json`
 		 */
 		interface AppointmentLetter {
+			/** Job Offer · Link → Job Offer */
+			job_offer?: string | null;
 			/** Applicant Name · Data */
 			applicant_name?: string | null;
-			/** Appointment Date · Date */
-			appointment_date?: string | null;
-			/** Appointment Letter Template · Link → Appointment Letter Template */
-			appointment_letter_template?: string | null;
-			/** Introduction · Long Text */
-			introduction?: string | null;
-			/** Job Applicant · Link → Job Applicant */
-			job_applicant?: string | null;
+			/** Applicant Email Address · Data */
+			applicant_email?: string | null;
+			/** Employee · Link → Employee */
+			employee?: string | null;
 			/** Company · Link → Company */
 			company?: string | null;
-			/** Closing Notes · Text */
-			closing_notes?: string | null;
-			/** Terms · Table → Appointment Letter content */
-			terms: FrappeChildRow<"Appointment Letter content">[];
+			/** Letter Date · Date */
+			letter_date?: string | null;
+			/** Date of Joining · Date */
+			appointment_date?: string | null;
+			/** Address · Small Text */
+			address?: string | null;
+			/** Shift · Link → Shift Type */
+			shift_type?: string | null;
+			/** Start Time · Time */
+			start_time?: string | null;
+			/** End Time · Time */
+			end_time?: string | null;
+			/** Appointment Letter Template · Link → Appointment Letter Template */
+			appointment_letter_template?: string | null;
+			/** Letter Head · Link → Letter Head */
+			letter_head?: string | null;
+			/** Print Format · Link → Print Format */
+			appointment_letter_print_format?: string | null;
+			/** Sign to show on appointment letter · Attach Image */
+			signature?: string | null;
+			/** Letter Body · Text Editor */
+			letter_body?: string | null;
+			/** Total Working Hours · Float */
+			working_hours?: number | null;
 		}
 
 		/**
@@ -1337,27 +1356,12 @@ declare global {
 		 * `hrms/hrms/hr/doctype/appointment_letter_template/appointment_letter_template.json`
 		 */
 		interface AppointmentLetterTemplate {
-			/** Introduction · Long Text */
-			introduction?: string | null;
-			/** Closing Notes · Text */
-			closing_notes?: string | null;
-			/** Terms · Table → Appointment Letter content */
-			terms: FrappeChildRow<"Appointment Letter content">[];
 			/** Template Name · Data */
 			template_name?: string | null;
-		}
-
-		/**
-		 * DocType "Appointment Letter content" — hrms, module HR.
-		 * `hrms/hrms/hr/doctype/appointment_letter_content/appointment_letter_content.json`
-		 */
-		interface AppointmentLettercontent {
-			/** The DocTypes on this bench with a Table of Appointment Letter content: the forms its events run on. */
-			parenttype: "Appointment Letter" | "Appointment Letter Template";
-			/** Title · Data */
-			title?: string | null;
-			/** Description · Long Text */
-			description?: string | null;
+			/** Letter Body · Text Editor */
+			letter_body?: string | null;
+			/** Default · Check */
+			is_default?: 0 | 1;
 		}
 
 		/**
@@ -2193,6 +2197,39 @@ declare global {
 			expense_account?: string | null;
 			/** Repair Cost · Currency */
 			repair_cost?: number | null;
+		}
+
+		/**
+		 * DocType "Asset Request" — hrms, module HR.
+		 * `hrms/hrms/hr/doctype/asset_request/asset_request.json`
+		 */
+		interface AssetRequest {
+			/** Request Type · Select */
+			request_type?: "Issue" | "Return" | "" | null;
+			/** Employee · Link → Employee */
+			employee?: string | null;
+			/** Employee Name · Data */
+			employee_name?: string | null;
+			/** Department · Link → Department */
+			department?: string | null;
+			/** Company · Link → Company */
+			company?: string | null;
+			/** Status · Select */
+			status?: "Open" | "Approved" | "Rejected" | "Cancelled" | "" | null;
+			/** Asset Category · Link → Asset Category */
+			asset_category?: string | null;
+			/** Required By · Date */
+			required_by?: string | null;
+			/** Asset · Link → Asset */
+			asset?: string | null;
+			/** Asset Name · Data */
+			asset_name?: string | null;
+			/** Reason · Small Text */
+			reason?: string | null;
+			/** Amended From · Link → Asset Request */
+			amended_from?: string | null;
+			/** Rejection Reason · Small Text */
+			rejection_reason?: string | null;
 		}
 
 		/**
@@ -3103,6 +3140,39 @@ declare global {
 			cheque_date?: string | null;
 			/** Clearance Date · Date */
 			clearance_date?: string | null;
+		}
+
+		/**
+		 * DocType "Bank Details Change Request" — hrms, module HR.
+		 * `hrms/hrms/hr/doctype/bank_details_change_request/bank_details_change_request.json`
+		 */
+		interface BankDetailsChangeRequest {
+			/** Employee · Link → Employee */
+			employee?: string | null;
+			/** Employee Name · Data */
+			employee_name?: string | null;
+			/** Department · Link → Department */
+			department?: string | null;
+			/** Company · Link → Company */
+			company?: string | null;
+			/** Status · Select */
+			status?: "Open" | "Approved" | "Rejected" | "Cancelled" | "" | null;
+			/** Bank Name · Data */
+			bank_name?: string | null;
+			/** Bank A/C No. · Data */
+			bank_ac_no?: string | null;
+			/** IFSC Code · Data */
+			ifsc_code?: string | null;
+			/** IBAN · Data */
+			iban?: string | null;
+			/** Proof · Attach */
+			proof?: string | null;
+			/** Reason · Small Text */
+			reason?: string | null;
+			/** Amended From · Link → Bank Details Change Request */
+			amended_from?: string | null;
+			/** Rejection Reason · Small Text */
+			rejection_reason?: string | null;
 		}
 
 		/**
@@ -4940,51 +5010,6 @@ declare global {
 		}
 
 		/**
-		 * DocType "Daily Work Summary" — hrms, module HR.
-		 * `hrms/hrms/hr/doctype/daily_work_summary/daily_work_summary.json`
-		 */
-		interface DailyWorkSummary {
-			/** Daily Work Summary Group · Link → Daily Work Summary Group */
-			daily_work_summary_group?: string | null;
-			/** Status · Select */
-			status?: "Open" | "Sent" | "" | null;
-			/** Email Sent To · Code */
-			email_sent_to?: string | null;
-		}
-
-		/**
-		 * DocType "Daily Work Summary Group" — hrms, module HR.
-		 * `hrms/hrms/hr/doctype/daily_work_summary_group/daily_work_summary_group.json`
-		 */
-		interface DailyWorkSummaryGroup {
-			/** Enabled · Check */
-			enabled?: 0 | 1;
-			/** Users · Table → Daily Work Summary Group User */
-			users: FrappeChildRow<"Daily Work Summary Group User">[];
-			/** Send Emails At · Select */
-			send_emails_at?: "00:00" | "01:00" | "02:00" | "03:00" | "04:00" | "05:00" | "06:00" | "07:00" | "08:00" | "09:00" | "10:00" | "11:00" | "12:00" | "13:00" | "14:00" | "15:00" | "16:00" | "17:00" | "18:00" | "19:00" | "20:00" | "21:00" | "22:00" | "23:00" | "" | null;
-			/** Holiday List · Link → Holiday List */
-			holiday_list?: string | null;
-			/** Subject · Data */
-			subject?: string | null;
-			/** Message · Text Editor */
-			message?: string | null;
-		}
-
-		/**
-		 * DocType "Daily Work Summary Group User" — hrms, module HR.
-		 * `hrms/hrms/hr/doctype/daily_work_summary_group_user/daily_work_summary_group_user.json`
-		 */
-		interface DailyWorkSummaryGroupUser {
-			/** The DocTypes on this bench with a Table of Daily Work Summary Group User: the forms its events run on. */
-			parenttype: "Daily Work Summary Group";
-			/** User · Link → User */
-			user?: string | null;
-			/** email · Read Only */
-			email?: string | null;
-		}
-
-		/**
 		 * DocType "Delivery Note" — erpnext, module Stock.
 		 * `erpnext/erpnext/stock/doctype/delivery_note/delivery_note.json`
 		 */
@@ -6369,6 +6394,48 @@ declare global {
 		}
 
 		/**
+		 * DocType "Employee Document" — hrms, module HR.
+		 * `hrms/hrms/hr/doctype/employee_document/employee_document.json`
+		 */
+		interface EmployeeDocument {
+			/** No DocType on this bench has a Table of Employee Document. */
+			parenttype: string;
+			/** Document Type · Link → Employee Document Type */
+			document_type?: string | null;
+			/** Attachment · Attach */
+			attachment?: string | null;
+			/** Document Number · Data */
+			document_number?: string | null;
+			/** Expiry Date · Date */
+			expiry_date?: string | null;
+			/** Status · Select */
+			status?: "Pending" | "Submitted" | "Verified" | "Rejected" | "" | null;
+			/** Due Date · Date */
+			due_date?: string | null;
+			/** Remarks · Small Text */
+			remarks?: string | null;
+			/** Verified On · Date */
+			verified_on?: string | null;
+		}
+
+		/**
+		 * DocType "Employee Document Type" — hrms, module HR.
+		 * `hrms/hrms/hr/doctype/employee_document_type/employee_document_type.json`
+		 */
+		interface EmployeeDocumentType {
+			/** Document Type · Data */
+			document_type?: string | null;
+			/** Required from Every Employee · Check */
+			is_required?: 0 | 1;
+			/** Has a Number · Check */
+			has_number?: 0 | 1;
+			/** Has an Expiry Date · Check */
+			has_expiry?: 0 | 1;
+			/** Description · Small Text */
+			description?: string | null;
+		}
+
+		/**
 		 * DocType "Employee Education" — erpnext, module Setup.
 		 * `erpnext/erpnext/setup/doctype/employee_education/employee_education.json`
 		 */
@@ -6689,6 +6756,21 @@ declare global {
 			amended_from?: string | null;
 			/** Company · Link → Company */
 			company?: string | null;
+		}
+
+		/**
+		 * DocType "Employee Profile Section" — hrms, module HR.
+		 * `hrms/hrms/hr/doctype/employee_profile_section/employee_profile_section.json`
+		 */
+		interface EmployeeProfileSection {
+			/** No DocType on this bench has a Table of Employee Profile Section. */
+			parenttype: string;
+			/** Section Type · Select */
+			section_type?: "Cover" | "Headline" | "Text" | "Tags" | "Photos" | "Links" | "" | null;
+			/** Title · Data */
+			title?: string | null;
+			/** Content · Long Text */
+			content?: string | null;
 		}
 
 		/**
@@ -7891,6 +7973,8 @@ declare global {
 			prevent_self_leave_approval?: 0 | 1;
 			/** Prevent self approval for expense claims even if user has permissions · Check */
 			prevent_self_expense_approval?: 0 | 1;
+			/** Show Organizational Chart to All Employees · Check */
+			show_org_chart_to_all_employees?: 0 | 1;
 		}
 
 		/**
@@ -7971,15 +8055,6 @@ declare global {
 			holiday_list_end?: string | null;
 			/** Assignment Starts From · Date */
 			from_date?: string | null;
-		}
-
-		/**
-		 * DocType "Identification Document Type" — hrms, module HR.
-		 * `hrms/hrms/hr/doctype/identification_document_type/identification_document_type.json`
-		 */
-		interface IdentificationDocumentType {
-			/** Identification Document Type · Data */
-			identification_document_type?: string | null;
 		}
 
 		/**
@@ -9365,14 +9440,64 @@ declare global {
 			applicant_name?: string | null;
 			/** Applicant Email Address · Data */
 			applicant_email?: string | null;
-			/** Status · Select */
-			status?: "Awaiting Response" | "Accepted" | "Rejected" | "Cancelled" | "" | null;
-			/** Offer Date · Date */
-			offer_date?: string | null;
-			/** Designation · Link → Designation */
-			designation?: string | null;
 			/** Company · Link → Company */
 			company?: string | null;
+			/** Status · Select */
+			status?: "Draft" | "Ready to Send" | "Awaiting Response" | "Accepted" | "Rejected" | "Cancelled" | "" | null;
+			/** Offer Date · Date */
+			offer_date?: string | null;
+			/** Offer Valid Till · Date */
+			offer_valid_till?: string | null;
+			/** Designation · Link → Designation */
+			designation?: string | null;
+			/** Department · Link → Department */
+			department?: string | null;
+			/** Employee Grade · Link → Employee Grade */
+			grade?: string | null;
+			/** Employment Type · Link → Employment Type */
+			employment_type?: string | null;
+			/** Branch · Link → Branch */
+			branch?: string | null;
+			/** Reports To · Link → Employee */
+			reports_to?: string | null;
+			/** Date of Joining · Date */
+			date_of_joining?: string | null;
+			/** Salary Structure · Link → Salary Structure */
+			salary_structure?: string | null;
+			/** Currency · Link → Currency */
+			currency?: string | null;
+			/** Calculate Component Amount From · Select */
+			calculate_component_amount_from?: "Base and Variable" | "CTC" | "" | null;
+			/** Base · Currency */
+			base?: number | null;
+			/** Variable · Currency */
+			variable?: number | null;
+			/** Total Cost to Company (CTC) · Currency */
+			ctc?: number | null;
+			/** Gross Pay · Currency */
+			gross?: number | null;
+			/** CTC Break-up · Table → Job Offer Component */
+			ctc_breakup: FrappeChildRow<"Job Offer Component">[];
+			/** Weekly Off · Data */
+			weekly_off_days?: string | null;
+			/** Public Holidays · Int */
+			total_public_holidays?: number | null;
+			/** Leave Allocations · Table → Leave Policy Detail */
+			leave_allocations: FrappeChildRow<"Leave Policy Detail">[];
+			/** Leave Policy · Link → Leave Policy */
+			leave_policy?: string | null;
+			/** Holiday List · Link → Holiday List */
+			holiday_list?: string | null;
+			/** Probation Period (Days) · Int */
+			probation_period_days?: number | null;
+			/** Notice Period During Probation (Days) · Int */
+			notice_period_during_probation?: number | null;
+			/** Notice Period (Days) · Int */
+			notice_number_of_days?: number | null;
+			/** Working Hours · Float */
+			working_hours?: number | null;
+			/** Job Offer Term Template · Link → Job Offer Term Template */
+			job_offer_term_template?: string | null;
 			/** Job Offer Terms · Table → Job Offer Term */
 			offer_terms: FrappeChildRow<"Job Offer Term">[];
 			/** Select Terms and Conditions · Link → Terms and Conditions */
@@ -9381,12 +9506,31 @@ declare global {
 			terms?: string | null;
 			/** Letter Head · Link → Letter Head */
 			letter_head?: string | null;
-			/** Print Heading · Link → Print Heading */
-			select_print_heading?: string | null;
+			/** Print Format · Link → Print Format */
+			offer_letter_print_format?: string | null;
+			/** Sign to show on offer letter · Attach Image */
+			signature?: string | null;
 			/** Amended From · Link → Job Offer */
 			amended_from?: string | null;
-			/** Job Offer Term Template · Link → Job Offer Term Template */
-			job_offer_term_template?: string | null;
+		}
+
+		/**
+		 * DocType "Job Offer Component" — hrms, module HR.
+		 * `hrms/hrms/hr/doctype/job_offer_component/job_offer_component.json`
+		 */
+		interface JobOfferComponent {
+			/** The DocTypes on this bench with a Table of Job Offer Component: the forms its events run on. */
+			parenttype: "Job Offer";
+			/** Fixed Components · Data */
+			fixed_components?: string | null;
+			/** Per Cycle · Currency */
+			per_cycle?: number | null;
+			/** Yearly · Currency */
+			yearly?: number | null;
+			/** Currency · Link → Currency */
+			currency?: string | null;
+			/** Is Summary · Check */
+			is_summary?: 0 | 1;
 		}
 
 		/**
@@ -10349,7 +10493,7 @@ declare global {
 		 */
 		interface LeavePolicyDetail {
 			/** The DocTypes on this bench with a Table of Leave Policy Detail: the forms its events run on. */
-			parenttype: "Leave Policy";
+			parenttype: "Job Offer" | "Leave Policy";
 			/** Leave Type · Link → Leave Type */
 			leave_type?: string | null;
 			/** Annual Allocation · Float */
@@ -12469,7 +12613,7 @@ declare global {
 			to_user?: string | null;
 			/** Message · Text Editor */
 			message?: string | null;
-			/** Read · Check */
+			/** Seen · Check */
 			read?: 0 | 1;
 			/** Reference Document Type · Link → DocType */
 			reference_document_type?: string | null;
@@ -23131,7 +23275,7 @@ declare global {
 			prefered_email?: string | null;
 			/** Date of Birth · Date */
 			date_of_birth?: string | null;
-			/** Identification Document Type · Link → Identification Document Type */
+			/** Identification Document Type · Link → Employee Document Type */
 			personal_id_type?: string | null;
 			/** Identification Document Number · Data */
 			personal_id_number?: string | null;
@@ -24144,7 +24288,6 @@ export type AppointmentBookingSettings = FrappeDocTypeFields.AppointmentBookingS
 export type AppointmentBookingSlots = FrappeDocTypeFields.AppointmentBookingSlots;
 export type AppointmentLetter = FrappeDocTypeFields.AppointmentLetter;
 export type AppointmentLetterTemplate = FrappeDocTypeFields.AppointmentLetterTemplate;
-export type AppointmentLettercontent = FrappeDocTypeFields.AppointmentLettercontent;
 export type Appraisal = FrappeDocTypeFields.Appraisal;
 export type AppraisalCycle = FrappeDocTypeFields.AppraisalCycle;
 export type AppraisalGoal = FrappeDocTypeFields.AppraisalGoal;
@@ -24172,6 +24315,7 @@ export type AssetMovementItem = FrappeDocTypeFields.AssetMovementItem;
 export type AssetRepair = FrappeDocTypeFields.AssetRepair;
 export type AssetRepairConsumedItem = FrappeDocTypeFields.AssetRepairConsumedItem;
 export type AssetRepairPurchaseInvoice = FrappeDocTypeFields.AssetRepairPurchaseInvoice;
+export type AssetRequest = FrappeDocTypeFields.AssetRequest;
 export type AssetShiftAllocation = FrappeDocTypeFields.AssetShiftAllocation;
 export type AssetShiftFactor = FrappeDocTypeFields.AssetShiftFactor;
 export type AssetValueAdjustment = FrappeDocTypeFields.AssetValueAdjustment;
@@ -24202,6 +24346,7 @@ export type BankAccountSubtype = FrappeDocTypeFields.BankAccountSubtype;
 export type BankAccountType = FrappeDocTypeFields.BankAccountType;
 export type BankClearance = FrappeDocTypeFields.BankClearance;
 export type BankClearanceDetail = FrappeDocTypeFields.BankClearanceDetail;
+export type BankDetailsChangeRequest = FrappeDocTypeFields.BankDetailsChangeRequest;
 export type BankGuarantee = FrappeDocTypeFields.BankGuarantee;
 export type BankReconciliationTool = FrappeDocTypeFields.BankReconciliationTool;
 export type BankStatementImport = FrappeDocTypeFields.BankStatementImport;
@@ -24266,9 +24411,6 @@ export type CustomerGroupItem = FrappeDocTypeFields.CustomerGroupItem;
 export type CustomerItem = FrappeDocTypeFields.CustomerItem;
 export type CustomerNumberAtSupplier = FrappeDocTypeFields.CustomerNumberAtSupplier;
 export type CustomsTariffNumber = FrappeDocTypeFields.CustomsTariffNumber;
-export type DailyWorkSummary = FrappeDocTypeFields.DailyWorkSummary;
-export type DailyWorkSummaryGroup = FrappeDocTypeFields.DailyWorkSummaryGroup;
-export type DailyWorkSummaryGroupUser = FrappeDocTypeFields.DailyWorkSummaryGroupUser;
 export type DeliveryNote = FrappeDocTypeFields.DeliveryNote;
 export type DeliveryNoteItem = FrappeDocTypeFields.DeliveryNoteItem;
 export type DeliveryScheduleItem = FrappeDocTypeFields.DeliveryScheduleItem;
@@ -24304,6 +24446,8 @@ export type EmployeeBenefitLedger = FrappeDocTypeFields.EmployeeBenefitLedger;
 export type EmployeeBoardingActivity = FrappeDocTypeFields.EmployeeBoardingActivity;
 export type EmployeeCheckin = FrappeDocTypeFields.EmployeeCheckin;
 export type EmployeeCostCenter = FrappeDocTypeFields.EmployeeCostCenter;
+export type EmployeeDocument = FrappeDocTypeFields.EmployeeDocument;
+export type EmployeeDocumentType = FrappeDocTypeFields.EmployeeDocumentType;
 export type EmployeeEducation = FrappeDocTypeFields.EmployeeEducation;
 export type EmployeeExternalWorkHistory = FrappeDocTypeFields.EmployeeExternalWorkHistory;
 export type EmployeeFeedbackCriteria = FrappeDocTypeFields.EmployeeFeedbackCriteria;
@@ -24319,6 +24463,7 @@ export type EmployeeOnboarding = FrappeDocTypeFields.EmployeeOnboarding;
 export type EmployeeOnboardingTemplate = FrappeDocTypeFields.EmployeeOnboardingTemplate;
 export type EmployeeOtherIncome = FrappeDocTypeFields.EmployeeOtherIncome;
 export type EmployeePerformanceFeedback = FrappeDocTypeFields.EmployeePerformanceFeedback;
+export type EmployeeProfileSection = FrappeDocTypeFields.EmployeeProfileSection;
 export type EmployeePromotion = FrappeDocTypeFields.EmployeePromotion;
 export type EmployeePropertyHistory = FrappeDocTypeFields.EmployeePropertyHistory;
 export type EmployeeReferral = FrappeDocTypeFields.EmployeeReferral;
@@ -24367,7 +24512,6 @@ export type HRTelemetryMilestone = FrappeDocTypeFields.HRTelemetryMilestone;
 export type Holiday = FrappeDocTypeFields.Holiday;
 export type HolidayList = FrappeDocTypeFields.HolidayList;
 export type HolidayListAssignment = FrappeDocTypeFields.HolidayListAssignment;
-export type IdentificationDocumentType = FrappeDocTypeFields.IdentificationDocumentType;
 export type ImportSupplierInvoice = FrappeDocTypeFields.ImportSupplierInvoice;
 export type IncomeTaxSlab = FrappeDocTypeFields.IncomeTaxSlab;
 export type IncomeTaxSlabOtherCharges = FrappeDocTypeFields.IncomeTaxSlabOtherCharges;
@@ -24419,6 +24563,7 @@ export type JobCardScheduledTime = FrappeDocTypeFields.JobCardScheduledTime;
 export type JobCardSecondaryItem = FrappeDocTypeFields.JobCardSecondaryItem;
 export type JobCardTimeLog = FrappeDocTypeFields.JobCardTimeLog;
 export type JobOffer = FrappeDocTypeFields.JobOffer;
+export type JobOfferComponent = FrappeDocTypeFields.JobOfferComponent;
 export type JobOfferTerm = FrappeDocTypeFields.JobOfferTerm;
 export type JobOfferTermTemplate = FrappeDocTypeFields.JobOfferTermTemplate;
 export type JobOpening = FrappeDocTypeFields.JobOpening;
