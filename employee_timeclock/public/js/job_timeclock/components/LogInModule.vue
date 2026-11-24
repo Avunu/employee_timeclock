@@ -1,28 +1,30 @@
 <template>
 	<div class="backdrop">
-		<Card class="card">
-			<h3>Username:</h3>
-			<input type="email" required v-model="email" />
-			<h3>Password:</h3>
-			<input type="password" required v-model="password" />
-			<p v-if="error_message" class="error">{{ error_message }}</p>
-			<div class="button-group">
-				<Button @click="submit_login(email, password)" theme="blue" variant="solid"> Submit </Button>
-				<Button @click="return_trigger" theme="gray" variant="outline"> Return </Button>
+		<!-- frappe-ui 1.x has no Card; this is the 0.1 Card markup with the same classes -->
+		<div class="card flex flex-col rounded-lg border bg-white px-6 py-5 shadow">
+			<div class="mt-4 flex-auto overflow-auto">
+				<h3>Username:</h3>
+				<input type="email" required v-model="email" />
+				<h3>Password:</h3>
+				<input type="password" required v-model="password" />
+				<p v-if="error_message" class="error">{{ error_message }}</p>
+				<div class="button-group">
+					<Button @click="submit_login(email, password)" theme="blue" variant="solid"> Submit </Button>
+					<Button @click="return_trigger" theme="gray" variant="outline"> Return </Button>
+				</div>
 			</div>
-		</Card>
+		</div>
 	</div>
 </template>
 
 <script lang="ts">
 import { defineComponent } from "vue";
-import { Card, Button } from "frappe-ui";
+import { Button } from "frappe-ui";
 import { api } from "../client";
 
 export default defineComponent({
 	name: "LogInModule",
 	components: {
-		Card,
 		Button,
 	},
 	data(): {

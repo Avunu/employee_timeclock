@@ -71,8 +71,8 @@ export default defineComponent({
 			);
 		},
 
-		statusTheme(): "gray" | "blue" | "green" | "orange" | "red" {
-			const map: Record<string, "gray" | "blue" | "green" | "orange" | "red"> = {
+		statusTheme(): "gray" | "blue" | "green" | "red" {
+			const map: Record<string, "gray" | "blue" | "green" | "red"> = {
 				"Not Started": "gray",
 				"In Process": "blue",
 				Completed: "green",

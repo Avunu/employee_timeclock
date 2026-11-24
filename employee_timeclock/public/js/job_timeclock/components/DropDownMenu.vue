@@ -1,26 +1,22 @@
 <!-- DropdownMenu.vue -->
 <template>
-	<Dropdown
-		:options="dropdownOptions"
-		:button="{
-			label: selected || 'Select Workstation',
-			theme: 'green',
-			variant: 'outline',
-			size: '2xl',
-		}"
-	/>
+	<Dropdown :options="dropdownOptions">
+		<Button theme="green" variant="outline" size="2xl" :label="selected || 'Select Workstation'" />
+	</Dropdown>
 </template>
 
 <script lang="ts">
 import { defineComponent } from "vue";
 import { useStorage } from "@vueuse/core";
 import { Dropdown } from "frappe-ui";
+import Button from "./Button.vue";
 import { api } from "../client";
 
 export default defineComponent({
 	name: "DropDownMenu",
 	components: {
 		Dropdown,
+		Button,
 	},
 
 	data(): {
