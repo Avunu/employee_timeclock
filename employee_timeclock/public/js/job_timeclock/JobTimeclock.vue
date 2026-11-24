@@ -142,7 +142,7 @@
 										<Checkbox
 											:label="ws"
 											:modelValue="workstations.includes(ws)"
-											@update:modelValue="toggleWorkstation(ws, $event)"
+											@update:modelValue="toggleWorkstation(ws, Boolean($event))"
 										/>
 									</div>
 								</div>
@@ -282,7 +282,7 @@ import SessionTimer from "./components/SessionTimer.vue";
 import WorkOrderList from "./components/WorkOrderList.vue";
 import JobCardList from "./components/JobCardList.vue";
 import Button from "./components/Button.vue";
-import { Checkbox, toast, Toast, Sidebar } from "frappe-ui";
+import { Checkbox, toast, Sidebar } from "frappe-ui";
 import IconSettings from "~icons/lucide/settings";
 import IconLogOut from "~icons/lucide/log-out";
 import IconPin from "~icons/lucide/pin";
@@ -299,7 +299,6 @@ export default defineComponent({
 		MachineTimerBar,
 		PinnedJobsSidebar,
 		SessionTimer,
-		Toast,
 		WorkOrderList,
 		Checkbox,
 		Sidebar,
