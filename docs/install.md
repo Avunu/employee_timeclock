@@ -3,10 +3,10 @@ title: Install and upgrade
 description: Install Employee Timeclock on a Frappe v16 bench with ERPNext and HRMS, see what the install adds, and upgrade a site that already has Workdays.
 nav_title: Install
 order: 1
-updated: 2026-10-26
+updated: 2026-11-02
 ---
 
-Employee Timeclock installs like any Frappe app. Two things are specific to it: the kiosk pages are built with Vite, so the assets have to be built, and one upgrade patch rewrites Workdays, so read [Upgrade](#upgrade) before you migrate a site that already uses the app.
+Employee Timeclock installs like any Frappe app. Two things are specific to it: the kiosk pages are built by `bench build`, so the assets have to be built, and one upgrade patch rewrites Workdays, so read [Upgrade](#upgrade) before you migrate a site that already uses the app.
 
 ## Before you start
 
@@ -26,7 +26,7 @@ bench --site <SITE_NAME> install-app employee_timeclock
 > [!IMPORTANT]
 > The `version-16` branch still holds 16.0.0, from before the app was renamed from `timeclock`. Until the next release moves it, install from `main` instead: `bench get-app https://github.com/Avunu/employee_timeclock --branch main`.
 
-`bench get-app` builds the app's assets. If you pull new code by hand, run `bench build --app employee_timeclock`: Frappe's build runs the app's `yarn build`, which builds the badge kiosk and the job time tracker with Vite and registers them in `sites/assets/assets.json`. Without it, `/timeclock` and `/job_timeclock` load no script.
+`bench get-app` builds the app's assets. If you pull new code by hand, run `bench build --app employee_timeclock`: Frappe's build bundles the badge kiosk and the job time tracker, and runs the app's `yarn build` for the old Vue tracker. Without it, `/timeclock` and `/job_timeclock` load no script.
 
 Then set the app up: [Configuration](configuration.md#set-up-a-kiosk) walks through the kiosk user, the badges and the kiosk device.
 

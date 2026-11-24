@@ -199,11 +199,20 @@ class TestShiftsOnTheSite(IntegrationTestCase):
 		self.assertEqual([(s.date, s.missed) for s in paired], [(DAY, True), (NEXT_DAY, True)])
 
 	def test_the_maximum_shift_length_must_be_sensible(self) -> None:
-		settings = frappe.get_single("Timeclock Settings")
-		for hours in (0, -1, 49):
+		# a fresh copy each time: a refused save leaves the copy stale, and a timestamp mismatch is a
+		# ValidationError too, which would let every value after the first pass
+		for hours in (0, -1, 24, 49):
+			settings = frappe.get_single("Timeclock Settings")
 			settings.max_shift_hours = hours
-			with self.subTest(hours=hours), self.assertRaises(frappe.ValidationError):
+			with (
+				self.subTest(hours=hours),
+				self.assertRaisesRegex(frappe.ValidationError, "more than 0 and less than 24 hours"),
+			):
 				settings.save()
+		settings = frappe.get_single("Timeclock Settings")
+		settings.max_shift_hours = 23.5
+		settings.save()
+		self.assertEqual(shifts.get_max_shift_hours(), 23.5)
 
 	def test_only_hr_and_system_managers_change_the_setting(self) -> None:
 		meta = frappe.get_meta("Timeclock Settings")
@@ -342,6 +351,66 @@ class TestShiftsOnTheSite(IntegrationTestCase):
 			[_at(DAY, 22), _at(NEXT_DAY, 7)],
 		)
 		self.assertEqual(workday.total_hours, 9.0)
+
+	def test_clearing_a_night_shifts_in_on_the_workday_keeps_its_out_on_the_next_morning(self) -> None:
+		"""Regression: an OUT with no IN in its row was read on the Workday's own date, so clearing a
+		night shift's IN moved the next morning's OUT punch back a whole day."""
+		self._insert(_at(DAY, 22), "IN")
+		self._age_workdays()
+		self._insert(_at(NEXT_DAY, 6), "OUT")
+		self._age_workdays()
+		workday = cast(Workday, frappe.get_doc("Workday", cast(str, self._workdays()[DAY].name)))
+
+		workday.check_in_1 = None
+		workday.save(ignore_permissions=True)
+
+		self.assertEqual(workday.check_out_1_dt, _at(NEXT_DAY, 6))
+		self.assertEqual(workday.total_hours, 0)
+		self.assertEqual(
+			frappe.get_all("Employee Checkin", {"employee": self.employee}, pluck="time"),
+			[_at(NEXT_DAY, 6)],
+		)
+
+	def test_saving_a_workday_keeps_a_night_shifts_out_it_did_not_change(self) -> None:
+		"""Saving a night shift's Workday after an edit to another row leaves the OUT where it was."""
+		self._insert(_at(DAY, 22), "IN")
+		self._age_workdays()
+		self._insert(_at(NEXT_DAY, 6), "OUT")
+		self._age_workdays()
+		workday = cast(Workday, frappe.get_doc("Workday", cast(str, self._workdays()[DAY].name)))
+
+		workday.check_in_2 = "6:00 AM"
+		workday.check_out_2 = "7:00 AM"
+		workday.save(ignore_permissions=True)
+
+		self.assertEqual(
+			(workday.check_in_1_dt, workday.check_out_1_dt, workday.check_in_2_dt, workday.check_out_2_dt),
+			(_at(DAY, 6), _at(DAY, 7), _at(DAY, 22), _at(NEXT_DAY, 6)),
+		)
+		self.assertEqual(workday.total_hours, 9.0)
+
+	def test_saving_a_workday_keeps_its_punches_seconds(self) -> None:
+		"""Regression: a save re-read every punch from its h:mm text, dropping the seconds, so it moved
+		every device punch and marked it as a Workday edit."""
+		self._insert(_at(DAY, 8).replace(second=37), "IN")
+		self._age_workdays()
+		self._insert(_at(DAY, 16).replace(second=12), "OUT")
+		self._age_workdays()
+		workday = cast(Workday, frappe.get_doc("Workday", cast(str, self._workdays()[DAY].name)))
+
+		workday.save(ignore_permissions=True)
+
+		rows = frappe.get_all(
+			"Employee Checkin",
+			{"employee": self.employee},
+			["time", "workday_override"],
+			order_by="time",
+			as_list=True,
+		)
+		self.assertEqual(
+			[tuple(row) for row in rows],
+			[(_at(DAY, 8).replace(second=37), 0), (_at(DAY, 16).replace(second=12), 0)],
+		)
 
 	def test_a_workday_shift_longer_than_the_maximum_is_refused(self) -> None:
 		with self.assertRaisesRegex(frappe.ValidationError, "longer than the maximum shift of 16 hours"):

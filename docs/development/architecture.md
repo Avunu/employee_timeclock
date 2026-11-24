@@ -3,27 +3,27 @@ title: How it works
 description: "The design behind Employee Timeclock: badges and kiosk sessions, the shift pairing rule, the two-way Workday sync, and the job time tracker's timers."
 nav_title: How it works
 order: 10
-updated: 2026-10-26
+updated: 2026-11-02
 ---
 
 This page describes the design behind the code, for developers. For commands and the build, see [Develop Employee Timeclock](README.md).
 
 ## The pieces
 
-| Piece                       | Built with                                               | Entry point                                                                    |
-| --------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Employee Clock-in/out form  | A Frappe web form with a client script and a time picker | `timeclock/web_form/employee_timelog/`, `public/js/employee_timelog.bundle.js` |
-| Badge kiosk                 | Vue 3, `onscan.js`, served by a `www` page               | `www/timeclock/`, `public/js/timeclock/timeclock.ts`                           |
-| Job time tracker            | Vue 3, frappe-ui and Tailwind 3, socket.io for realtime  | `www/job_timeclock/`, `public/js/job_timeclock/job_timeclock.ts`               |
-| Workday sync and shift rule | Python, the Frappe Query Builder                         | `timeclock/shifts.py`, `timeclock/api.py`                                      |
-| Workday Management report   | A script report with an editable tree grid               | `timeclock/report/workday_management/`                                         |
-| Job Card extension          | `extend_doctype_class`                                   | `timeclock/custom/job_card.py`                                                 |
+| Piece                       | Built with                                                                | Entry point                                                                    |
+| --------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Employee Clock-in/out form  | A Frappe web form with a client script and a time picker                  | `timeclock/web_form/employee_timelog/`, `public/js/employee_timelog.bundle.js` |
+| Badge kiosk                 | React, Carbon and `frappe-react-sdk`, `onscan.js`, served by a `www` page | `www/timeclock/`, `www/shared/`                                                |
+| Job time tracker            | React, Carbon and `frappe-react-sdk`, with realtime through the SDK       | `www/job_timeclock/`, `www/shared/`                                            |
+| Workday sync and shift rule | Python, the Frappe Query Builder                                          | `timeclock/shifts.py`, `timeclock/api.py`                                      |
+| Workday Management report   | A script report with an editable tree grid                                | `timeclock/report/workday_management/`                                         |
+| Job Card extension          | `extend_doctype_class`                                                    | `timeclock/custom/job_card.py`                                                 |
 
 Paths are relative to the `employee_timeclock` package.
 
 ## Badges and kiosk sessions
 
-`kiosk.py` holds the access rules. A kiosk is a browser signed in as a user with the **Timeclock Kiosk** role (a fixture), and `require_kiosk_role` (`frappe.only_for`) guards every badge endpoint. `require_kiosk_page` gates the `/timeclock`, `/employee-timeclock` and `/job_timeclock_legacy` pages with it; `/job_timeclock` uses `require_login_page` alone, which sends Guest to `/login` and back, because an employee can also open it from their own login.
+`kiosk.py` holds the access rules. A kiosk is a browser signed in as a user with the **Timeclock Kiosk** role (a fixture), and `require_kiosk_role` (`frappe.only_for`) guards every badge endpoint. `require_kiosk_page` gates the `/timeclock` and `/employee-timeclock` pages with it; `/job_timeclock` and `/job_timeclock_vue` use `require_login_page` alone, which sends Guest to `/login` and back, because an employee can also open it from their own login.
 
 A badge is resolved by `resolve_badge`: the SHA-256 of the scan is looked up in the Employee's `timeclock_badge_hash`, then the scan is looked up as an Attendance Device ID row, and either must belong to an Active Employee. A plain digest is enough because the token is 144 random bits (`secrets.token_urlsafe(18)`), and an unsalted digest can be found through an index, so verification compares digests in the database. Every failure returns `None` and is logged without the scanned value, so the caller cannot tell an unknown badge from a revoked one or an inactive employee.
 
@@ -72,6 +72,10 @@ Every punch is an Employee Checkin whose device ID says where it came from: `Emp
 - `start_timer` resolves the work order and operation to the Job Card, closes the employee's open labour logs (or, for a machine operation, every open log on that operation), appends a time log and saves with `frappe.flags.in_timeclock` set. With `is_corrective` it appends to the draft corrective Job Card for that card, creating one if needed.
 - `stop_timer` closes every open labour log of the employee; `stop_machine_timer` closes the open logs of a machine operation.
 - Machine operations are those with `is_machine_time`; `get_operations` shows them only to members of the operation's `employee_group`, and machine timer starts and stops are broadcast with `frappe.publish_realtime("machine_timer_update", room="website")`, which every open tracker listens to.
+
+The tracker reads through `useFrappeGetCall` (`useTrackerData` in `src/useEmployee.ts`), so SWR refetches when the page comes back into view. Reads go by POST with a fixed cache key, because the badge token changes with each answer and shouldn't be in a URL.
+
+Offline, the tracker works from a snapshot of the work (`get_offline_snapshot`) and queues timer events in IndexedDB (`src/offline.ts`). `replay` shows them on top of the last server state, and `useTimerSync` sends them to `sync_timer_events`. Each event has its own id (`kiosk_start_id` and `kiosk_stop_id` on Job Card Time Log), so it is recorded once. A synced event only closes logs that had started by its time, and a start nothing stopped ends where the next log begins. Rejected events go to the Error Log. An event made under an employee's own login names that employee, and is rejected if another login sends it; the login is remembered offline per user, from Frappe's `user_id` cookie. A save that clashes with another request (`RETRY_SYNC_ERRORS`) fails the whole call, so the tablet keeps its queue and sends it again. The badge kiosk's `sync_punches` works the same way. Once a tablet reconnects, an offline badge sign-in is confirmed with `authenticate_employee` in the background.
 
 `TimeclockJobCard` (`custom/job_card.py`) adjusts ERPNext's Job Card for this:
 

@@ -56,6 +56,17 @@
             "insert_after": "workday",
             "label": "Workday Modified",
             "module": "Timeclock"
+        },
+        {
+            "dt": "Employee Checkin",
+            "fieldname": "kiosk_punch_id",
+            "fieldtype": "Data",
+            "insert_after": "device_id",
+            "label": "Kiosk Punch ID",
+            "module": "Timeclock",
+            "no_copy": 1,
+            "read_only": 1,
+            "unique": 1
         }
     ],
     "property_setters": [],

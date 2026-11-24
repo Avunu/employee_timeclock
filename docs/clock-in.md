@@ -3,7 +3,7 @@ title: Clock in and out
 description: Scan a badge at the badge kiosk or the Employee Clock-in/out form, enter a time by hand, and see how a scan becomes an IN or an OUT.
 nav_title: Clock in and out
 order: 4
-updated: 2026-10-26
+updated: 2026-11-02
 ---
 
 Two kiosk pages record punches. Each runs in a browser signed in as a **Timeclock Kiosk** user (see [Set up a kiosk](configuration.md#set-up-a-kiosk)), and each records an Employee Checkin for the employee whose badge was scanned.
@@ -66,7 +66,7 @@ Every punch is an Employee Checkin with a log type, IN or OUT. Saving it updates
 | The kiosk says                                                                    | What it means                                                                                                                                      |
 | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | "Badge not recognised."                                                           | The badge is unknown, revoked, or belongs to an employee who is not Active. Ask HR to [issue a badge](badges.md).                                  |
-| "The scan was not recorded. Please scan your badge again."                        | The badge kiosk's request failed: too many scans in a minute, the kiosk user was signed out, or a server error. No punch was recorded.             |
+| "The punch wasn't recorded. Please scan again."                                   | The badge kiosk's request failed: too many scans in a minute, the kiosk user was signed out, or a server error. No punch was recorded.             |
 | "Maria Lopez was unsuccessfully logged in." or "... was not properly signed out." | The badge was recognised but the punch could not be saved. The error is in the site's Error Log, titled "Timeclock punch failed for" the employee. |
 
 [Limitations and troubleshooting](troubleshooting.md#troubleshooting) has the rest.

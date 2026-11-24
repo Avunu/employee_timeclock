@@ -6351,6 +6351,8 @@ declare global {
 			workday?: string | null;
 			/** Workday Modified · Datetime · Custom Field, employee_timeclock/employee_timeclock/timeclock/custom/employee_checkin.json */
 			workday_modified?: string | null;
+			/** Kiosk Punch ID · Data · Custom Field, employee_timeclock/employee_timeclock/timeclock/custom/employee_checkin.json */
+			kiosk_punch_id?: string | null;
 		}
 
 		/**
@@ -9346,6 +9348,10 @@ declare global {
 			operation?: string | null;
 			/** Machine Operator · Link → Employee · Custom Field, employee_timeclock/employee_timeclock/timeclock/custom/job_card_time_log.json */
 			machine_operator?: string | null;
+			/** Kiosk Start ID · Data · Custom Field, employee_timeclock/employee_timeclock/timeclock/custom/job_card_time_log.json */
+			kiosk_start_id?: string | null;
+			/** Kiosk Stop ID · Data · Custom Field, employee_timeclock/employee_timeclock/timeclock/custom/job_card_time_log.json */
+			kiosk_stop_id?: string | null;
 		}
 
 		/**

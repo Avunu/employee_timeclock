@@ -5,8 +5,9 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
-MAX_SHIFT_HOURS_LIMIT = 48
-"""The longest maximum shift length allowed: past two days, a forgotten OUT would pair with a later shift's."""
+MAX_SHIFT_HOURS_LIMIT = 24
+"""The maximum shift length must be less than this. A Workday row and the Workday Management report
+read an OUT as the first such time of day after its IN, which only identifies a shift under a day."""
 
 
 class TimeclockSettings(Document):
@@ -22,9 +23,9 @@ class TimeclockSettings(Document):
 	# end: auto-generated types
 
 	def validate(self) -> None:
-		if not 0 < self.max_shift_hours <= MAX_SHIFT_HOURS_LIMIT:
+		if not 0 < self.max_shift_hours < MAX_SHIFT_HOURS_LIMIT:
 			frappe.throw(
-				_("Maximum Shift Length must be more than 0 and at most {0} hours.").format(
+				_("Maximum Shift Length must be more than 0 and less than {0} hours.").format(
 					MAX_SHIFT_HOURS_LIMIT
 				)
 			)

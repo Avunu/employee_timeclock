@@ -4,8 +4,9 @@
 """
 Tests for the RFID kiosk at ``/timeclock`` (``employee_timeclock.www.timeclock``) and the token signing key.
 
-The kiosk runs signed in as a Timeclock Kiosk user: a badge scan calls ``authenticate_employee`` for a token, and the
-clock-in/out buttons send it back to ``log_in_employee`` / ``log_out_employee``.
+The kiosk runs signed in as a Timeclock Kiosk user: a badge scan calls ``punch``, with a hand-entered time and IN/OUT
+for a forgotten punch. The older token endpoints (``authenticate_employee`` for a token, sent back to
+``log_in_employee`` / ``log_out_employee``) are still served and tested here.
 """
 
 import datetime
@@ -15,12 +16,12 @@ from unittest.mock import patch
 import frappe
 import jwt
 from frappe.tests import IntegrationTestCase
-from frappe.utils import now_datetime, random_string
+from frappe.utils import add_days, get_datetime, now_datetime, random_string, today
 from frappe.utils.password import get_encryption_key
 from frappe.utils.redis_wrapper import RedisWrapper
 
 from employee_timeclock import auth
-from employee_timeclock.kiosk import KioskAuthenticationError
+from employee_timeclock.kiosk import DEVICE_ID, KioskAuthenticationError
 from employee_timeclock.tests.utils import make_kiosk_user
 from employee_timeclock.timeclock import api
 from employee_timeclock.timeclock.test_api import _make_employee
@@ -28,6 +29,11 @@ from employee_timeclock.www import timeclock as kiosk
 from employee_timeclock.www.timeclock import index as kiosk_page
 
 PUNCH_TIME = "2021-03-01 07:45:00"
+
+
+def _today_at(clock: str) -> datetime.datetime:
+	"""A time today, for punches ``determine_next_log_type`` counts (it looks at today's only)."""
+	return cast(datetime.datetime, get_datetime(f"{today()} {clock}"))
 
 
 class TestTimeclockKiosk(IntegrationTestCase):
@@ -76,6 +82,105 @@ class TestTimeclockKiosk(IntegrationTestCase):
 			fields=["log_type", "device_id", "time"],
 			order_by="time asc",
 		)
+
+	def test_punch_alternates_in_and_out_today_at_the_server_time(self) -> None:
+		with patch.object(kiosk, "now_datetime", return_value=_today_at("12:00:00")):
+			first = kiosk.punch(self.rfid)
+		with patch.object(kiosk, "now_datetime", return_value=_today_at("12:05:00")):
+			second = kiosk.punch(self.rfid)
+
+		self.assertEqual((first["log_type"], second["log_type"]), ("IN", "OUT"))
+		self.assertEqual(first["employee_name"], self.employee_name)
+		checkins = self._checkins()
+		self.assertEqual([c["time"] for c in checkins], [_today_at("12:00:00"), _today_at("12:05:00")])
+		self.assertEqual({c["device_id"] for c in checkins}, {DEVICE_ID})
+
+	def test_punch_ignores_an_open_punch_from_yesterday(self) -> None:
+		"""A forgotten clock-out yesterday does not make today's first scan an OUT."""
+		frappe.get_doc(
+			{
+				"doctype": "Employee Checkin",
+				"employee": self.employee,
+				"log_type": "IN",
+				"time": get_datetime(f"{add_days(today(), -1)} 07:00:00"),
+			}
+		).insert(ignore_permissions=True)
+
+		with patch.object(kiosk, "now_datetime", return_value=_today_at("07:00:00")):
+			self.assertEqual(kiosk.punch(self.rfid)["log_type"], "IN")
+
+	def test_a_second_scan_in_the_same_minute_keeps_the_first_punch(self) -> None:
+		with patch.object(kiosk, "now_datetime", return_value=_today_at("12:00:05")):
+			kiosk.punch(self.rfid)
+		with patch.object(kiosk, "now_datetime", return_value=_today_at("12:00:40")):
+			second = kiosk.punch(self.rfid)
+
+		self.assertEqual(second["log_type"], "IN")
+		self.assertEqual(len(self._checkins()), 1)
+
+	def test_punch_answers_with_the_servers_clock(self) -> None:
+		with patch.object(kiosk, "now_datetime", return_value=_today_at("12:00:00")):
+			result = kiosk.punch(self.rfid)
+
+		self.assertEqual(result["server_time"], f"{today()} 12:00:00")
+
+	def test_a_punch_sent_again_under_its_id_is_recorded_once(self) -> None:
+		"""A retry after a lost answer keeps the punch already recorded, even a minute later."""
+		with patch.object(kiosk, "now_datetime", return_value=_today_at("12:00:00")):
+			first = kiosk.punch(self.rfid, punch_id="tablet-1-0001")
+		with patch.object(kiosk, "now_datetime", return_value=_today_at("12:02:00")):
+			again = kiosk.punch(self.rfid, punch_id="tablet-1-0001")
+
+		self.assertEqual((first["log_type"], again["log_type"]), ("IN", "IN"))
+		self.assertEqual(len(self._checkins()), 1)
+		self.assertEqual(
+			frappe.db.get_value("Employee Checkin", {"employee": self.employee}, "kiosk_punch_id"),
+			"tablet-1-0001",
+		)
+
+	def test_punch_refuses_a_user_without_the_kiosk_role(self) -> None:
+		frappe.set_user("Guest")
+
+		with self.assertRaises(frappe.PermissionError):
+			kiosk.punch(self.rfid)
+
+	def test_punch_refuses_an_unknown_badge(self) -> None:
+		with self.assertRaises(KioskAuthenticationError):
+			kiosk.punch("not-a-badge")
+		self.assertEqual(self._checkins(), [])
+
+	def test_a_manual_punch_records_the_entered_time_and_choice(self) -> None:
+		with patch.object(kiosk, "now_datetime", return_value=_today_at("12:00:00")):
+			result = kiosk.punch(self.rfid, f"{today()} 07:30:00", "IN")
+
+		self.assertEqual(result["log_type"], "IN")
+		checkin = frappe.get_all(
+			"Employee Checkin",
+			filters={"employee": self.employee},
+			fields=["log_type", "time", "manual_override"],
+		)
+		self.assertEqual(checkin, [{"log_type": "IN", "time": _today_at("07:30:00"), "manual_override": 1}])
+
+	def test_a_manual_punch_in_the_future_is_refused(self) -> None:
+		with (
+			patch.object(kiosk, "now_datetime", return_value=_today_at("12:00:00")),
+			self.assertRaises(frappe.ValidationError),
+		):
+			kiosk.punch(self.rfid, f"{today()} 12:01:00", "OUT")
+		self.assertEqual(self._checkins(), [])
+
+	def test_a_manual_punch_needs_in_or_out(self) -> None:
+		with (
+			patch.object(kiosk, "now_datetime", return_value=_today_at("12:00:00")),
+			self.assertRaises(frappe.ValidationError),
+		):
+			kiosk.punch(self.rfid, f"{today()} 07:30:00")
+		self.assertEqual(self._checkins(), [])
+
+	def test_a_manual_punch_with_a_malformed_time_is_refused(self) -> None:
+		with self.assertRaises(frappe.ValidationError):
+			kiosk.punch(self.rfid, "7:30 AM", "IN")
+		self.assertEqual(self._checkins(), [])
 
 	def test_authenticate_employee_issues_a_token(self) -> None:
 		result = kiosk.authenticate_employee(self.rfid)
@@ -164,6 +269,28 @@ class TestTimeclockKiosk(IntegrationTestCase):
 			kiosk.log_in_employee(expired, PUNCH_TIME)
 		self.assertEqual(self._checkins(), [])
 
+	def test_an_expired_token_is_reported_as_expired(self) -> None:
+		expired = jwt.encode(
+			{"employee_id": self.employee, "exp": datetime.datetime(2020, 1, 1).timestamp()},
+			auth.get_token_secret(),
+			algorithm="HS256",
+		)
+
+		with self.assertRaisesRegex(KioskAuthenticationError, "Token has expired"):
+			kiosk.extract_employee_from_token(expired)
+
+	def test_a_garbled_token_is_reported_invalid(self) -> None:
+		with self.assertRaisesRegex(KioskAuthenticationError, "Invalid token"):
+			kiosk.extract_employee_from_token("not-a-token")
+
+	def test_a_valid_token_names_its_employee_and_comes_back_refreshed(self) -> None:
+		employee_id, refreshed = kiosk.extract_employee_from_token(kiosk.refresh_token(self.employee))
+
+		self.assertEqual(employee_id, self.employee)
+		self.assertEqual(
+			jwt.decode(refreshed, auth.get_token_secret(), algorithms=["HS256"])["employee_id"], self.employee
+		)
+
 	def test_a_token_without_an_employee_is_rejected(self) -> None:
 		token = jwt.encode({"exp": 4102444800}, auth.get_token_secret(), algorithm="HS256")
 
@@ -211,3 +338,13 @@ class TestTimeclockKiosk(IntegrationTestCase):
 		kiosk_page.get_context(context)
 
 		self.assertTrue(context.csrf_token)
+
+	def test_page_context_makes_the_page_an_installable_app(self) -> None:
+		context: Any = frappe._dict()
+
+		kiosk_page.get_context(context)
+
+		self.assertEqual(context.title, "Timeclock")
+		self.assertEqual(context.pwa["manifest_url"], "/timeclock/manifest.webmanifest")
+		self.assertIn("session_expiry", context.boot)
+		self.assertEqual(context.boot["sitename"], frappe.local.site)

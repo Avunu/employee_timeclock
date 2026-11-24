@@ -11,6 +11,7 @@ class EmployeeCheckin(BaseEmployeeCheckin):
 
 	attendance: DF.Link | None
 	device_id: DF.Data | None
+	kiosk_punch_id: DF.Data | None
 	employee: DF.Link
 	employee_name: DF.Data | None
 	latitude: DF.Float

@@ -81,14 +81,21 @@ The `version-16` branch still holds 16.0.0, from before the app was renamed from
 2. **Issue badges** from each Employee (_Timeclock → Issue Badge_, HR Manager or System Manager).
 3. **Sign the kiosk in** on the device and leave the browser on the kiosk page.
 
-_Timeclock Settings_ holds the **Maximum Shift Length (Hours)**, 16 by default and at most 48. Operations are timed against a machine with _Is Machine Time_ and a _Machine Employee Group_. Every setting, role and change the app makes is in [docs/configuration.md](docs/configuration.md).
+**Night shifts.** _Timeclock Settings_ (HR Manager or System Manager) holds the **Maximum Shift Length**, 16 hours by default. An OUT closes the employee's open IN only within that many hours of it, and the kiosks treat an IN older than that as a forgotten clock-out. Raise it if anyone works longer shifts (to less than 24 hours), lower it to flag forgotten clock-outs sooner.
+
+For job time tracking:
+
+- Employees who use the tracker from their own desk login need their user set in the Employee's _User ID_.
+- To time an operation against a machine, tick _Is Machine Time_ on the Operation and set its _Machine Employee Group_ to the Employee Group of the people who run it.
+- On a kiosk, the tracker's settings panel (the gear) picks the workstations at that kiosk. The choice is kept in the browser, and _My Station_ then shows only their operations.
+  _Timeclock Settings_ holds the **Maximum Shift Length (Hours)**, 16 by default and at most 48. Operations are timed against a machine with _Is Machine Time_ and a _Machine Employee Group_. Every setting, role and change the app makes is in [docs/configuration.md](docs/configuration.md).
 
 ## How It Works
 
 - Every punch is an **Employee Checkin**. Punches pair into shifts in `employee_timeclock/timeclock/shifts.py`, which every kiosk, the Workday sync and the hours reports use.
 - The clock-in form posts the scanned badge to `submit_checkin`; the badge kiosk and the job tracker exchange a badge for a 30-minute JWT signed with the site's `encryption_key`.
 - `doc_events` keep Workdays and Employee Checkins in step both ways, and `TimeclockJobCard` (an `extend_doctype_class` on Job Card) adapts Job Cards to the tracker's timers and machine time.
-- The kiosk apps are Vue 3 and frappe-ui, built with Vite by `yarn build`, which `bench build` runs.
+- The kiosk apps are React and Carbon on `frappe-react-sdk`, built with esbuild by `bench build`, with their source in `www/`.
 
 The design is described in [docs/development/architecture.md](docs/development/architecture.md).
 
@@ -98,7 +105,7 @@ The design is described in [docs/development/architecture.md](docs/development/a
 - Overtime in the payroll reports is hours over 40 in a Sunday-to-Saturday week; the 40 cannot be configured.
 - Saving a Workday rewrites only the punches of its own date, and a punch recorded less than a minute after a Workday save is not copied into it; the Workday Management report shows such days as Out of Sync, and _Rebuild Workdays_ fixes them.
 - The kiosk pages are in English only and have no dark theme.
-- The old job time tracker at `/job_timeclock_legacy` still ships; it is replaced by `/job_timeclock` and will be removed.
+- The old Vue job tracker still ships at `/job_timeclock_vue` while the new one is tried out, and will be removed.
 
 The full list, and the messages the app shows with their fixes, are in [docs/troubleshooting.md](docs/troubleshooting.md).
 

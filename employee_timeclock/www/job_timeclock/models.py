@@ -67,6 +67,7 @@ class Operation(BaseModel):
 	corrective_employee_time_mins: float
 	is_submitted: bool
 	is_machine_time: bool
+	employee_group: str | None = None
 
 
 class WorkOrder(BaseModel):
@@ -138,11 +139,13 @@ class GetActiveTimerResponse(BaseModel):
 class StartTimerResponse(BaseModel):
 	status: Literal["success", "failed"]
 	error: str | None = None
+	server_time: str | None = None
 
 
 class StopTimerResponse(BaseModel):
 	status: Literal["success", "failed"]
 	error: str | None = None
+	server_time: str | None = None
 
 
 class UserSessionEmployee(BaseModel):
@@ -156,6 +159,29 @@ class SubmitJobCardResponse(BaseModel):
 	status: Literal["success", "failed"]
 	job_card: Any | None = None
 	error_message: str | None = None
+
+
+class TimerEventResult(BaseModel):
+	"""What became of one queued timer event."""
+
+	id: str
+	status: Literal["recorded", "duplicate", "rejected"]
+
+
+class SyncTimerEventsResponse(BaseModel):
+	results: list[TimerEventResult]
+	server_time: str
+
+
+class OfflineSnapshot(BaseModel):
+	"""What a tablet keeps so the tracker works offline: nothing here is any one employee's."""
+
+	status: Literal["success"]
+	server_time: str
+	work_orders: list[WorkOrder]
+	operations: dict[str, list[Operation]]
+	machine_timers: list[MachineTimer]
+	workstations: list[str]
 
 
 class GetWorkstationsResponse(BaseModel):
@@ -180,6 +206,7 @@ class GetMachineTimersResponse(BaseModel):
 class StopMachineTimerResponse(BaseModel):
 	status: Literal["success", "failed"]
 	error: str | None = None
+	server_time: str | None = None
 
 
 class VerifyLoginResponse(BaseModel):

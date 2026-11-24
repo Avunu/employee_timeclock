@@ -10,6 +10,30 @@
             "link_filters": "[]",
             "module": "Timeclock",
             "options": "Employee"
+        },
+        {
+            "dt": "Job Card Time Log",
+            "fieldname": "kiosk_start_id",
+            "fieldtype": "Data",
+            "hidden": 1,
+            "insert_after": "machine_operator",
+            "label": "Kiosk Start ID",
+            "module": "Timeclock",
+            "no_copy": 1,
+            "read_only": 1,
+            "search_index": 1
+        },
+        {
+            "dt": "Job Card Time Log",
+            "fieldname": "kiosk_stop_id",
+            "fieldtype": "Data",
+            "hidden": 1,
+            "insert_after": "kiosk_start_id",
+            "label": "Kiosk Stop ID",
+            "module": "Timeclock",
+            "no_copy": 1,
+            "read_only": 1,
+            "search_index": 1
         }
     ],
     "doctype": "Job Card Time Log",
